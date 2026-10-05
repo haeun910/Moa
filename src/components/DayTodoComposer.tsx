@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Send, SlidersHorizontal } from 'lucide-react';
+import { ArrowUp, SlidersHorizontal } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 
@@ -60,25 +60,23 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
     } finally { setSaving(false); }
   }
 
-  const chipBase = 'flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all whitespace-nowrap';
-  const chipOff = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
-  const chipOn = 'bg-leaf-300 border-leaf-300 text-leaf-800';
+  const chipBase = 'flex-shrink-0 flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap';
+  const chipOff = 'ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:ring-gray-300 dark:hover:ring-gray-600 hover:text-gray-900 dark:hover:text-white';
+  const chipOn = 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold';
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 px-3 py-2.5 space-y-2">
+    <div className="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-leaf-500 transition-shadow px-3 pt-2.5 pb-1.5 space-y-2">
       {categories.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-0.5 -mx-0.5 px-0.5">
-          <span className="flex-shrink-0 text-[10px] font-bold text-gray-400 w-12">카테고리</span>
+          <span className="flex-shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400 w-12">카테고리</span>
           {categories.map(cat => {
             const on = selectedCategory?.id === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => selectCategory(cat.id)}
-                className={`${chipBase} ${on ? 'border-transparent text-gray-800' : chipOff}`}
-                style={on ? { backgroundColor: cat.color } : {}}
-              >
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: on ? 'rgba(0,0,0,0.35)' : cat.color }} />
+                className={`${chipBase} ${on ? chipOn : chipOff}`}>
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                 {cat.name}
               </button>
             );
@@ -88,7 +86,7 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
 
       {selectedCategory && (
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-0.5 -mx-0.5 px-0.5">
-          <span className="flex-shrink-0 text-[10px] font-bold text-gray-400 w-12">하위</span>
+          <span className="flex-shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400 w-12">하위</span>
           <button onClick={() => { setSubcategoryId(null); inputRef.current?.focus(); }}
             className={`${chipBase} ${selectedSubcatId === null ? chipOn : chipOff}`}>
             미정
@@ -102,25 +100,25 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 border-t border-gray-100 dark:border-gray-800 pt-1.5 -mx-1.5 px-1.5">
         <input
           ref={inputRef}
           type="text"
           value={title}
           onChange={e => setTitle(e.target.value)}
           disabled={needsCategory}
-          placeholder={needsCategory ? '먼저 카테고리를 선택하세요' : `${format(parseISO(date), 'M/d')}에 할 일 추가...`}
-          className="flex-1 min-w-0 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none disabled:cursor-not-allowed px-1"
+          placeholder={needsCategory ? '먼저 카테고리를 선택하세요' : `${format(parseISO(date), 'M월 d일')}에 할 일 추가`}
+          className="flex-1 min-w-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none disabled:cursor-not-allowed px-1 py-1.5"
           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
         />
         <button onClick={handleAdd} disabled={!canSave} aria-label="추가"
-          className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
-          <Send size={14} />
+          className="btn-primary flex-shrink-0 w-8 h-8 order-last">
+          <ArrowUp size={16} strokeWidth={2.4} />
         </button>
         <button
           onClick={() => { onOpenDetail(selectedCategory?.id ?? null, selectedSubcatId, title.trim()); setTitle(''); }}
           aria-label="상세 옵션으로 추가" title="시간·마감일·반복 등 상세 옵션으로 추가"
-          className="flex-shrink-0 flex items-center gap-1 h-8 px-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold whitespace-nowrap">
+          className="btn-icon flex-shrink-0 w-auto px-2.5 gap-1 text-xs font-semibold whitespace-nowrap">
           <SlidersHorizontal size={13} />
           상세
         </button>

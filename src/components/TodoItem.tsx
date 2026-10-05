@@ -57,34 +57,23 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
 
   return (
     <div
-      className={`relative bg-white dark:bg-gray-900 rounded-xl border mb-1.5 overflow-hidden transition-all duration-200 ${
-        showDelete
-          ? 'border-gray-300 dark:border-gray-700 shadow-md'
-          : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700'
-      }`}
+      className="relative"
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => { setShowDelete(false); setConfirmDelete(false); }}
     >
-      {/* Category color strip */}
-      {category && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-[3px]"
-          style={{ backgroundColor: category.color }}
-        />
-      )}
-
-      <div className={`flex items-start gap-3 px-3.5 py-2.5 ${category ? 'pl-[16px]' : ''}`}>
-        {/* Checkbox */}
+      <div className="flex items-start gap-3 pl-2 pr-2.5 py-2.5">
+        {/* Checkbox (카테고리 색을 테두리에 살짝 반영) */}
         <button
           onClick={handleCheckboxClick}
           aria-label={todo.completed ? '완료 취소' : '완료 처리'}
-          className={`flex-shrink-0 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center transition-all duration-200 ${
+          className={`flex-shrink-0 mt-px w-[18px] h-[18px] rounded-[6px] border-[1.5px] flex items-center justify-center transition-all duration-150 active:scale-90 ${
             todo.completed
-              ? 'bg-leaf-300 border-leaf-300 shadow-[0_0_0_3px_rgba(107,133,52,0.2)]'
-              : 'border-gray-300 dark:border-gray-600 hover:border-leaf-400 dark:hover:border-leaf-500'
+              ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500 hover:bg-leaf-50 dark:hover:bg-leaf-900/30'
           }`}
+          style={!todo.completed && category ? { borderColor: `${category.color}99` } : undefined}
         >
-          {todo.completed && <Check size={10} className="text-leaf-800 stroke-[3.5px]" />}
+          {todo.completed && <Check size={12} className="text-white" strokeWidth={3} />}
         </button>
 
         {/* Title + meta */}
@@ -108,39 +97,39 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               onClick={handleTitleClick}
               onDoubleClick={handleTitleDoubleClick}
               title="한 번: 자세히 편집 · 두 번: 이름만 바로 수정"
-              className={`block text-[14px] font-normal leading-snug transition-colors cursor-pointer ${
+              className={`block text-[14px] leading-[1.45] transition-colors cursor-pointer ${
                 todo.completed
-                  ? 'line-through text-gray-300 dark:text-gray-600'
-                  : 'text-gray-800 dark:text-gray-100'
+                  ? 'line-through decoration-gray-300 dark:decoration-gray-600 text-gray-400 dark:text-gray-500'
+                  : 'text-gray-900 dark:text-gray-100'
               }`}
             >
               {todo.title}
             </span>
           )}
           {(todo.startTime || todo.dueDate || todo.notes || todo.seriesId) && (
-            <div className="flex items-center gap-2 mt-0.5 cursor-pointer" onClick={handleTitleClick}>
+            <div className="flex items-center gap-2.5 mt-1 cursor-pointer tabular-nums" onClick={handleTitleClick}>
               {todo.seriesId && (
-                <span className="flex items-center gap-0.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium" title="반복 할 일">
+                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 font-medium" title="반복 할 일">
                   <Repeat size={10} />
                   반복
                 </span>
               )}
               {todo.startTime && (
-                <span className="flex items-center gap-0.5 text-[11px] text-leaf-500 dark:text-leaf-400 font-medium">
+                <span className="flex items-center gap-1 text-[11px] text-leaf-600 dark:text-leaf-400 font-semibold">
                   <Clock size={10} />
                   {todo.startTime}
                 </span>
               )}
               {todo.dueDate && (
-                <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
-                  isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'
+                <span className={`flex items-center gap-1 text-[11px] font-medium ${
+                  isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   <Flag size={10} />
                   {format(parseISO(todo.dueDate), 'M/d')} 마감
                 </span>
               )}
               {todo.notes && (
-                <span className="flex items-center gap-0.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium" title={todo.notes}>
+                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 font-medium" title={todo.notes}>
                   <StickyNote size={10} />
                   메모
                 </span>
@@ -153,16 +142,16 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         {confirmDelete ? (
           <div className={`flex items-center gap-1 flex-shrink-0 transition-opacity duration-200 ${showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button onClick={() => setConfirmDelete(false)}
-              className="text-[11px] px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 whitespace-nowrap">취소</button>
+              className="text-[11px] font-medium px-2 py-1 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 whitespace-nowrap">취소</button>
             <button onClick={() => deleteTodo(todo.id)} aria-label="삭제 확정"
-              className="text-[11px] px-2 py-1 rounded-lg bg-red-500 text-white font-medium whitespace-nowrap">삭제</button>
+              className="text-[11px] px-2 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold whitespace-nowrap">삭제</button>
           </div>
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
             aria-label="삭제"
-            className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 ${
-              showDelete ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none'
+            className={`flex-shrink-0 -my-1 w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-150 ${
+              showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
             <Trash2 size={14} />
@@ -174,8 +163,8 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
           비좁게 겹쳐서 위치가 애매했던 문제라, 아이콘 줄과 분리된 자기 줄로 내려서 배치함.
           목록이 너무 커 보이지 않도록 평소엔 접어두고 마우스 올렸을 때만 펼침 */}
       {actions && (
-        <div className={`flex flex-wrap items-center gap-1.5 px-3.5 overflow-hidden transition-all duration-150 ${category ? 'pl-[16px]' : ''} ${
-          showDelete ? 'max-h-10 pb-2 opacity-100' : 'max-h-0 pb-0 opacity-0'
+        <div className={`flex flex-wrap items-center gap-1.5 pl-[38px] pr-2.5 overflow-hidden transition-all duration-150 ${
+          showDelete ? 'max-h-10 pb-2.5 opacity-100' : 'max-h-0 pb-0 opacity-0'
         }`}>
           {actions}
         </div>

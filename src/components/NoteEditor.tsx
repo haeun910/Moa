@@ -125,7 +125,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
             value={folderId ?? ''}
             onChange={e => changeFolder(e.target.value || null)}
             aria-label="폴더"
-            className="pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-leaf-400 max-w-[140px] truncate cursor-pointer"
+            className="pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 max-w-[140px] truncate cursor-pointer"
           >
             <option value="">폴더 없음</option>
             {noteFolders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}

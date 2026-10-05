@@ -16,7 +16,7 @@ interface Props {
 
 // 반복 설정 UI (할 일/일정 공용): 매일/매주/격주/매월 + (매주·격주면) 요일 + 종료일
 export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false }: Props) {
-  const on = accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-300 border-leaf-300 text-leaf-800';
+  const on = accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white';
   const off = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
   const ring = accent === 'blue' ? 'focus:ring-blue-400' : 'focus:ring-leaf-400';
 
@@ -40,7 +40,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
 
   return (
     <div>
-      <label className="flex items-center gap-1 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+      <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
         <Repeat size={11} />
         반복
       </label>
@@ -77,7 +77,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
                 value={rule.until}
                 min={startDate}
                 onChange={e => onChange({ ...rule, until: e.target.value })}
-                className={`flex-1 min-w-0 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${ring} transition text-sm`}
+                className={`flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${ring} transition text-sm`}
               />
             </div>
             <p className="text-[11px] text-gray-400">

@@ -69,8 +69,8 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90dvh] overflow-hidden flex flex-col" role="dialog" aria-label="사용 가이드">
+    <div className="modal-overlay">
+      <div className="modal-panel max-w-sm" role="dialog" aria-label="사용 가이드">
         <div className="flex-shrink-0 flex items-center justify-between px-5 pt-4">
           <span className="text-[11px] font-semibold text-gray-400">{step + 1} / {STEPS.length}</span>
           <button onClick={onClose} aria-label="가이드 닫기"
@@ -101,12 +101,12 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
         <div className="flex-shrink-0 flex gap-2 px-5 pb-5">
           {step > 0 && (
             <button onClick={() => setStep(s => s - 1)}
-              className="flex items-center justify-center gap-0.5 px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-medium">
+              className="flex items-center justify-center gap-0.5 px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-medium">
               <ChevronLeft size={15} /> 이전
             </button>
           )}
           <button onClick={() => (isLast ? onClose() : setStep(s => s + 1))}
-            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold">
+            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold">
             {isLast ? '시작하기' : <>다음 <ChevronRight size={15} /></>}
           </button>
         </div>

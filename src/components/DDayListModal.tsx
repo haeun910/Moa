@@ -30,9 +30,9 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+      <div className="modal-overlay" onClick={handleBackdrop}>
         <div
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col"
+          className="modal-panel max-w-sm"
           style={{ maxHeight: '85vh' }}
           onClick={e => e.stopPropagation()}
         >

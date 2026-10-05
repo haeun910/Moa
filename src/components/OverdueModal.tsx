@@ -37,10 +37,10 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="modal-overlay"
       onClick={handleBackdrop}
     >
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85dvh] flex flex-col overflow-hidden animate-slide-up motion-reduce:animate-none">
+      <div className="modal-panel max-w-lg">
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div>
             <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
             <button
               onClick={moveAllToToday}
               disabled={movingAll}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors"
             >
               <CalendarCheck size={15} />
               {movingAll ? '옮기는 중...' : `모두 오늘로 옮기기 (${todos.length}개)`}

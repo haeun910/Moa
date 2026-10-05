@@ -7,22 +7,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#86A03F" />
+    <meta name="theme-color" content="#F7F8F5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111310" media="(prefers-color-scheme: dark)" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <meta name="description" content="할 일과 일정을 한 곳에서 관리하는 플래너" />
     <title>모아 — 할 일 · 일정 관리</title>
     <style>
       /* 앱 파일을 내려받는 동안 바로 보이는 첫 대기 화면 (앱이 뜨면 React가 통째로 교체함) */
       .boot { min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-        background: #f9fafb; color: #6b7280; font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; text-align: center; padding: 24px; }
+        background: #F7F8F5; color: #737A6F; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; text-align: center; padding: 24px; }
       .boot svg { animation: boot-pulse 1.6s ease-in-out infinite; }
       .boot-msg { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; }
-      .boot-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #a3bd5c; border-top-color: transparent; animation: boot-spin .8s linear infinite; }
+      .boot-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #86A03F; border-top-color: transparent; animation: boot-spin .8s linear infinite; }
       /* 5초가 넘어가면 안내 문구가 나타남 */
-      .boot-slow { font-size: 12px; line-height: 1.6; color: #9ca3af; opacity: 0; animation: boot-show .4s ease 5s forwards; }
+      .boot-slow { font-size: 12px; line-height: 1.6; color: #9DA397; opacity: 0; animation: boot-show .4s ease 5s forwards; }
       @keyframes boot-pulse { 50% { opacity: .6; } }
       @keyframes boot-spin { to { transform: rotate(360deg); } }
       @keyframes boot-show { to { opacity: 1; } }
-      @media (prefers-color-scheme: dark) { .boot { background: #030712; color: #9ca3af; } .boot-slow { color: #6b7280; } }
+      @media (prefers-color-scheme: dark) { .boot { background: #111310; color: #9DA397; } .boot-slow { color: #737A6F; } }
       @media (prefers-reduced-motion: reduce) { .boot svg, .boot-spin { animation: none; } }
     </style>
   </head>

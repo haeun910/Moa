@@ -28,7 +28,7 @@ const AuthPage = lazy(() => import('./pages/AuthPage'));
 function SetupNeededScreen() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-xl p-6 text-center">
+      <div className="max-w-md w-full rounded-2xl surface p-6 text-center">
         <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/40">
           <AlertTriangle size={26} className="text-amber-500" />
         </div>
@@ -62,7 +62,7 @@ function LoadingScreen({ message = '모아를 여는 중이에요' }: { message?
           <Logo size={56} />
         </div>
         <div className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
-          <span className="w-3.5 h-3.5 rounded-full border-2 border-leaf-400 border-t-transparent animate-spin motion-reduce:animate-none" />
+          <span className="w-3.5 h-3.5 rounded-full border-2 border-leaf-500 border-t-transparent animate-spin motion-reduce:animate-none" />
           {message}
         </div>
         {slow && (
@@ -72,7 +72,7 @@ function LoadingScreen({ message = '모아를 여는 중이에요' }: { message?
         )}
         {verySlow && (
           <button onClick={() => window.location.reload()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold">
+            className="btn-primary h-9 px-4">
             <RefreshCw size={14} /> 새로고침
           </button>
         )}
@@ -85,7 +85,7 @@ function LoadErrorScreen({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 bg-amber-50 dark:bg-amber-900/20">
+        <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 surface">
           <WifiOff size={26} className="text-amber-500" />
         </div>
         <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-2">내용을 불러오지 못했어요</h1>
@@ -93,7 +93,7 @@ function LoadErrorScreen({ onRetry }: { onRetry: () => void }) {
           인터넷 연결을 확인한 뒤 다시 시도해주세요.<br />저장된 내용은 안전하게 보관되어 있어요.
         </p>
         <button onClick={onRetry}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold">
+          className="btn-primary h-10 px-5">
           <RefreshCw size={15} /> 다시 시도
         </button>
       </div>

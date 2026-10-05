@@ -40,18 +40,18 @@ function SortableSubcategoryRow({
           value={editName}
           onChange={e => onEditName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
-          className="w-full px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
         />
         <textarea
           value={editNotes}
           onChange={e => onEditNotes(e.target.value)}
           placeholder="메모 (저장소 화면에서만 보여요, 선택)"
           rows={2}
-          className="w-full px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-leaf-400 placeholder-gray-400"
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-leaf-400 placeholder-gray-400"
         />
         <div className="flex gap-1.5">
           <button onClick={onCancelEdit} className="flex-1 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">취소</button>
-          <button onClick={onSaveEdit} className="flex-1 py-1.5 rounded-lg bg-leaf-300 text-leaf-800 text-xs font-semibold">저장</button>
+          <button onClick={onSaveEdit} className="flex-1 py-1.5 rounded-lg bg-leaf-600 text-white text-xs font-semibold">저장</button>
         </div>
       </div>
     );
@@ -155,9 +155,9 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
             placeholder="하위카테고리 이름"
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false); }}
             onBlur={() => { if (!newName.trim()) setAdding(false); }}
-            className="flex-1 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
           />
-          <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-leaf-300 text-leaf-800 flex items-center justify-center flex-shrink-0">
+          <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center flex-shrink-0">
             <Check size={13} />
           </button>
         </div>
@@ -217,13 +217,13 @@ function SortableCategoryItem({
       {editingId === cat.id ? (
         <div className="space-y-3">
           <input value={editName} onChange={e => onEditName(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500"
+            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
             onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
           />
           <textarea value={editDescription} onChange={e => onEditDescription(e.target.value)}
             placeholder="설명 (저장소 화면에서만 보여요, 선택)"
             rows={2}
-            className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
+            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
           />
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map(color => (
@@ -238,7 +238,7 @@ function SortableCategoryItem({
             <button onClick={onCancelEdit}
               className="flex-1 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400">취소</button>
             <button onClick={onSaveEdit}
-              className="flex-1 py-2 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold">저장</button>
+              className="flex-1 py-2 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold">저장</button>
           </div>
         </div>
       ) : (
@@ -345,32 +345,32 @@ export default function CategoryPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20">
-      <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-gray-100 dark:border-gray-800">
+    <div className="min-h-screen pb-24 lg:pb-12">
+      <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 lg:px-8 pt-8 sm:pt-10 pb-5">
         <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">카테고리 관리</h1>
+        <h1 className="page-title text-[22px] flex-1">카테고리 관리</h1>
         <button onClick={() => { setShowAdd(v => !v); setEditingId(null); }} aria-label={showAdd ? '취소' : '카테고리 추가'}
-          className="w-9 h-9 rounded-xl bg-leaf-300 flex items-center justify-center text-leaf-800 hover:bg-leaf-400 transition-colors">
+          className="btn-primary w-9 h-9">
           {showAdd ? <X size={16} /> : <Plus size={16} />}
         </button>
       </div>
 
-      <div className="px-4 pt-4 space-y-2">
+      <div className="max-w-2xl mx-auto px-4 lg:px-8 space-y-2">
         {showAdd && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 space-y-3 mb-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">새 카테고리</p>
+          <div className="rounded-xl surface p-4 space-y-3 mb-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">새 카테고리</p>
             <input value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="카테고리 이름"
-              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
             />
             <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)}
               placeholder="설명 (저장소 화면에서만 보여요, 선택)"
               rows={2}
-              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
             />
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (
@@ -382,7 +382,7 @@ export default function CategoryPage() {
               ))}
             </div>
             <button onClick={handleAdd} disabled={!newName.trim()}
-              className="w-full py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold disabled:opacity-40 transition-opacity">
+              className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold disabled:opacity-40 transition-opacity">
               추가
             </button>
           </div>
@@ -390,7 +390,7 @@ export default function CategoryPage() {
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div className="rounded-xl surface overflow-hidden">
               {categories.length === 0 && (
                 <div className="px-4 py-8 text-center text-sm text-gray-400">카테고리가 없어요</div>
               )}

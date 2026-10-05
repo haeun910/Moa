@@ -38,7 +38,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+    <div className="modal-overlay" onClick={handleBackdrop}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
             onChange={e => setContent(e.target.value.slice(0, MAX_LENGTH))}
             rows={6}
             placeholder="예) 반복 일정을 격주 말고 3주마다도 할 수 있으면 좋겠어요"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 text-sm resize-none transition-all"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm resize-none transition-all"
           />
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-red-500">{error}</span>
@@ -72,11 +72,11 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex-shrink-0 flex gap-2 px-6 pb-5">
           <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium">
+            className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium">
             취소
           </button>
           <button onClick={handleSend} disabled={!content.trim() || sending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold">
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold">
             <Send size={14} />
             {sending ? '보내는 중...' : '보내기'}
           </button>

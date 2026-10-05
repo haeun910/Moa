@@ -11,6 +11,7 @@ html, body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   /* 가로 모드 전환 시 글자가 멋대로 커지는 것을 막음 */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -24,6 +25,80 @@ html, body {
 html {
   touch-action: manipulation;
   overscroll-behavior-y: none;
+}
+
+@layer base {
+  html {
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'ss06', 'cv11'; /* Pretendard: 더 단정한 숫자/기호 */
+    letter-spacing: -0.006em;
+    word-break: keep-all;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.022em;
+  }
+  ::selection {
+    @apply bg-leaf-200 text-leaf-900;
+  }
+  /* 키보드로 이동할 때만 또렷한 초록 포커스 링 */
+  :focus-visible {
+    outline: 2px solid theme('colors.leaf.500');
+    outline-offset: 2px;
+  }
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: none;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+  .dark input[type='date']::-webkit-calendar-picker-indicator,
+  .dark input[type='time']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}
+
+@layer components {
+  /* 모달 바깥 배경 */
+  .modal-overlay {
+    @apply fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-gray-950/40 backdrop-blur-[3px] animate-fade-in;
+  }
+  /* 모달 본체: 모바일은 아래에서 올라오는 시트, 데스크톱은 가운데 카드 */
+  .modal-panel {
+    @apply bg-white dark:bg-gray-900 rounded-t-[28px] sm:rounded-2xl shadow-2xl ring-1 ring-gray-900/5 dark:ring-white/10 w-full overflow-hidden flex flex-col animate-slide-up motion-reduce:animate-none max-h-[92svh] pb-[env(safe-area-inset-bottom)] sm:pb-0;
+  }
+  /* 화면 섹션의 큰 제목 */
+  .page-title {
+    @apply text-[26px] leading-tight font-bold tracking-[-0.03em] text-gray-900 dark:text-white;
+  }
+  .page-subtitle {
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-1 tabular-nums;
+  }
+  /* 흰 면 (카드/패널 공통) */
+  .surface {
+    @apply bg-white dark:bg-gray-900 shadow-card dark:shadow-none dark:ring-1 dark:ring-gray-800;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 active:bg-leaf-800 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-40;
+  }
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors;
+  }
+  /* 할 일 줄 아래에 펼쳐지는 작은 동작 버튼 (오늘로/날짜/복사 등) */
+  .row-action {
+    @apply inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-medium whitespace-nowrap text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors;
+  }
+  /* 카운트 뱃지 */
+  .count-pill {
+    @apply text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded-md;
+  }
 }
 
 #root {
@@ -40,5 +115,12 @@ html {
 /* Thin scrollbar for panels */
 .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 99px; }
-.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #374151; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #E2E5DC; border-radius: 99px; }
+.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #40453D; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

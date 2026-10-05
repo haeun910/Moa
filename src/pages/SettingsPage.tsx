@@ -60,11 +60,11 @@ const labelOf = <T,>(opts: { value: T; label: string }[], v: T) => opts.find(o =
 function Group({ title, children, footer }: { title?: string; children: React.ReactNode; footer?: string }) {
   return (
     <div>
-      {title && <p className="px-1 mb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+      {title && <p className="px-1 mb-2 text-[13px] font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
+      <div className="rounded-xl surface overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
         {children}
       </div>
-      {footer && <p className="px-1 mt-1.5 text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed">{footer}</p>}
+      {footer && <p className="px-1 mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{footer}</p>}
     </div>
   );
 }
@@ -84,21 +84,21 @@ interface RowProps {
 function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, right }: RowProps) {
   const content = (
     <>
-      <span className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-        danger ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-leaf-100 dark:bg-leaf-900/40 text-leaf-600 dark:text-leaf-400'
+      <span className={`w-5 flex items-center justify-center flex-shrink-0 ${
+        danger ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
       }`}>
-        <Icon size={15} />
+        <Icon size={17} />
       </span>
       <span className="flex-1 min-w-0 text-left">
-        <span className={`block text-sm font-medium ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
-        {desc && <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{desc}</span>}
+        <span className={`block text-sm font-medium ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{label}</span>
+        {desc && <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{desc}</span>}
       </span>
-      {value && <span className="flex-shrink-0 text-sm text-gray-400 dark:text-gray-500">{value}</span>}
+      {value && <span className="flex-shrink-0 text-[13px] tabular-nums text-gray-500 dark:text-gray-400">{value}</span>}
       {right}
       {chevron && <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />}
     </>
   );
-  const cls = 'w-full px-4 py-3 flex items-center gap-3 min-h-[56px]';
+  const cls = 'w-full px-4 py-3 flex items-center gap-3.5 min-h-[52px]';
   return onClick
     ? <button onClick={onClick} className={`${cls} transition-colors ${danger ? 'hover:bg-red-50/60 dark:hover:bg-red-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>{content}</button>
     : <div className={cls}>{content}</div>;
@@ -107,8 +107,8 @@ function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, r
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
     <button onClick={onChange} role="switch" aria-checked={checked} aria-label={label}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${checked ? 'bg-leaf-600' : 'bg-gray-300 dark:bg-gray-700'}`}>
-      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-leaf-600 dark:bg-leaf-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
+      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`} />
     </button>
   );
 }
@@ -116,19 +116,19 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 // 여러 개 중 하나 고르기 (테마, 정렬 등)
 function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string; Icon?: typeof Sun }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="p-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    <div className="p-3"><div role="radiogroup" className="grid gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map(({ value: v, label, Icon }) => (
-        <button key={v} onClick={() => onChange(v)}
-          className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+        <button key={v} onClick={() => onChange(v)} role="radio" aria-checked={value === v}
+          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] transition-all ${
             value === v
-              ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
-              : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-semibold shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
           }`}>
-          {Icon && <Icon size={17} strokeWidth={value === v ? 2.5 : 1.8} />}
+          {Icon && <Icon size={14} strokeWidth={value === v ? 2.2 : 1.8} />}
           {label}
         </button>
       ))}
-    </div>
+    </div></div>
   );
 }
 
@@ -177,7 +177,7 @@ export default function SettingsPage() {
   const visibleSections = SECTIONS.filter(s => !s.adminOnly || isAdmin);
 
   const avatar = (size: 'sm' | 'lg') => (
-    <span className={`${size === 'lg' ? 'w-12 h-12 text-base' : 'w-9 h-9 text-xs'} rounded-xl bg-leaf-300 text-leaf-800 font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
+    <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-leaf-50 dark:ring-leaf-900/30' : 'w-9 h-9 text-xs'} rounded-full bg-leaf-600 dark:bg-leaf-500 text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
       {user?.user_metadata?.avatar_url
         ? <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" alt="" />
         : (initials || '?')}
@@ -186,7 +186,7 @@ export default function SettingsPage() {
 
   // ── 분류별 내용 (휴대폰 목록과 PC 오른쪽 화면에서 같이 씀) ──
   const generalPanel = (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Group title="테마">
         <Segmented options={THEME_OPTS} value={settings.theme} onChange={v => updateSettings({ theme: v })} />
       </Group>
@@ -195,14 +195,14 @@ export default function SettingsPage() {
       </Group>
       <Group title="목록 표시">
         <div>
-          <p className="px-4 pt-3 text-xs text-gray-500 dark:text-gray-400">정렬 기준</p>
+          <p className="px-4 pt-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">정렬 기준</p>
           <Segmented options={SORT_OPTS} value={settings.listSortBy} onChange={v => updateSettings({ listSortBy: v })} />
         </div>
         <Row Icon={CheckCircle2} label="완료된 항목 숨기기"
           right={<Toggle checked={settings.hideCompleted} onChange={() => updateSettings({ hideCompleted: !settings.hideCompleted })} label="완료된 항목 숨기기" />} />
         {categories.length > 0 && (
           <div className="px-4 py-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">목록에 보여줄 카테고리</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2.5">목록에 보여줄 카테고리</p>
             <div className="flex flex-wrap gap-2">
               {categories.map(cat => {
                 const hidden = settings.hiddenCategoryIds.includes(cat.id);
@@ -214,10 +214,10 @@ export default function SettingsPage() {
                         : [...settings.hiddenCategoryIds, cat.id],
                     })}
                     aria-pressed={!hidden}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-[13px] font-medium transition-all ${
                       hidden
                         ? 'border-dashed border-gray-300 dark:border-gray-700 text-gray-400 line-through'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900'
                     }`}>
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color, opacity: hidden ? 0.4 : 1 }} />
                     {cat.name}
@@ -283,12 +283,12 @@ export default function SettingsPage() {
       case 'general': return generalPanel;
       case 'organize': return <Group>{organizeRows}</Group>;
       case 'account': return (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <Group>
             <div className="px-4 py-4 flex items-center gap-3">
               {avatar('lg')}
               <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
               </div>
             </div>
@@ -305,28 +305,28 @@ export default function SettingsPage() {
   const activeMeta = visibleSections.find(s => s.id === activeSection) ?? visibleSections[0];
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 lg:pb-12">
       {/* ── 휴대폰: 한 줄 목록 ── */}
-      <div className="md:hidden px-4 pt-6">
+      <div className="md:hidden px-4 pt-8">
         {mobileGeneralOpen ? (
           <>
             <button onClick={() => setMobileGeneralOpen(false)}
-              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-leaf-600 dark:text-leaf-400">
+              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-leaf-700 dark:text-leaf-400">
               <ChevronLeft size={18} /> 설정
             </button>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-5">일반</h1>
+            <h1 className="page-title mb-6">일반</h1>
             {generalPanel}
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-5">설정</h1>
-            <div className="space-y-5">
+            <h1 className="page-title mb-6">설정</h1>
+            <div className="space-y-6">
               {/* 프로필 */}
               <Group>
                 <div className="px-4 py-3.5 flex items-center gap-3">
                   {avatar('lg')}
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                    <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                   </div>
                 </div>
@@ -352,12 +352,12 @@ export default function SettingsPage() {
       {/* ── 태블릿·PC: 왼쪽 분류 메뉴 + 오른쪽 내용 ── */}
       <div className="hidden md:flex max-w-5xl mx-auto px-6 lg:px-8 pt-10 gap-8 lg:gap-10 items-start">
         <nav className="w-56 flex-shrink-0 sticky top-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-5 px-2">설정</h1>
+          <h1 className="page-title mb-6 px-2">설정</h1>
           <div className="flex items-center gap-2.5 px-2 mb-4">
             {avatar('sm')}
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{displayName || '사용자'}</p>
-              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
             </div>
           </div>
           <ul className="space-y-0.5">
@@ -366,9 +366,9 @@ export default function SettingsPage() {
               return (
                 <li key={id}>
                   <button onClick={() => setActiveSection(id)} aria-current={on ? 'page' : undefined}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+                    className={`w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-sm transition-colors ${
                       on
-                        ? 'bg-leaf-100 dark:bg-leaf-900/40 text-leaf-700 dark:text-leaf-300 font-semibold'
+                        ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold [&>svg]:text-leaf-600 dark:[&>svg]:text-leaf-400'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 font-medium'
                     }`}>
                     <Icon size={16} />
@@ -381,7 +381,7 @@ export default function SettingsPage() {
         </nav>
 
         <section className="flex-1 min-w-0 max-w-2xl pt-[52px]" aria-label={activeMeta.label}>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-5">{activeMeta.label}</h2>
+          <h2 className="text-lg font-bold tracking-[-0.02em] text-gray-900 dark:text-white mb-5">{activeMeta.label}</h2>
           {renderPanel(activeMeta.id)}
         </section>
       </div>

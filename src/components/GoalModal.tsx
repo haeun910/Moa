@@ -45,9 +45,9 @@ export default function GoalModal({ month, goal, onClose }: Props) {
   const monthLabel = format(parseISO(`${goal?.month ?? month}-01`), 'M월', { locale: ko });
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+    <div className="modal-overlay" onClick={handleBackdrop}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col"
+        className="modal-panel max-w-sm"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
@@ -70,30 +70,30 @@ export default function GoalModal({ month, goal, onClose }: Props) {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="이번 달 목표를 입력하세요"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 text-sm transition-all"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all"
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
           />
           <div className="flex gap-2">
             {isEdit && (
               confirmDelete ? (
                 <button onClick={handleDelete}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold">
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-500 text-white text-sm font-semibold">
                   <Trash2 size={14} />
                   정말 삭제
                 </button>
               ) : (
                 <button onClick={() => setConfirmDelete(true)} aria-label="삭제"
-                  className="flex items-center justify-center w-10 py-2.5 rounded-xl text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  className="flex items-center justify-center w-10 py-2.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                   <Trash2 size={15} />
                 </button>
               )
             )}
             <button onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
+              className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
               취소
             </button>
             <button onClick={handleSave} disabled={!title.trim() || saving}
-              className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold transition-colors">
+              className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
               {saving ? '저장 중...' : isEdit ? '저장' : '추가'}
             </button>
           </div>

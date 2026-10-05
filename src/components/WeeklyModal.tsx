@@ -30,16 +30,16 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
+        className="modal-panel max-w-5xl"
         style={{ maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between px-7 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white" style={{ fontStyle: 'italic' }}>Weekly Record</h2>
+            <h2 className="text-xl font-bold tracking-[-0.03em] text-gray-900 dark:text-white">주간 기록</h2>
             <div className="flex items-center gap-2 mt-1">
               <button onClick={() => setWeekRef(w => subWeeks(w, 1))} aria-label="이전 주"
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700">
@@ -100,9 +100,9 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         onClick={() => toggleTodo(todo.id)}
                       >
                         <div className={`flex-shrink-0 mt-0.5 w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
-                          todo.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-400'
+                          todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-400'
                         }`}>
-                          {todo.completed && <Check size={7} className="text-leaf-800" strokeWidth={3} />}
+                          {todo.completed && <Check size={7} className="text-white" strokeWidth={3} />}
                         </div>
                         <span className={`text-[11px] leading-snug break-words ${
                           todo.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'
@@ -124,7 +124,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         onBlur={() => { if (!addTitle.trim()) setAddingDate(null); }}
                       />
                       <button onClick={() => handleAdd(dateStr)} aria-label="추가"
-                        className="w-6 h-6 rounded-md bg-leaf-300 flex items-center justify-center text-leaf-800 flex-shrink-0">
+                        className="w-6 h-6 rounded-md bg-leaf-600 flex items-center justify-center text-white flex-shrink-0">
                         <Send size={9} />
                       </button>
                     </div>

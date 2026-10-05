@@ -39,7 +39,7 @@ export default function FeedbackListModal({ onClose }: { onClose: () => void }) 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+    <div className="modal-overlay" onClick={handleBackdrop}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">

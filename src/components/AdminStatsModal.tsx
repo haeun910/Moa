@@ -43,9 +43,9 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
     : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
+        className="modal-panel max-w-lg"
         style={{ maxHeight: '85vh' }}
         onClick={e => e.stopPropagation()}
       >

@@ -111,10 +111,10 @@ export default function NotesPage() {
     return (
       <li key={n.id}>
         <button onClick={() => openNote(n)}
-          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-amber-100/70 dark:bg-amber-900/25' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
+          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-inset ring-leaf-200/80 dark:ring-leaf-800/50' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{noteHeading(n)}</p>
           <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
-            <span className="text-gray-700 dark:text-gray-300 mr-1.5">{shortDate(n.updatedAt)}</span>
+            <span className="text-gray-700 dark:text-gray-300 mr-1.5 tabular-nums">{shortDate(n.updatedAt)}</span>
             {preview || '추가 텍스트 없음'}
           </p>
           {folder === 'all' && n.folderId && (
@@ -128,8 +128,8 @@ export default function NotesPage() {
   const list = (
     visible.length === 0 ? (
       <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-3">
-          <FileText size={24} className="text-amber-400" />
+        <div className="w-14 h-14 rounded-2xl surface flex items-center justify-center mb-3">
+          <FileText size={24} className="text-gray-400" />
         </div>
         <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{q ? '검색 결과가 없어요' : '메모가 없어요'}</p>
         {!q && <p className="text-xs text-gray-400 mt-1">새 메모를 작성해보세요</p>}
@@ -138,13 +138,13 @@ export default function NotesPage() {
       <div className="space-y-4">
         {pinnedNotes.length > 0 && (
           <div>
-            <p className="flex items-center gap-1 px-4 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><Pin size={11} /> 고정됨</p>
+            <p className="flex items-center gap-1 px-4 mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"><Pin size={11} /> 고정됨</p>
             <ul className="space-y-0.5">{pinnedNotes.map(renderItem)}</ul>
           </div>
         )}
         {otherNotes.length > 0 && (
           <div>
-            {pinnedNotes.length > 0 && <p className="px-4 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400">메모</p>}
+            {pinnedNotes.length > 0 && <p className="px-4 mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">메모</p>}
             <ul className="space-y-0.5">{otherNotes.map(renderItem)}</ul>
           </div>
         )}
@@ -156,7 +156,7 @@ export default function NotesPage() {
     <div className="relative">
       <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="검색"
-        className="w-full pl-9 pr-8 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400" />
+        className="w-full h-9 pl-9 pr-8 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-800 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition-shadow" />
       {query && (
         <button onClick={() => setQuery('')} aria-label="검색어 지우기" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"><X size={14} /></button>
       )}
@@ -170,53 +170,53 @@ export default function NotesPage() {
       return (
         <li key={f}>
           <button onClick={() => { setFolder(f); setSelectedId(null); setEditorKey(null); }}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
-              on ? 'bg-amber-100/80 dark:bg-amber-900/30 text-gray-900 dark:text-white font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+            className={`w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-sm transition-colors ${
+              on ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 font-medium'
             }`}>
             <Icon size={16} className={`flex-shrink-0 ${iconClass}`} />
             <span className="flex-1 min-w-0 truncate text-left">{label}</span>
-            <span className="text-xs text-gray-400">{countIn(f)}</span>
+            <span className="text-xs tabular-nums text-gray-400">{countIn(f)}</span>
           </button>
         </li>
       );
     };
     return (
-      <div className="h-[calc(100dvh-62px)] flex bg-gray-50 dark:bg-gray-950">
+      <div className="h-screen flex bg-gray-50 dark:bg-gray-950">
         {/* 폴더 */}
-        <aside className="w-60 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 flex flex-col">
+        <aside className="w-56 flex-shrink-0 border-r border-gray-200/70 dark:border-gray-800 flex flex-col">
           <div className="px-5 pt-8 pb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">메모</h1>
+            <h1 className="page-title">메모</h1>
           </div>
           <nav className="flex-1 overflow-y-auto px-3 space-y-4">
             <ul className="space-y-0.5">
-              {folderRow('all', '전체 메모', FolderOpen, 'text-amber-500')}
+              {folderRow('all', '전체 메모', FolderOpen, 'text-leaf-600 dark:text-leaf-400')}
               {folderRow('none', '폴더 없음', Inbox, 'text-gray-400')}
             </ul>
             <div>
-              <p className="px-3 mb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wide">폴더</p>
+              <p className="px-3 mb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">폴더</p>
               <ul className="space-y-0.5">
-                {noteFolders.map(f => folderRow(f.id, f.name, Folder, 'text-amber-500'))}
+                {noteFolders.map(f => folderRow(f.id, f.name, Folder, 'text-leaf-600 dark:text-leaf-400'))}
               </ul>
             </div>
           </nav>
-          <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+          <div className="p-3 border-t border-gray-200/70 dark:border-gray-800">
             <button onClick={() => setShowFolderModal(true)}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+              className="btn-secondary w-full h-9">
               <Settings2 size={15} /> 폴더 추가 · 관리
             </button>
           </div>
         </aside>
 
         {/* 목록 */}
-        <section className="w-80 xl:w-96 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white/60 dark:bg-gray-900/40">
+        <section className="w-80 xl:w-96 flex-shrink-0 border-r border-gray-200/70 dark:border-gray-800 flex flex-col bg-white/70 dark:bg-gray-900/40">
           <div className="px-4 pt-8 pb-3 space-y-3">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white truncate">{currentLabel}</h2>
-                <p className="text-xs text-gray-400">{visible.length}개의 메모</p>
+                <h2 className="text-base font-bold tracking-[-0.02em] text-gray-900 dark:text-white truncate">{currentLabel}</h2>
+                <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{visible.length}개의 메모</p>
               </div>
               <button onClick={newNote} aria-label="새 메모" title="새 메모"
-                className="w-9 h-9 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 flex items-center justify-center flex-shrink-0">
+                className="btn-primary w-9 h-9 flex-shrink-0">
                 <Plus size={18} strokeWidth={2.5} />
               </button>
             </div>
@@ -229,7 +229,7 @@ export default function NotesPage() {
         <div className="flex-1 min-w-0">
           {editor ?? (
             <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
-              <FileText size={32} className="mb-2 text-gray-300 dark:text-gray-700" />
+              <FileText size={30} className="mb-3 text-gray-300 dark:text-gray-700" />
               <p className="text-sm">메모를 고르거나 새로 만들어보세요</p>
             </div>
           )}
@@ -243,19 +243,19 @@ export default function NotesPage() {
   // ── 휴대폰·태블릿: 폴더 칩 + 목록, 누르면 전체 화면 편집기 ──
   const chip = (f: FolderFilter, label: string) => (
     <button key={f} onClick={() => setFolder(f)}
-      className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-        folder === f ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+      className={`flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-semibold border transition-colors ${
+        folder === f ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium'
       }`}>
       {label}<span className="opacity-60">{countIn(f)}</span>
     </button>
   );
 
   return (
-    <div className="px-4 pt-6 pb-40 max-w-2xl mx-auto">
+    <div className="px-4 pt-8 sm:pt-10 pb-40 max-w-2xl mx-auto">
       <div className="flex items-end justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">메모</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{currentLabel} · {visible.length}개</p>
+          <h1 className="page-title">메모</h1>
+          <p className="page-subtitle">{currentLabel} · {visible.length}개</p>
         </div>
       </div>
       <div className="mb-3">{searchBox}</div>
@@ -264,14 +264,14 @@ export default function NotesPage() {
         {noteFolders.map(f => chip(f.id, f.name))}
         {chip('none', '폴더 없음')}
         <button onClick={() => setShowFolderModal(true)}
-          className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
+          className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
           <Settings2 size={12} /> 폴더
         </button>
       </div>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-1.5">{list}</div>
+      <div className="rounded-xl surface p-1.5">{list}</div>
 
       <button onClick={newNote} aria-label="새 메모"
-        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 shadow-lg shadow-leaf-500/30 flex items-center justify-center">
+        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
         <Plus size={24} strokeWidth={2.5} />
       </button>
 

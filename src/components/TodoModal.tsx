@@ -126,10 +126,10 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="modal-overlay"
       onClick={handleBackdrop}
     >
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up motion-reduce:animate-none">
+      <div className="modal-panel max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -148,14 +148,14 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">제목</label>
+            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">제목</label>
             <input
               autoFocus
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="할 일을 입력하세요"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
             />
           </div>
@@ -163,16 +163,16 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Date + Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">날짜</label>
+              <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">날짜</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
+                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
               />
             </div>
             <div>
-              <label className="flex items-center gap-1 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+              <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 <Clock size={11} />
                 시간
               </label>
@@ -180,14 +180,14 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 type="time"
                 value={startTime}
                 onChange={e => setStartTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
+                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
               />
             </div>
           </div>
 
           {/* Due date (작업할 날짜와는 별개인 마감일) */}
           <div>
-            <label className="flex items-center gap-1 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+            <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               <Flag size={11} />
               마감일
             </label>
@@ -195,7 +195,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
             />
             <label className={`flex items-center gap-2 mt-2 text-xs ${(date || dueDate) ? 'text-gray-500 dark:text-gray-400 cursor-pointer' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}>
               <input
@@ -221,13 +221,13 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Category */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">카테고리</label>
+            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">카테고리</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => selectCategory(null)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   categoryId === null
-                    ? 'bg-leaf-300 border-leaf-300 text-leaf-800'
+                    ? 'bg-leaf-600 border-leaf-600 text-white'
                     : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}
               >
@@ -257,13 +257,13 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Subcategory (선택한 카테고리 하위의 그룹) */}
           {categoryId && (
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">하위카테고리 (선택)</label>
+              <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">하위카테고리 (선택)</label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSubcategoryId(null)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     subcategoryId === null
-                      ? 'bg-leaf-300 border-leaf-300 text-leaf-800'
+                      ? 'bg-leaf-600 border-leaf-600 text-white'
                       : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                   }`}
                 >
@@ -275,7 +275,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                     onClick={() => setSubcategoryId(sc.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                       subcategoryId === sc.id
-                        ? 'bg-leaf-300 border-leaf-300 text-leaf-800'
+                        ? 'bg-leaf-600 border-leaf-600 text-white'
                         : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
                     }`}
                   >
@@ -294,7 +294,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                       onBlur={() => { if (!newSubcatName.trim()) setAddingSubcat(false); }}
                       className="w-24 px-2.5 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
                     />
-                    <button onClick={handleCreateSubcategory} className="w-7 h-7 rounded-lg bg-leaf-300 text-leaf-800 flex items-center justify-center flex-shrink-0">
+                    <button onClick={handleCreateSubcategory} className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center flex-shrink-0">
                       <Check size={13} />
                     </button>
                   </div>
@@ -313,13 +313,13 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">메모</label>
+            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">메모</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="메모를 입력하세요 (선택)"
               rows={3}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm resize-none"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm resize-none"
             />
           </div>
         </div>
@@ -330,9 +330,9 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
             confirmDelete ? (
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setConfirmDelete(false)}
-                  className="px-3 py-2.5 rounded-xl text-gray-500 bg-gray-100 dark:bg-gray-800 text-sm font-medium">취소</button>
+                  className="px-3 py-2.5 rounded-lg text-gray-500 bg-gray-100 dark:bg-gray-800 text-sm font-medium">취소</button>
                 <button onClick={handleDelete}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold">
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
                   <Trash2 size={15} />
                   {deleteCount > 1 ? `${deleteCount}개 삭제` : '정말 삭제'}
                 </button>
@@ -340,7 +340,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
               >
                 <Trash2 size={15} />
                 삭제
@@ -349,14 +349,14 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           )}
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
+            className="flex-1 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
           >
             취소
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
+            className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
           >
             {saving ? '저장 중...'
               : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
