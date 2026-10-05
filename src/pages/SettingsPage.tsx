@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import type React from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone, CalendarDays } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, EyeOff, Milestone } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -17,6 +18,101 @@ const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
   { value: 'all', label: '저장소' },
   { value: 'notes', label: '메모' },
 ];
+
+// ── 설정 화면 공통 조각 ─────────────────────────────────────
+
+function Group({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <section>
+      {title && <h2 className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 mb-2 px-1">{title}</h2>}
+      <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function RowContent({ icon, title, desc, danger }: { icon: React.ReactNode; title: string; desc?: string; danger?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 min-w-0">
+      <span className={`flex-shrink-0 ${danger ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>{icon}</span>
+      <div className="text-left min-w-0">
+        <p className={`text-sm font-medium ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{title}</p>
+        {desc && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{desc}</p>}
+      </div>
+    </div>
+  );
+}
+
+function LinkRow({ onClick, chevron = true, trailing, ...content }: {
+  icon: React.ReactNode; title: string; desc?: string; danger?: boolean;
+  onClick: () => void; chevron?: boolean; trailing?: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full px-4 min-h-[52px] py-3 flex items-center justify-between gap-3 transition-colors ${
+        content.danger ? 'hover:bg-red-50/70 dark:hover:bg-red-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+      }`}
+    >
+      <RowContent {...content} />
+      <span className="flex items-center gap-2 flex-shrink-0">
+        {trailing}
+        {chevron && <ChevronRight size={16} className="text-gray-300 dark:text-gray-600" />}
+      </span>
+    </button>
+  );
+}
+
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-leaf-600 dark:bg-leaf-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+    >
+      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+    </button>
+  );
+}
+
+function Segmented<T extends string>({ value, options, onChange, label }: {
+  value: T; options: { value: T; label: string; Icon?: React.FC<{ size?: number; strokeWidth?: number }> }[];
+  onChange: (v: T) => void; label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="grid gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+      {options.map(({ value: v, label: l, Icon }) => (
+        <button
+          key={v}
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => onChange(v)}
+          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] transition-all ${
+            value === v
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-semibold shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
+          }`}
+        >
+          {Icon && <Icon size={14} strokeWidth={value === v ? 2.2 : 1.8} />}
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FieldRow({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-3.5">
+      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
+      {desc && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>}
+      <div className="mt-2.5">{children}</div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { settings, updateSettings, categories, subcategories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
@@ -62,373 +158,134 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="px-4 pt-10 pb-24 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">설정</h1>
+    <div className="px-4 lg:px-8 pt-8 sm:pt-10 pb-24 max-w-xl mx-auto">
+      <h1 className="page-title mb-6">설정</h1>
 
       {/* Profile card */}
-      <div className="bg-leaf-300 rounded-3xl p-5 mb-5">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-leaf-800/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border border-leaf-800/15">
-            {user?.user_metadata?.avatar_url ? (
-              <img src={user.user_metadata.avatar_url} className="w-14 h-14 rounded-2xl object-cover" alt="" />
-            ) : (
-              <span className="text-xl font-bold text-leaf-800">{initials || '?'}</span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-leaf-900 truncate">{displayName || '사용자'}</p>
-            <p className="text-sm text-leaf-700 truncate mt-0.5">{user?.email}</p>
-          </div>
-          <button
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-leaf-800/10 hover:bg-leaf-800/15 text-leaf-800 text-xs font-semibold transition-colors border border-leaf-800/15 disabled:opacity-50"
-          >
-            <LogOut size={13} />
-            {signingOut ? '...' : '로그아웃'}
-          </button>
+      <div className="rounded-xl surface p-4 mb-8 flex items-center gap-3.5">
+        <div className="w-12 h-12 rounded-full bg-leaf-600 dark:bg-leaf-500 flex items-center justify-center flex-shrink-0 overflow-hidden ring-4 ring-leaf-50 dark:ring-leaf-900/30">
+          {user?.user_metadata?.avatar_url ? (
+            <img src={user.user_metadata.avatar_url} className="w-12 h-12 object-cover" alt="" />
+          ) : (
+            <span className="text-base font-bold text-white">{initials || '?'}</span>
+          )}
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+          <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+        </div>
+        <button onClick={handleSignOut} disabled={signingOut} className="btn-secondary h-8 px-3 text-[13px] flex-shrink-0">
+          <LogOut size={14} />
+          {signingOut ? '로그아웃 중' : '로그아웃'}
+        </button>
       </div>
 
-      <div className="space-y-4">
-        {/* Theme */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="px-4 pt-4 pb-2">
-            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">테마</h2>
-          </div>
-          <div className="px-4 pb-4 grid grid-cols-3 gap-2">
-            {THEME_OPTS.map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                onClick={() => updateSettings({ theme: value })}
-                className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all text-sm font-semibold ${
-                  settings.theme === value
-                    ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <Icon size={18} strokeWidth={settings.theme === value ? 2.5 : 1.8} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Default screen */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="px-4 pt-4 pb-2">
-            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">시작 화면</h2>
-          </div>
-          <div className="px-4 pb-4">
-            <select
-              value={settings.defaultScreen}
-              onChange={e => updateSettings({ defaultScreen: e.target.value as Settings['defaultScreen'] })}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500 text-sm font-medium cursor-pointer"
-            >
-              {SCREEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-        </section>
+      <div className="space-y-7">
+        <Group title="화면">
+          <FieldRow title="테마">
+            <Segmented label="테마" value={settings.theme} options={THEME_OPTS} onChange={v => updateSettings({ theme: v })} />
+          </FieldRow>
+          <FieldRow title="시작 화면" desc="앱을 열면 처음 보이는 화면">
+            <Segmented label="시작 화면" value={settings.defaultScreen} options={SCREEN_OPTIONS} onChange={v => updateSettings({ defaultScreen: v })} />
+          </FieldRow>
+          <FieldRow title="달력 글자 크기" desc="홈 화면 달력 칸에 보이는 일정 글자">
+            <Segmented
+              label="달력 글자 크기"
+              value={settings.calendarTextSize}
+              options={[{ value: 'small', label: '작게' }, { value: 'medium', label: '보통' }, { value: 'large', label: '크게' }]}
+              onChange={v => updateSettings({ calendarTextSize: v })}
+            />
+          </FieldRow>
+        </Group>
 
         {/* 목록 표시 (정렬 / 완료 숨기기 / 카테고리별 표시) */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="px-4 pt-4 pb-2 flex items-center gap-1.5">
-            <ListFilter size={13} className="text-gray-400" />
-            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">목록 표시</h2>
+        <Group title="목록 표시">
+          <FieldRow title="정렬 기준">
+            <Segmented
+              label="정렬 기준"
+              value={settings.listSortBy}
+              options={[{ value: 'manual', label: '직접 순서' }, { value: 'date', label: '등록순' }, { value: 'name', label: '이름순' }]}
+              onChange={v => updateSettings({ listSortBy: v })}
+            />
+          </FieldRow>
+          <div className="px-4 min-h-[52px] py-3 flex items-center justify-between gap-3">
+            <RowContent icon={<EyeOff size={17} />} title="완료된 항목 숨기기" />
+            <Switch label="완료된 항목 숨기기" checked={settings.hideCompleted} onChange={() => updateSettings({ hideCompleted: !settings.hideCompleted })} />
           </div>
-
-          <div className="px-4 pb-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">정렬 기준</p>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                ['manual', '직접 순서'],
-                ['date', '등록순'],
-                ['name', '이름순'],
-              ] as [Settings['listSortBy'], string][]).map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => updateSettings({ listSortBy: value })}
-                  className={`py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
-                    settings.listSortBy === value
-                      ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="px-4 pb-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
-            <div className="flex items-center gap-2">
-              <EyeOff size={14} className="text-gray-400" />
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">완료된 항목 숨기기</p>
-            </div>
-            <button
-              onClick={() => updateSettings({ hideCompleted: !settings.hideCompleted })}
-              role="switch"
-              aria-checked={settings.hideCompleted}
-              aria-label="완료된 항목 숨기기"
-              className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${settings.hideCompleted ? 'bg-leaf-600' : 'bg-gray-300 dark:bg-gray-700'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.hideCompleted ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
-          </div>
-
           {categories.length > 0 && (
-            <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">카테고리별 표시</p>
-              <div className="space-y-2">
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">카테고리별 표시</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2.5">끄면 저장소와 홈 목록에서 숨겨져요</p>
+              <div className="flex flex-wrap gap-1.5">
                 {categories.map(cat => {
                   const hidden = settings.hiddenCategoryIds.includes(cat.id);
                   return (
-                    <label key={cat.id} className="flex items-center gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!hidden}
-                        onChange={() => updateSettings({
-                          hiddenCategoryIds: hidden
-                            ? settings.hiddenCategoryIds.filter(id => id !== cat.id)
-                            : [...settings.hiddenCategoryIds, cat.id],
-                        })}
-                        className="w-4 h-4 rounded accent-leaf-500 flex-shrink-0"
-                      />
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                      <span className={`text-sm ${hidden ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>{cat.name}</span>
-                    </label>
+                    <button
+                      key={cat.id}
+                      role="checkbox"
+                      aria-checked={!hidden}
+                      onClick={() => updateSettings({
+                        hiddenCategoryIds: hidden
+                          ? settings.hiddenCategoryIds.filter(id => id !== cat.id)
+                          : [...settings.hiddenCategoryIds, cat.id],
+                      })}
+                      className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium ring-1 ring-inset transition-colors ${
+                        hidden
+                          ? 'ring-gray-200 dark:ring-gray-700 text-gray-400 dark:text-gray-500 line-through decoration-gray-300'
+                          : 'ring-gray-300 dark:ring-gray-600 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${hidden ? 'opacity-40' : ''}`} style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </button>
                   );
                 })}
               </div>
             </div>
           )}
-        </section>
+        </Group>
 
-        {/* 달력 표시 (홈 화면 월 달력에 뜨는 일정 글자 크기) */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="px-4 pt-4 pb-2 flex items-center gap-1.5">
-            <CalendarDays size={13} className="text-gray-400" />
-            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">달력 표시</h2>
+        <Group title="정리">
+          <div className="px-4 min-h-[52px] py-3 flex items-center justify-between gap-3">
+            <RowContent icon={<Bell size={17} />} title="알림" desc="할 일 알림 받기" />
+            <Switch label="알림" checked={settings.notifications} onChange={() => updateSettings({ notifications: !settings.notifications })} />
           </div>
-          <div className="px-4 pb-4">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">홈 화면 달력 글자 크기</p>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                ['small', '작게'],
-                ['medium', '보통'],
-                ['large', '크게'],
-              ] as [Settings['calendarTextSize'], string][]).map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => updateSettings({ calendarTextSize: value })}
-                  className={`py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
-                    settings.calendarTextSize === value
-                      ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Rows */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
-          {/* Notifications */}
-          <div className="px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${settings.notifications ? 'bg-leaf-100 dark:bg-leaf-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                <Bell size={15} className={settings.notifications ? 'text-leaf-500' : 'text-gray-400'} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">알림</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">할 일 알림 받기</p>
-              </div>
-            </div>
-            <button
-              onClick={() => updateSettings({ notifications: !settings.notifications })}
-              role="switch"
-              aria-checked={settings.notifications}
-              aria-label="알림"
-              className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${settings.notifications ? 'bg-leaf-600' : 'bg-gray-300 dark:bg-gray-700'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.notifications ? 'translate-x-6' : 'translate-x-0'}`} />
-            </button>
-          </div>
-
-          {/* Categories */}
-          <button
-            onClick={() => setCurrentScreen('categories')}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                <Tag size={15} className="text-leaf-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">카테고리 관리</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{categories.length}개</p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </button>
-
-          {/* Project roadmap */}
-          <button
-            onClick={() => setCurrentScreen('project')}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                <Milestone size={15} className="text-leaf-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">프로젝트 로드맵</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">카테고리 하나를 골라 타임라인으로 보기</p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </button>
-        </section>
+          <LinkRow icon={<Tag size={17} />} title="카테고리 관리" onClick={() => setCurrentScreen('categories')}
+            trailing={<span className="text-[13px] tabular-nums text-gray-400">{categories.length}개</span>} />
+          <LinkRow icon={<Milestone size={17} />} title="프로젝트 로드맵" desc="카테고리 하나를 골라 타임라인으로 보기" onClick={() => setCurrentScreen('project')} />
+        </Group>
 
         {/* 계정 & 데이터 */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+        <Group title="계정과 데이터">
           {hasEmailPassword && (
-            <button
-              onClick={() => setShowPasswordModal(true)}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                  <KeyRound size={15} className="text-leaf-600" />
-                </div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">비밀번호 변경</p>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
+            <LinkRow icon={<KeyRound size={17} />} title="비밀번호 변경" onClick={() => setShowPasswordModal(true)} />
           )}
-
-          <button
-            onClick={handleExport}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                <FileDown size={15} className="text-leaf-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">데이터 내보내기</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">할 일 · 메모 등을 JSON 파일로 백업</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-                <UserX size={15} className="text-red-500" />
-              </div>
-              <p className="text-sm font-semibold text-red-600 dark:text-red-400">계정 삭제</p>
-            </div>
-          </button>
-        </section>
-
-        {/* 약관 */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
-          <button
-            onClick={() => setCurrentScreen('terms')}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <FileText size={15} className="text-gray-500" />
-              </div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white">이용약관</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </button>
-          <button
-            onClick={() => setCurrentScreen('privacy')}
-            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <ShieldCheck size={15} className="text-gray-500" />
-              </div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white">개인정보처리방침</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </button>
-        </section>
+          <LinkRow icon={<FileDown size={17} />} title="데이터 내보내기" desc="할 일 · 메모 등을 JSON 파일로 백업" onClick={handleExport} chevron={false} />
+          <LinkRow icon={<UserX size={17} />} title="계정 삭제" danger onClick={() => setShowDeleteModal(true)} chevron={false} />
+        </Group>
 
         {/* 관리자 전용 */}
         {isAdmin && (
-          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setShowAdminStats(true)}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                  <BarChart3 size={15} className="text-leaf-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">관리자 통계</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">가입자 · 활성 사용자 등 (관리자만 보여요)</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
-          </section>
+          <Group title="관리자">
+            <LinkRow icon={<BarChart3 size={17} />} title="관리자 통계" desc="가입자 · 활성 사용자 등 (관리자만 보여요)" onClick={() => setShowAdminStats(true)} />
+          </Group>
         )}
 
-        {/* 앱 다운로드 */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <Group title="앱 정보">
           {isInstalled ? (
-            <div className="px-4 py-4 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                <CheckCircle2 size={15} className="text-leaf-600" />
-              </div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white">앱이 이미 설치되어 있어요</p>
+            <div className="px-4 min-h-[52px] py-3 flex items-center">
+              <RowContent icon={<CheckCircle2 size={17} className="text-leaf-600" />} title="앱이 이미 설치되어 있어요" />
             </div>
           ) : (
-            <button
-              onClick={handleInstallClick}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
-                  <Download size={15} className="text-leaf-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">앱 다운로드</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">홈 화면에 추가하면 더 편리해요</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </button>
+            <LinkRow icon={<Download size={17} />} title="앱 설치하기" desc="홈 화면에 추가하면 더 편리해요" onClick={handleInstallClick} />
           )}
-        </section>
+          <LinkRow icon={<Info size={17} />} title="업데이트 내역" onClick={() => setShowChangelog(true)}
+            trailing={<span className="text-[13px] tabular-nums text-gray-400">v{APP_VERSION}</span>} />
+          <LinkRow icon={<FileText size={17} />} title="이용약관" onClick={() => setCurrentScreen('terms')} />
+          <LinkRow icon={<ShieldCheck size={17} />} title="개인정보처리방침" onClick={() => setCurrentScreen('privacy')} />
+        </Group>
 
-        {/* App info */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowChangelog(true)}
-            className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-lg bg-leaf-300 flex items-center justify-center flex-shrink-0">
-              <Info size={14} className="text-leaf-800" />
-            </div>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1 text-left">모아(Moa)</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">v{APP_VERSION}</span>
-            <ChevronRight size={16} className="text-gray-400" />
-          </button>
-        </section>
+        <p className="text-center text-xs text-gray-400 dark:text-gray-600 pt-2">모아 v{APP_VERSION}</p>
       </div>
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}

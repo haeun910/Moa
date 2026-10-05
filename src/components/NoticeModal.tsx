@@ -40,9 +40,9 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+    <div className="modal-overlay" onClick={handleBackdrop}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
+        className="modal-panel max-w-lg"
         style={{ maxHeight: '85vh' }}
         onClick={e => e.stopPropagation()}
       >
@@ -55,7 +55,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-1.5">
             {isAdmin && editing === null && (
               <button onClick={openNew} aria-label="공지 작성"
-                className="w-8 h-8 rounded-full bg-leaf-300 hover:bg-leaf-400 text-leaf-800 flex items-center justify-center transition-colors">
+                className="w-8 h-8 rounded-full bg-leaf-600 hover:bg-leaf-700 text-white flex items-center justify-center transition-colors">
                 <Plus size={16} />
               </button>
             )}
@@ -75,22 +75,22 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="제목"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 text-sm font-semibold transition-all"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm font-semibold transition-all"
               />
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 placeholder="내용을 입력하세요"
                 rows={6}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 text-sm transition-all resize-none"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all resize-none"
               />
               <div className="flex gap-2">
                 <button onClick={cancelEdit}
-                  className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
+                  className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
                   취소
                 </button>
                 <button onClick={handleSave} disabled={!title.trim() || !content.trim() || saving}
-                  className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold transition-colors">
+                  className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
                   {saving ? '저장 중...' : '게시'}
                 </button>
               </div>
@@ -114,7 +114,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                         </button>
                         {confirmDeleteId === n.id ? (
                           <button onClick={() => handleDelete(n.id)}
-                            className="text-[11px] px-2 py-1 rounded-lg bg-red-500 text-white font-medium">확인</button>
+                            className="text-[11px] px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium">확인</button>
                         ) : (
                           <button onClick={() => handleDelete(n.id)} aria-label="공지 삭제"
                             className="text-gray-400 hover:text-red-500 transition-colors p-1">

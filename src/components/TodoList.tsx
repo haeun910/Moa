@@ -14,7 +14,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import SortableTodoItem from './SortableTodoItem';
+import SortableTodoItem, { TodoRows } from './SortableTodoItem';
 import { useApp } from '../context/AppContext';
 import type { Todo } from '../types';
 
@@ -56,9 +56,13 @@ export default function TodoList({ todos, onEdit, getActions, completeMovesToTod
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        {todos.map(todo => (
-          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} completeMovesToToday={completeMovesToToday} />
-        ))}
+        {todos.length > 0 && (
+          <TodoRows>
+            {todos.map(todo => (
+              <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} completeMovesToToday={completeMovesToToday} />
+            ))}
+          </TodoRows>
+        )}
       </SortableContext>
     </DndContext>
   );

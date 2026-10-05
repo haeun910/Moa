@@ -34,18 +34,18 @@ export default function InstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 max-w-sm mx-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl shadow-2xl p-4 flex items-center gap-3 z-50 animate-slide-in-bottom motion-reduce:animate-none">
-      <div className="w-10 h-10 bg-white/20 dark:bg-gray-900/10 rounded-xl flex items-center justify-center flex-shrink-0">
+    <div className="fixed bottom-20 lg:bottom-6 left-4 right-4 lg:left-auto lg:right-6 max-w-sm mx-auto lg:mx-0 lg:w-[360px] bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl ring-1 ring-white/10 p-3.5 flex items-center gap-3 z-50 animate-slide-in-bottom motion-reduce:animate-none">
+      <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0">
         <Download size={20} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm">앱으로 설치하기</p>
-        <p className="text-xs text-leaf-200 dark:text-leaf-600 mt-0.5">홈 화면에 추가하면 더 편리해요</p>
+        <p className="text-xs text-gray-400 mt-0.5">홈 화면에 추가하면 더 편리해요</p>
       </div>
-      <button onClick={install} className="bg-white dark:bg-leaf-300 text-leaf-600 dark:text-leaf-800 text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0">
+      <button onClick={install} className="bg-leaf-500 hover:bg-leaf-400 text-leaf-950 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
         설치
       </button>
-      <button onClick={dismiss} aria-label="닫기" className="text-white/70 dark:text-gray-900/60 hover:text-white dark:hover:text-gray-900 flex-shrink-0">
+      <button onClick={dismiss} aria-label="닫기" className="text-white/50 hover:text-white flex-shrink-0">
         <X size={16} />
       </button>
     </div>

@@ -82,16 +82,16 @@ export default function ProjectPage() {
   });
 
   return (
-    <div className="min-h-screen pb-20">
-      <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-gray-100 dark:border-gray-800">
+    <div className="min-h-screen pb-24 lg:pb-12">
+      <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 lg:px-8 pt-8 sm:pt-10 pb-5">
         <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">프로젝트 로드맵</h1>
+        <h1 className="page-title text-[22px] flex-1">프로젝트 로드맵</h1>
       </div>
 
-      <div className="px-4 pt-4 max-w-2xl mx-auto">
+      <div className="px-4 lg:px-8 max-w-2xl mx-auto">
         {categories.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-16">먼저 카테고리를 만들어주세요</p>
         ) : (
@@ -101,12 +101,11 @@ export default function ProjectPage() {
                 <button
                   key={cat.id}
                   onClick={() => setProjectCatId(cat.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                    projectCatId === cat.id ? 'text-gray-800 border-transparent shadow-sm' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                  className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium transition-colors ${
+                    projectCatId === cat.id ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold' : 'bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
-                  style={projectCatId === cat.id ? { backgroundColor: cat.color } : {}}
                 >
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: projectCatId === cat.id ? 'rgba(0,0,0,0.35)' : cat.color }} />
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                   {cat.name}
                 </button>
               ))}
@@ -143,10 +142,10 @@ export default function ProjectPage() {
                             onClick={() => toggleTodo(t.id)}
                             aria-label={t.completed ? '완료 취소' : '완료 처리'}
                             className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                              t.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600'
+                              t.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'
                             }`}
                           >
-                            {t.completed && <Check size={9} className="text-leaf-800" strokeWidth={3} />}
+                            {t.completed && <Check size={9} className="text-white" strokeWidth={3} />}
                           </button>
                           <span className={`text-sm ${t.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>{t.title}</span>
                         </div>

@@ -34,8 +34,8 @@ export default function InstallInstructionsModal({ onClose }: { onClose: () => v
     ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleBackdrop}>
-      <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up motion-reduce:animate-none">
+    <div className="modal-overlay" onClick={handleBackdrop}>
+      <div className="modal-panel max-w-sm">
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">앱 설치 방법</h2>
           <button onClick={onClose} aria-label="닫기"
@@ -54,7 +54,7 @@ export default function InstallInstructionsModal({ onClose }: { onClose: () => v
             </div>
           ))}
           <button onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold transition-colors mt-2">
+            className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold transition-colors mt-2">
             확인
           </button>
         </div>

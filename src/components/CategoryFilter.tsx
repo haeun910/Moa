@@ -5,18 +5,19 @@ interface Props {
   onChange: (id: string | null) => void;
 }
 
+const base = 'flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium transition-colors';
+const idle = 'bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:ring-gray-300 dark:hover:ring-gray-600';
+const active = 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold';
+
 export default function CategoryFilter({ activeCatId, onChange }: Props) {
   const { categories } = useApp();
 
   return (
-    <div className="flex flex-wrap gap-2 pb-1">
+    <div className="flex flex-wrap gap-1.5 pb-1">
       <button
         onClick={() => onChange(null)}
-        className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-          activeCatId === null
-            ? 'bg-leaf-300 text-leaf-800 shadow-sm'
-            : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
-        }`}
+        aria-pressed={activeCatId === null}
+        className={`${base} ${activeCatId === null ? active : idle}`}
       >
         전체
       </button>
@@ -24,17 +25,10 @@ export default function CategoryFilter({ activeCatId, onChange }: Props) {
         <button
           key={cat.id}
           onClick={() => onChange(activeCatId === cat.id ? null : cat.id)}
-          className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-            activeCatId === cat.id
-              ? 'text-gray-800 border-transparent shadow-sm'
-              : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-          }`}
-          style={activeCatId === cat.id ? { backgroundColor: cat.color, borderColor: cat.color } : {}}
+          aria-pressed={activeCatId === cat.id}
+          className={`${base} ${activeCatId === cat.id ? active : idle}`}
         >
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: activeCatId === cat.id ? 'rgba(0,0,0,0.35)' : cat.color }}
-          />
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
           {cat.name}
         </button>
       ))}

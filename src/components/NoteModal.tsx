@@ -38,10 +38,10 @@ export default function NoteModal({ note, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="modal-overlay"
       onClick={handleBackdrop}
     >
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up motion-reduce:animate-none">
+      <div className="modal-panel max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -66,7 +66,7 @@ export default function NoteModal({ note, onClose }: Props) {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="메모 제목"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
             />
           </div>
           <div>
@@ -76,7 +76,7 @@ export default function NoteModal({ note, onClose }: Props) {
               onChange={e => setContent(e.target.value)}
               placeholder="내용을 입력하세요..."
               rows={10}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm resize-none"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm resize-none"
             />
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function NoteModal({ note, onClose }: Props) {
           {isEdit && (
             <button
               onClick={handleDelete}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium"
             >
               <Trash2 size={15} />
               삭제
@@ -94,14 +94,14 @@ export default function NoteModal({ note, onClose }: Props) {
           )}
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
+            className="flex-1 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
           >
             취소
           </button>
           <button
             onClick={handleSave}
             disabled={!title.trim() && !content.trim()}
-            className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
+            className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
           >
             저장
           </button>
