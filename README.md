@@ -80,7 +80,11 @@ Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Pro
    - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`(`mailto:내 이메일`), `CRON_SECRET`
    - **Private Key는 여기에만** 넣고 `.env`·git에는 넣지 않습니다.
 
-4. 함수 배포: 대시보드 → **Edge Functions → Deploy a new function → Via Editor**, 이름 `send-timebox-push`, 내용은 [`supabase/functions/send-timebox-push/index.ts`](supabase/functions/send-timebox-push/index.ts) → Deploy → 함수 설정에서 **Verify JWT 끄기**
+4. 함수 배포: 대시보드 → **Edge Functions → Deploy a new function → Via Editor**, 내용은 [`supabase/functions/send-timebox-push/index.ts`](supabase/functions/send-timebox-push/index.ts) 전체 → **이름을 `send-timebox-push`로 입력한 뒤** Deploy → 함수 설정에서 **Verify JWT 끄기**
+
+   > ⚠️ **함수 주소(slug)는 처음 만들 때 정해지고 나중에 바뀌지 않아요.** 이름을 입력하지 않고 Deploy하면 `quick-processor` 같은 임의 주소가 붙고, 설정에서 이름을 바꿔도 주소는 그대로라 앱이 함수를 찾지 못해요(`NOT_FOUND`).
+   > 배포 후 브라우저로 `https://<프로젝트ID>.supabase.co/functions/v1/send-timebox-push`를 열어 `{"error":"method not allowed"}`가 나오면 주소가 맞는 거예요.
+   > 편집기에는 **함수 코드(TypeScript)**만 넣어야 해요. SQL을 넣으면 `Expression expected` 오류로 배포가 실패해요.
 
    CLI로 하려면 (PowerShell은 한 줄로):
 
@@ -99,7 +103,20 @@ Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Pro
 
    그다음 [`supabase/migrations/017_timebox_push_cron.sql`](supabase/migrations/017_timebox_push_cron.sql) 실행
 
-6. 앱의 **설정 → 할 일 정리 → 알림**을 켜고 **테스트 알림 보내기**로 확인
+6. 앱의 **설정 → 할 일 정리 → 알림**을 켜고 **테스트 알림 보내기**로 확인 → 2~3분 뒤 시작하는 블록을 만들어 실제 알림도 확인
+
+**알림이 안 올 때**
+
+| 증상 | 확인 / 해결 |
+| --- | --- |
+| 알림 칸에 "알림 서버 설정이 아직 안 되어 있어요" | 배포 환경에 `VITE_VAPID_PUBLIC_KEY`가 없거나, 넣은 뒤 다시 배포하지 않음 |
+| 테스트 알림: `Failed to send a request to the Edge Function` | 함수 주소가 `send-timebox-push`가 아님 (4번 주의사항) |
+| 테스트 알림: `500 · VAPID keys are not configured` | Edge Functions → Secrets에 VAPID 키가 없음 |
+| 테스트는 되는데 블록 알림만 안 옴 | SQL Editor에서 `select status_code, content, created from net._http_response order by created desc limit 5;` 실행 |
+| ↳ `404` | Vault의 `project_url`이 틀림 (`https://`는 한 번만, 끝에 `/` 없이) |
+| ↳ `401` | Vault의 `timebox_cron_secret`과 함수 Secrets의 `CRON_SECRET` 값이 다름 |
+| ↳ `500 · Could not find the function public.claim_due_timeblock_reminders` | `016_timeblocks.sql`을 끝까지 다시 실행 (마지막 줄이 API 새로고침) |
+| ↳ `200`이고 `{"due":0,...}`만 계속 | 정상. 블록 알림 시각이 되면 `due`가 1 이상으로 바뀜 (10분 넘게 지난 알림은 보내지 않음) |
 
 > - 알림은 1분 단위로 확인하므로 최대 1분 정도 늦게 올 수 있어요.
 > - 아이폰·아이패드는 iOS 16.4 이상에서 **홈 화면에 설치한 앱**으로만 알림을 받을 수 있어요.

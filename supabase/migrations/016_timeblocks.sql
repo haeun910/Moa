@@ -128,3 +128,7 @@ revoke all on function public.claim_due_timeblock_reminders() from public, anon,
 grant execute on function public.claim_due_timeblock_reminders() to service_role;
 
 -- 시작 화면으로 타임박스도 고를 수 있게 됨 (default_screen에 'timebox' 값 사용 - 별도 제약 없음)
+
+-- Supabase API가 위에서 만든 함수(register_push_subscription, claim_due_timeblock_reminders)를 바로 알아보도록 새로고침.
+-- 이게 없으면 알림 발송 함수가 "Could not find the function public.claim_due_timeblock_reminders"로 실패할 수 있음
+notify pgrst, 'reload schema';
