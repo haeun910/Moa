@@ -38,7 +38,7 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 bor
 
 // 타임박스 블록 만들기/고치기: 무엇을(제목 또는 할 일) · 언제(날짜, 시작~끝) · 알림
 export default function TimeBlockModal({ block, draft, onClose }: Props) {
-  const { todos, categories, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen } = useApp();
+  const { todos, categories, subcategories, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen } = useApp();
   const push = usePushNotifications();
   const isEdit = !!block;
   const initial = block ? getBlockSpan(block) : draft!;
@@ -55,6 +55,8 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
   // 이미 있는 블록을 고칠 때는 꺼진 채로 시작 (시간만 옮기려다 할 일이 생기지 않게)
   const [addToList, setAddToList] = useState(() => !isEdit && readAddToListPref());
   const [listCategoryId, setListCategoryId] = useState<string | null>(null);
+  const [listSubcategoryId, setListSubcategoryId] = useState<string | null>(null);
+  const listSubcats = listCategoryId ? subcategories.filter(sc => sc.categoryId === listCategoryId) : [];
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -103,7 +105,8 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
       if (!linkedId && addToList) {
         const created = await addTodo({
           title: effectiveTitle, completed: block?.completed ?? false,
-          categoryId: listCategoryId, subcategoryId: null,
+          categoryId: listCategoryId,
+          subcategoryId: listSubcats.some(sc => sc.id === listSubcategoryId) ? listSubcategoryId : null,
           date: dateKey, startTime: null, notes: '',
         });
         linkedId = created?.id ?? null;
@@ -201,7 +204,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                     {[{ id: null as string | null, name: '분류 없음', color: '#9DA397' }, ...categories].map(cat => {
                       const active = listCategoryId === cat.id;
                       return (
-                        <button key={cat.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => setListCategoryId(cat.id)}
+                        <button key={cat.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => { setListCategoryId(cat.id); setListSubcategoryId(null); }}
                           className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
                             active
                               ? 'ring-leaf-500 bg-leaf-50 dark:bg-leaf-900/30 text-gray-900 dark:text-white'
@@ -209,6 +212,24 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                           }`}>
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* 고른 카테고리에 하위 카테고리가 있으면 그것도 고르기 (안 고르면 "미정") */}
+                {addToList && listSubcats.length > 0 && (
+                  <div className="mt-1.5 ml-6 pl-2.5 border-l-2 border-gray-200/80 dark:border-gray-800 flex flex-wrap gap-1.5" role="radiogroup" aria-label="할 일 하위 카테고리">
+                    {[{ id: null as string | null, name: '미정' }, ...listSubcats].map(sc => {
+                      const active = listSubcategoryId === sc.id;
+                      return (
+                        <button key={sc.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => setListSubcategoryId(sc.id)}
+                          className={`h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
+                            active
+                              ? 'ring-leaf-500 bg-leaf-50 dark:bg-leaf-900/30 text-gray-900 dark:text-white'
+                              : 'ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}>
+                          {sc.name}
                         </button>
                       );
                     })}

@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.3.3',
+    date: '2026-10-07',
+    changes: [
+      '타임박스 "할 일 목록에도 추가"에서 카테고리를 고르면 하위 카테고리(미정 포함)도 고를 수 있음',
+    ],
+  },
+  {
     version: '2.3.2',
     date: '2026-10-07',
     changes: [
