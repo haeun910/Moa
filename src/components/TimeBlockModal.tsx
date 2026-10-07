@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { X, Trash2, Link2, Unlink, ListChecks, BellOff, Timer } from 'lucide-react';
+import { X, Trash2, Link2, Unlink, ListChecks, BellOff, Timer, Check } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -24,12 +24,21 @@ interface Props {
 }
 
 const QUICK_DURATIONS = [15, 30, 60, 90, 120];
+const ADD_TO_LIST_PREF_KEY = 'timebox-add-to-list';
+
+// "할 일 목록에도 추가"를 마지막에 고른 대로 기억 (처음엔 켜둠)
+function readAddToListPref(): boolean {
+  try { return localStorage.getItem(ADD_TO_LIST_PREF_KEY) !== '0'; } catch { return true; }
+}
+function saveAddToListPref(on: boolean) {
+  try { localStorage.setItem(ADD_TO_LIST_PREF_KEY, on ? '1' : '0'); } catch { /* 저장 못 해도 동작에는 문제 없음 */ }
+}
 
 const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500 text-sm transition-all';
 
 // 타임박스 블록 만들기/고치기: 무엇을(제목 또는 할 일) · 언제(날짜, 시작~끝) · 알림
 export default function TimeBlockModal({ block, draft, onClose }: Props) {
-  const { todos, categories, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen } = useApp();
+  const { todos, categories, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen } = useApp();
   const push = usePushNotifications();
   const isEdit = !!block;
   const initial = block ? getBlockSpan(block) : draft!;
@@ -42,6 +51,10 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
   const [color, setColor] = useState(block?.color ?? DEFAULT_BLOCK_COLOR);
   const [remind, setRemind] = useState<number | null>(block ? block.remindMinutes : 0);
   const [picking, setPicking] = useState(false);
+  // 직접 적은 제목을 홈 화면 할 일 목록에도 새 할 일로 만들어 연결할지 (할 일과 연결 안 된 블록일 때만)
+  // 이미 있는 블록을 고칠 때는 꺼진 채로 시작 (시간만 옮기려다 할 일이 생기지 않게)
+  const [addToList, setAddToList] = useState(() => !isEdit && readAddToListPref());
+  const [listCategoryId, setListCategoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -75,15 +88,30 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
     if (length > 0) setEnd(formatMinutes(Math.min(DAY_MINUTES, next + length) % DAY_MINUTES));
   }
 
+  function toggleAddToList() {
+    setAddToList(v => { if (!isEdit) saveAddToListPref(!v); return !v; });
+  }
+
   async function handleSave() {
     if (!canSave || startMin === null || endMin === null) return;
     setSaving(true);
     try {
       const range = spanToRange(dateKey, startMin, endMin);
+      // 할 일 목록에도 추가: 블록 날짜의 할 일을 새로 만들고 이 블록을 그 할 일에 연결
+      // (연결되면 제목·완료 체크가 홈 화면 할 일과 같이 움직임)
+      let linkedId = todo ? todo.id : null;
+      if (!linkedId && addToList) {
+        const created = await addTodo({
+          title: effectiveTitle, completed: block?.completed ?? false,
+          categoryId: listCategoryId, subcategoryId: null,
+          date: dateKey, startTime: null, notes: '',
+        });
+        linkedId = created?.id ?? null;
+      }
       const fields = {
         title: effectiveTitle,
-        todoId: todo ? todo.id : null,
-        color: todo ? null : color,
+        todoId: linkedId,
+        color: linkedId ? null : color,
         startAt: range.startAt,
         endAt: range.endAt,
         remindMinutes: remind,
@@ -152,6 +180,42 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                 <TodoPicker rangeFrom={dateKey} rangeTo={dateKey} rangeLabel="이 날" onPick={pickTodo} compact />
               </div>
             )}
+
+            {/* 직접 적은 블록: 홈 화면 할 일 목록에도 새 할 일로 추가 */}
+            {!todo && !picking && (
+              <div className="mt-2.5">
+                <button type="button" role="checkbox" aria-checked={addToList} onClick={toggleAddToList}
+                  className="flex items-center gap-2 text-[13px] text-gray-700 dark:text-gray-200">
+                  <span className={`w-4 h-4 rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
+                    addToList ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500' : 'border-gray-300 dark:border-gray-600'
+                  }`}>
+                    {addToList && <Check size={10} className="text-white" strokeWidth={3.2} />}
+                  </span>
+                  할 일 목록에도 추가
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {dateKey ? `${format(parseISO(dateKey), 'M월 d일')} 할 일로` : ''}
+                  </span>
+                </button>
+                {addToList && categories.length > 0 && (
+                  <div className="mt-2 ml-6 flex flex-wrap gap-1.5" role="radiogroup" aria-label="할 일 카테고리">
+                    {[{ id: null as string | null, name: '분류 없음', color: '#9DA397' }, ...categories].map(cat => {
+                      const active = listCategoryId === cat.id;
+                      return (
+                        <button key={cat.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => setListCategoryId(cat.id)}
+                          className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
+                            active
+                              ? 'ring-leaf-500 bg-leaf-50 dark:bg-leaf-900/30 text-gray-900 dark:text-white'
+                              : 'ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}>
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 언제 */}
@@ -188,8 +252,8 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
             )}
           </div>
 
-          {/* 색 (할 일과 연결된 블록은 카테고리 색을 따라감) */}
-          {!todo && (
+          {/* 색 (할 일과 연결된 블록, 할 일 목록에 같이 추가하는 블록은 카테고리 색을 따라감) */}
+          {!todo && !addToList && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10">색</span>
               <div className="flex gap-1.5 flex-wrap">

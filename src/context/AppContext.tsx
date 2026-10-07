@@ -109,7 +109,8 @@ interface AppContextType {
   dataLoading: boolean;
   loadError: boolean; // 처음 불러오기 실패
   retryLoad: () => void;
-  addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<void>;
+  // 만든 할 일을 돌려줌 (타임박스에서 새 할 일을 만들고 바로 블록에 연결하려면 id가 필요)
+  addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<Todo | undefined>;
   // existingId가 있으면 그 할 일(이미 있는 항목)도 같은 반복으로 묶음. dates는 새로 만들 날짜만 (기존 항목 날짜 제외)
   addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => Promise<void>;
   updateTodoSeries: (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => Promise<void>;
@@ -417,7 +418,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
       sort_order: todos.length,
     });
-    setTodos(prev => [...prev, toTodo(row)]);
+    const todo = toTodo(row);
+    setTodos(prev => [...prev, todo]);
+    return todo;
   }, [user, todos.length]);
 
   // 반복 할 일: 각 날짜마다 독립된 할 일을 한 번에 만들고 같은 seriesId로 묶음

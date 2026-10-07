@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.3.1',
+    date: '2026-10-07',
+    changes: [
+      '타임박스에서 제목을 직접 적어 블록을 만들 때 "할 일 목록에도 추가"를 켜두면 그 날의 할 일로도 만들어져 홈 화면 목록과 연동됨 (카테고리 선택 가능, 마지막 선택을 기억)',
+      '연동된 할 일은 홈에서 완료 체크하면 타임박스 블록도 함께 완료로 표시됨',
+    ],
+  },
+  {
     version: '2.3.0',
     date: '2026-10-07',
     changes: [
