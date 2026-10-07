@@ -40,7 +40,8 @@ export default function UpdatePrompt() {
 
   // "새로고침" 버튼: 새 서비스워커를 활성화하고, 화면 제어가 넘어오는 순간 직접 새로고침.
   // (vite-plugin-pwa는 자기가 처음 찾은 업데이트일 때만 자동 새로고침하고, 위의 registration.update()로
-  //  찾은 업데이트는 "외부" 업데이트로 취급해 새로고침을 건너뜀 → 버튼을 눌러도 화면이 그대로였음)
+  //  찾은 업데이트는 "외부" 업데이트로 취급하거나, 서비스워커가 제어하지 않는 페이지(강력 새로고침 직후 등)에서는
+  //  새로고침 신호 자체가 오지 않아 버튼을 눌러도 화면이 그대로였음)
   function applyUpdate() {
     let reloaded = false;
     const reload = () => {
@@ -55,6 +56,11 @@ export default function UpdatePrompt() {
       return;
     }
     navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+    // 강력 새로고침(Ctrl+Shift+R)으로 연 페이지처럼 서비스워커가 제어하지 않는 페이지에서는
+    // controllerchange가 오지 않으므로, 새 서비스워커가 활성화되는 순간에도 새로고침
+    waiting.addEventListener('statechange', () => {
+      if (waiting.state === 'activated') reload();
+    });
     waiting.postMessage({ type: 'SKIP_WAITING' });
     updateServiceWorker(true).catch(() => {});
     // 혹시 제어 전환 신호를 못 받아도 잠시 뒤에는 새로고침 (새 버전은 이미 활성화된 상태)

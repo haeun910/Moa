@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.3.5',
+    date: '2026-10-07',
+    changes: [
+      '[버그 수정] 강력 새로고침(Ctrl+Shift+R)으로 연 화면에서 "새 버전이 있어요 → 새로고침"을 눌러도 아무 반응이 없던 문제 수정 (새 버전이 적용되는 즉시 새로고침)',
+    ],
+  },
+  {
     version: '2.3.4',
     date: '2026-10-07',
     changes: [
