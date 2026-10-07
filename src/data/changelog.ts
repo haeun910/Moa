@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.3.4',
+    date: '2026-10-07',
+    changes: [
+      '타임박스 "할 일 넣기" 목록을 홈·저장소처럼 카테고리 → 하위 카테고리별로 묶어서 표시 (이번 주 탭은 날짜도 함께 표시)',
+      'PC 타임박스의 할 일 넣기 패널을 더 넓게 (넓은 화면 1.5배)',
+      '[버그 수정] "새 버전이 있어요"에서 새로고침을 눌러도 화면이 그대로인 경우가 있던 문제: 새 버전 적용 후 직접 새로고침하도록 변경',
+    ],
+  },
+  {
     version: '2.3.3',
     date: '2026-10-07',
     changes: [

@@ -496,7 +496,7 @@ export default function TimeboxPage() {
 
         {/* 데스크톱: 할 일 패널 - 눌러서 넣거나 시간표로 끌어다 놓기 */}
         {showPanel && (
-          <aside className="w-[272px] flex-shrink-0 rounded-2xl surface p-3.5 flex flex-col min-h-0">
+          <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-2xl surface p-3.5 flex flex-col min-h-0">
             <div className="flex-shrink-0 mb-2.5">
               <p className="text-[13px] font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
               <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>

@@ -38,6 +38,29 @@ export default function UpdatePrompt() {
     };
   }, []);
 
+  // "새로고침" 버튼: 새 서비스워커를 활성화하고, 화면 제어가 넘어오는 순간 직접 새로고침.
+  // (vite-plugin-pwa는 자기가 처음 찾은 업데이트일 때만 자동 새로고침하고, 위의 registration.update()로
+  //  찾은 업데이트는 "외부" 업데이트로 취급해 새로고침을 건너뜀 → 버튼을 눌러도 화면이 그대로였음)
+  function applyUpdate() {
+    let reloaded = false;
+    const reload = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    const waiting = registrationRef.current?.waiting;
+    if (!waiting) {
+      // 이미 활성화까지 끝났으면 새로고침만 하면 최신 버전
+      reload();
+      return;
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+    waiting.postMessage({ type: 'SKIP_WAITING' });
+    updateServiceWorker(true).catch(() => {});
+    // 혹시 제어 전환 신호를 못 받아도 잠시 뒤에는 새로고침 (새 버전은 이미 활성화된 상태)
+    window.setTimeout(reload, 4000);
+  }
+
   if (!needRefresh) return null;
 
   return (
@@ -49,7 +72,7 @@ export default function UpdatePrompt() {
         <p className="font-semibold text-sm">새 버전이 있어요</p>
         <p className="text-xs text-gray-400 mt-0.5">새로고침하면 최신 버전으로 업데이트돼요</p>
       </div>
-      <button onClick={() => updateServiceWorker(true)}
+      <button onClick={applyUpdate}
         className="bg-leaf-500 hover:bg-leaf-400 text-leaf-950 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
         새로고침
       </button>
