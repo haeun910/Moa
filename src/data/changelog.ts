@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.3.6',
+    date: '2026-10-07',
+    changes: [
+      '홈 달력에서 오늘 날짜 칸을 초록 테두리 + 연한 초록 배경으로 표시해 한눈에 보이게 (주간 보기도 동일)',
+      '달력에서 고른 날짜는 오늘과 구분되도록 진한 회색 테두리로 표시',
+    ],
+  },
+  {
     version: '2.3.5',
     date: '2026-10-07',
     changes: [

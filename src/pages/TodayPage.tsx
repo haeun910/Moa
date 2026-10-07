@@ -648,9 +648,14 @@ export default function TodayPage() {
                       className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1.5 text-left transition-colors ${
                         dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
                       } ${!isLastRow ? 'border-b border-gray-100 dark:border-gray-800' : ''} ${
-                        isSelected
-                          ? 'bg-leaf-50/80 dark:bg-leaf-900/20 shadow-[inset_0_0_0_1.5px_theme(colors.leaf.500)]'
-                          : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
+                        // 오늘: 초록 테두리 + 연한 초록 배경으로 한눈에 보이게 / 고른 날: 진한 회색 테두리 (오늘과 구분)
+                        isToday
+                          ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
+                              ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
+                              : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
+                          : isSelected
+                            ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
+                            : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
                       }`}
                     >
                       <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums mb-1 ${
@@ -725,7 +730,7 @@ export default function TodayPage() {
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
                           isToday
-                            ? 'bg-leaf-50 dark:bg-leaf-900/20 ring-1 ring-leaf-400/70'
+                            ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-2 ring-leaf-500 dark:ring-leaf-400'
                             : 'bg-gray-50 dark:bg-gray-800/40'
                         }`}
                       >
