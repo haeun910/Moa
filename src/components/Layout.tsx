@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Home, Archive, NotebookPen, Settings } from 'lucide-react';
+import { Home, Archive, NotebookPen, Settings, Timer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -8,6 +8,7 @@ import Logo from './Logo';
 
 const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }> }[] = [
   { screen: 'today', label: '홈', Icon: Home },
+  { screen: 'timebox', label: '타임박스', Icon: Timer },
   { screen: 'all', label: '저장소', Icon: Archive },
   { screen: 'notes', label: '메모', Icon: NotebookPen },
   { screen: 'settings', label: '설정', Icon: Settings },

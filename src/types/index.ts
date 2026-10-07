@@ -45,7 +45,7 @@ export interface NoteFolder {
 
 export interface Settings {
   theme: 'light' | 'dark' | 'system';
-  defaultScreen: 'today' | 'calendar' | 'all' | 'notes';
+  defaultScreen: 'today' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   listSortBy: 'manual' | 'date' | 'name'; // 목록 정렬 기준
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
@@ -53,7 +53,7 @@ export interface Settings {
   calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
 }
 
-export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
+export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
 
 export interface MonthlyGoal {
   id: string;
@@ -79,6 +79,20 @@ export interface ScheduleItem {
   notes?: string | null;
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
+}
+
+// 타임박스: "이 시간엔 이걸 하겠다"는 시간 블록. 정해진 약속(일정)과 달리 자유롭게 옮기고 늘리고 줄임.
+// 할 일과 연결하면 제목/색/완료 체크가 그 할 일을 따라감.
+export interface TimeBlock {
+  id: string;
+  title: string; // 할 일과 연결된 블록은 연결 당시 제목(할 일이 지워졌을 때 대신 보여줄 용도)
+  todoId: string | null;
+  color: string | null; // 할 일과 연결 안 된 블록의 색 (연결된 블록은 할 일 카테고리 색)
+  startAt: string; // ISO timestamp
+  endAt: string; // ISO timestamp
+  completed: boolean; // 할 일과 연결 안 된 블록의 완료 여부
+  remindMinutes: number | null; // 시작 몇 분 전에 알릴지 (0 = 시작 시각, null = 알림 없음)
+  createdAt: string;
 }
 
 export interface Notice {

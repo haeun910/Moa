@@ -27,6 +27,8 @@ export default defineConfig({
         // (존재하지 않는 파일을 참조하면 설치 UI가 깨진 이미지를 시도합니다)
       },
       workbox: {
+        // 타임박스 알림(웹 푸시)을 받아서 띄우는 코드 - public/push-sw.js
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {

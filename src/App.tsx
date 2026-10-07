@@ -18,6 +18,7 @@ import { AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const AllTodosPage = lazy(() => import('./pages/AllTodosPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
+const TimeboxPage = lazy(() => import('./pages/TimeboxPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
 const ProjectPage = lazy(() => import('./pages/ProjectPage'));
@@ -129,6 +130,7 @@ function AppContent() {
         {currentScreen === 'calendar' && <CalendarPage />}
         {currentScreen === 'all'      && <AllTodosPage />}
         {currentScreen === 'notes'    && <NotesPage />}
+        {currentScreen === 'timebox'  && <TimeboxPage />}
         {currentScreen === 'settings' && <SettingsPage />}
         {currentScreen === 'categories' && <CategoryPage />}
         {currentScreen === 'project' && <ProjectPage />}
