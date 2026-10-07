@@ -45,8 +45,9 @@ export function usePushNotifications() {
       const { sent } = await sendTestPush();
       if (sent === 0) setError('보낼 기기를 찾지 못했어요. 알림을 껐다가 다시 켜보세요.');
       return sent > 0;
-    } catch {
-      setError('테스트 알림을 보내지 못했어요. 알림 서버(Edge Function) 설정을 확인해주세요.');
+    } catch (err) {
+      const reason = err instanceof Error && err.message ? ` (${err.message})` : '';
+      setError(`테스트 알림을 보내지 못했어요${reason}. 알림 서버(Edge Function) 설정을 확인해주세요.`);
       return false;
     } finally {
       setBusy(false);

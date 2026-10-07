@@ -81,6 +81,15 @@ export async function disablePush(): Promise<void> {
 
 export async function sendTestPush(): Promise<{ sent: number; devices: number }> {
   const { data, error } = await supabase.functions.invoke('send-timebox-push', { body: { mode: 'test' } });
-  if (error) throw error;
+  if (error) {
+    // 함수가 돌려준 실제 이유(상태 코드 + error 문구)를 화면에 보여줘서 설정 문제를 바로 찾을 수 있게 함
+    const res = (error as { context?: unknown }).context;
+    if (res instanceof Response) {
+      const body = await res.clone().json().catch(() => null) as { error?: string; message?: string } | null;
+      const detail = body?.error ?? body?.message ?? (await res.text().catch(() => '')).slice(0, 120);
+      throw new Error(`${res.status}${detail ? ` · ${detail}` : ''}`);
+    }
+    throw error;
+  }
   return data as { sent: number; devices: number };
 }

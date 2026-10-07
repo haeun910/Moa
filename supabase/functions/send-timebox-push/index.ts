@@ -6,7 +6,7 @@
 //
 // 필요한 비밀값 (supabase secrets set ...):
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT(mailto:주소), CRON_SECRET
-// SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY는 Supabase가 자동으로 넣어줍니다.
+// SUPABASE_URL과 관리자 키(SUPABASE_SERVICE_ROLE_KEY 또는 새 방식의 SUPABASE_SECRET_KEYS)는 Supabase가 자동으로 넣어줍니다.
 //
 // 배포: supabase functions deploy send-timebox-push --no-verify-jwt
 //  (cron 호출은 JWT 대신 CRON_SECRET으로 확인하고, 테스트 호출은 함수 안에서 직접 JWT를 확인함)
@@ -15,13 +15,25 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// 관리자 키: 예전 방식(service_role) 키가 있으면 그걸, 새 API 키만 쓰는 프로젝트면 secret 키를 사용
+function serviceKey(): string {
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (legacy) return legacy;
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, string>;
+    return keys.default ?? Object.values(keys)[0] ?? '';
+  } catch {
+    return '';
+  }
+}
+const SERVICE_KEY = serviceKey();
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com';
 const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+// 키가 없을 때 함수가 아예 안 켜지는(BOOT_ERROR) 대신 이유를 응답으로 돌려주도록, 키가 있을 때만 만듦
+const admin = SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } }) : null!;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -149,6 +161,7 @@ async function runTest(req: Request) {
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+  if (!SERVICE_KEY) return json({ error: 'service key not found (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEYS)' }, 500);
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return json({ error: 'VAPID keys are not configured' }, 500);
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
