@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ADMIN_USER_ID } from '../lib/supabase';
-import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice } from '../lib/supabase';
+import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbTimeBlock, DbNotice } from '../lib/supabase';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
-import { format } from 'date-fns';
-import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
+import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
+import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -48,6 +48,25 @@ function toSchedule(s: DbSchedule): ScheduleItem {
   return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, notes: s.notes, createdAt: s.created_at };
 }
 
+function toTimeBlock(b: DbTimeBlock): TimeBlock {
+  return {
+    id: b.id, title: b.title, todoId: b.todo_id, color: b.color, startAt: b.start_at, endAt: b.end_at,
+    completed: b.completed, remindMinutes: b.remind_minutes, createdAt: b.created_at,
+  };
+}
+
+function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
+  return [...list].sort((a, b) => a.startAt.localeCompare(b.startAt));
+}
+
+// 알림을 누르고 들어오면 ?screen=timebox 로 열림 → 그 화면부터 보여줌
+function screenFromUrl(): Screen | null {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  return screen === 'timebox' ? 'timebox' : null;
+}
+
+export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt'>;
+
 function toNotice(n: DbNotice): Notice {
   return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
 }
@@ -74,6 +93,7 @@ interface AppContextType {
   monthlyGoals: MonthlyGoal[];
   ddays: DDay[];
   schedules: ScheduleItem[];
+  timeblocks: TimeBlock[];
   notices: Notice[];
   isAdmin: boolean;
   currentScreen: Screen;
@@ -105,6 +125,11 @@ interface AppContextType {
   addSchedule: (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  addTimeBlock: (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => Promise<TimeBlock | null>;
+  updateTimeBlock: (id: string, updates: Partial<TimeBlockFields>) => Promise<void>;
+  deleteTimeBlock: (id: string) => Promise<void>;
+  toggleTimeBlock: (id: string) => Promise<void>;
+  ensureTimeBlocksFrom: (dateKey: string) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
@@ -135,6 +160,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [ddays, setDDays] = useState<DDay[]>([]);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [timeblocks, setTimeblocks] = useState<TimeBlock[]>([]);
+  // 타임박스는 매일 쌓이므로 이 시각 이후 것만 불러와 둠. 더 예전 주를 보면 그때 더 불러옴(ensureTimeBlocksFrom)
+  const timeblocksFromRef = useRef<Date>(startOfWeek(subWeeks(new Date(), 2)));
   const [notices, setNotices] = useState<Notice[]>([]);
   const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
@@ -151,7 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) {
       setTodos([]); setCategories([]); setSubcategories([]); setNotes([]);
-      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setSchedules([]); setNotices([]);
+      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setSchedules([]); setTimeblocks([]); setNotices([]);
       setDataLoading(false);
       didSetInitialScreenRef.current = false;
       return;
@@ -168,7 +196,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       db.fetchDDays(user.id),
       db.fetchSchedules(user.id).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
       db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices]) => {
+      db.fetchTimeBlocks(user.id, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks도 마찬가지
+    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawTimeBlocks]) => {
       setTodos(rawTodos.map(toTodo));
       setCategories(rawCats.map(toCategory));
       setSubcategories(rawSubcats.map(toSubcategory));
@@ -177,6 +206,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setDDays(rawDDays.map(toDDay));
       setSchedules(rawSchedules.map(toSchedule));
       setNotices(rawNotices.map(toNotice));
+      setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+      const urlScreen = screenFromUrl();
+      if (urlScreen) {
+        window.history.replaceState(null, '', window.location.pathname);
+        setCurrentScreen(urlScreen);
+        didSetInitialScreenRef.current = true;
+      }
       if (rawSettings) {
         const s = toSettings(rawSettings);
         setSettings(s);
@@ -201,6 +237,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       else root.classList.remove('dark');
     }
   }, [settings.theme]);
+
+  // ── 이미 열린 앱에서 알림을 누르면 서비스워커가 보내는 메시지로 화면 이동 ──
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === 'moa:navigate' && e.data.screen === 'timebox') setCurrentScreen('timebox');
+    }
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, []);
 
   // ── Realtime 구독 ────────────────────────────────────────
   useEffect(() => {
@@ -230,6 +276,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         async () => {
           const rows = await db.fetchNotes(user.id);
           setNotes(rows.map(toNote));
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'timeblocks', filter: `user_id=eq.${user.id}` },
+        async () => {
+          const rows = await db.fetchTimeBlocks(user.id, timeblocksFromRef.current.toISOString()).catch(() => null);
+          if (rows) setTimeblocks(sortTimeBlocks(rows.map(toTimeBlock)));
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' },
         async () => {
@@ -443,6 +494,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.deleteSchedule(id);
   }, []);
 
+  // ── 타임박스 (시간 블록) ──────────────────────────────
+  // 저장소(날짜 없음)에 있던 할 일을 블록에 넣으면 그 날 할 일로 옮겨서 홈 화면 그 날짜에도 보이게 함
+  const scheduleLinkedTodo = useCallback(async (todoId: string | null | undefined, startAt: string) => {
+    if (!todoId) return;
+    const todo = todos.find(t => t.id === todoId);
+    if (todo && !todo.date) await updateTodo(todoId, { date: format(parseISO(startAt), 'yyyy-MM-dd') });
+  }, [todos, updateTodo]);
+
+  const addTimeBlock = useCallback(async (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => {
+    if (!user) return null;
+    const row = await db.createTimeBlock(user.id, {
+      title: fields.title,
+      todo_id: fields.todoId,
+      color: fields.color,
+      start_at: fields.startAt,
+      end_at: fields.endAt,
+      remind_minutes: fields.remindMinutes,
+      completed: fields.completed ?? false,
+    });
+    const block = toTimeBlock(row);
+    setTimeblocks(prev => sortTimeBlocks([...prev, block]));
+    await scheduleLinkedTodo(fields.todoId, fields.startAt);
+    return block;
+  }, [user, scheduleLinkedTodo]);
+
+  const updateTimeBlock = useCallback(async (id: string, updates: Partial<TimeBlockFields>) => {
+    setTimeblocks(prev => sortTimeBlocks(prev.map(b => b.id === id ? { ...b, ...updates } : b)));
+    const dbUpdates: Parameters<typeof db.updateTimeBlock>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('todoId' in updates) dbUpdates.todo_id = updates.todoId ?? null;
+    if ('color' in updates) dbUpdates.color = updates.color ?? null;
+    if (updates.startAt !== undefined) dbUpdates.start_at = updates.startAt;
+    if (updates.endAt !== undefined) dbUpdates.end_at = updates.endAt;
+    if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+    if ('remindMinutes' in updates) dbUpdates.remind_minutes = updates.remindMinutes ?? null;
+    // 시작 시각이나 알림 시점이 바뀌면 새 시간에 다시 울리도록 "보냄" 표시를 지움
+    if (updates.startAt !== undefined || 'remindMinutes' in updates) dbUpdates.notified_at = null;
+    await db.updateTimeBlock(id, dbUpdates);
+    const block = timeblocks.find(b => b.id === id);
+    if (updates.todoId) await scheduleLinkedTodo(updates.todoId, updates.startAt ?? block?.startAt ?? new Date().toISOString());
+  }, [timeblocks, scheduleLinkedTodo]);
+
+  const deleteTimeBlock = useCallback(async (id: string) => {
+    setTimeblocks(prev => prev.filter(b => b.id !== id));
+    await db.deleteTimeBlock(id);
+  }, []);
+
+  // 할 일과 연결된 블록이면 그 할 일을 완료 처리, 아니면 블록 자체를 완료 처리
+  const toggleTimeBlock = useCallback(async (id: string) => {
+    const block = timeblocks.find(b => b.id === id);
+    if (!block) return;
+    if (block.todoId && todos.some(t => t.id === block.todoId)) {
+      await toggleTodo(block.todoId);
+      return;
+    }
+    setTimeblocks(prev => prev.map(b => b.id === id ? { ...b, completed: !b.completed } : b));
+    await db.updateTimeBlock(id, { completed: !block.completed });
+  }, [timeblocks, todos, toggleTodo]);
+
+  const ensureTimeBlocksFrom = useCallback(async (dateKey: string) => {
+    if (!user) return;
+    const from = parseISO(dateKey);
+    const loadedFrom = timeblocksFromRef.current;
+    if (from >= loadedFrom) return;
+    timeblocksFromRef.current = from;
+    const rows = await db.fetchTimeBlocks(user.id, from.toISOString(), loadedFrom.toISOString()).catch(() => []);
+    setTimeblocks(prev => {
+      const known = new Set(prev.map(b => b.id));
+      return sortTimeBlocks([...prev, ...rows.map(toTimeBlock).filter(b => !known.has(b.id))]);
+    });
+  }, [user]);
+
   // ── 공지사항 ───────────────────────────────────────
   const addNotice = useCallback(async (title: string, content: string) => {
     const row = await db.createNotice(title, content);
@@ -476,7 +599,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
+      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, timeblocks, notices, isAdmin, currentScreen, selectedDate, dataLoading,
       addTodo, updateTodo, deleteTodo, toggleTodo, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
@@ -485,6 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
       addDDay, updateDDay, deleteDDay,
       addSchedule, updateSchedule, deleteSchedule,
+      addTimeBlock, updateTimeBlock, deleteTimeBlock, toggleTimeBlock, ensureTimeBlocksFrom,
       addNotice, updateNotice, deleteNotice,
       setCurrentScreen, setSelectedDate,
     }}>

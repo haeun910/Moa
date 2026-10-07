@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice, AdminStats } from './supabase';
+import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbTimeBlock, DbNotice, AdminStats } from './supabase';
 
 // ────────────────────────────────────────────────
 // 관리자 통계 (관리자 계정만 실제 값을 받을 수 있음 - DB 함수에서 강제)
@@ -46,7 +46,7 @@ export async function deleteNotice(id: string): Promise<void> {
 // 계정 삭제 - 본인 데이터 전체 삭제
 // ────────────────────────────────────────────────
 export async function deleteAllUserData(userId: string): Promise<void> {
-  const tables = ['todos', 'subcategories', 'categories', 'notes', 'monthly_goals', 'ddays', 'schedules', 'user_settings'] as const;
+  const tables = ['timeblocks', 'push_subscriptions', 'todos', 'subcategories', 'categories', 'notes', 'monthly_goals', 'ddays', 'schedules', 'user_settings'] as const;
   for (const table of tables) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId);
     if (error) throw error;
@@ -315,5 +315,47 @@ export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedul
 
 export async function deleteSchedule(id: string): Promise<void> {
   const { error } = await supabase.from('schedules').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────
+// Timeblocks (타임박스 - "언제 무엇을 하겠다"는 시간 블록)
+// ────────────────────────────────────────────────
+// 블록은 매일 쌓이므로 전부 불러오지 않고 fromIso 이후(필요하면 toIso 이전)만 가져옴
+export async function fetchTimeBlocks(userId: string, fromIso: string, toIso?: string): Promise<DbTimeBlock[]> {
+  let query = supabase
+    .from('timeblocks')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('start_at', fromIso);
+  if (toIso) query = query.lt('start_at', toIso);
+  const { data, error } = await query.order('start_at');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createTimeBlock(
+  userId: string,
+  fields: Pick<DbTimeBlock, 'title' | 'todo_id' | 'color' | 'start_at' | 'end_at' | 'remind_minutes'> & { completed?: boolean }
+): Promise<DbTimeBlock> {
+  const { data, error } = await supabase
+    .from('timeblocks')
+    .insert({ user_id: userId, ...fields })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTimeBlock(
+  id: string,
+  updates: Partial<Pick<DbTimeBlock, 'title' | 'todo_id' | 'color' | 'start_at' | 'end_at' | 'completed' | 'remind_minutes' | 'notified_at'>>
+): Promise<void> {
+  const { error } = await supabase.from('timeblocks').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteTimeBlock(id: string): Promise<void> {
+  const { error } = await supabase.from('timeblocks').delete().eq('id', id);
   if (error) throw error;
 }

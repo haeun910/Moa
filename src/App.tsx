@@ -8,6 +8,7 @@ import TodayPage from './pages/TodayPage';
 import CalendarPage from './pages/CalendarPage';
 import AllTodosPage from './pages/AllTodosPage';
 import NotesPage from './pages/NotesPage';
+import TimeboxPage from './pages/TimeboxPage';
 import SettingsPage from './pages/SettingsPage';
 import CategoryPage from './pages/CategoryPage';
 import ProjectPage from './pages/ProjectPage';
@@ -56,6 +57,7 @@ function AppContent() {
       {currentScreen === 'calendar' && <CalendarPage />}
       {currentScreen === 'all'      && <AllTodosPage />}
       {currentScreen === 'notes'    && <NotesPage />}
+      {currentScreen === 'timebox'  && <TimeboxPage />}
       {currentScreen === 'settings' && <SettingsPage />}
       {currentScreen === 'categories' && <CategoryPage />}
       {currentScreen === 'project' && <ProjectPage />}

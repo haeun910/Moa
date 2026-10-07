@@ -7,6 +7,7 @@ import GoalModal from '../components/GoalModal';
 import DDayModal from '../components/DDayModal';
 import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
+import TodayTimeline from '../components/TodayTimeline';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -533,6 +534,9 @@ export default function TodayPage() {
               ))}
             </OverviewColumn>
           </section>
+
+          {/* ── 오늘 타임박스: 오늘 하루 시간 계획을 가로 막대로 ── */}
+          <TodayTimeline />
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (

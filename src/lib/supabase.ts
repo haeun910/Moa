@@ -102,6 +102,21 @@ export interface DbSchedule {
   created_at: string;
 }
 
+// 타임박스 블록. 시각은 기기 시간대 기준으로 만든 절대 시각(timestamptz)
+export interface DbTimeBlock {
+  id: string;
+  user_id: string;
+  todo_id: string | null;
+  title: string;
+  color: string | null;
+  start_at: string;
+  end_at: string;
+  completed: boolean;
+  remind_minutes: number | null;
+  notified_at: string | null;
+  created_at: string;
+}
+
 export interface DbNotice {
   id: string;
   title: string;
@@ -113,7 +128,7 @@ export interface DbNotice {
 export interface DbSettings {
   user_id: string;
   theme: 'light' | 'dark' | 'system';
-  default_screen: 'today' | 'calendar' | 'all' | 'notes';
+  default_screen: 'today' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   list_sort_by: 'manual' | 'date' | 'name';
   hide_completed: boolean;

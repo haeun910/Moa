@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type React from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, EyeOff, Milestone } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, BellRing, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, EyeOff, Milestone } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import type { PushState } from '../hooks/usePushNotifications';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
@@ -15,6 +17,7 @@ import type { Settings } from '../types';
 
 const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
   { value: 'today', label: '홈' },
+  { value: 'timebox', label: '타임박스' },
   { value: 'all', label: '저장소' },
   { value: 'notes', label: '메모' },
 ];
@@ -104,6 +107,52 @@ function Segmented<T extends string>({ value, options, onChange, label }: {
   );
 }
 
+const PUSH_DESC: Record<PushState, string> = {
+  on: '타임박스가 시작할 때 이 기기로 알려드려요',
+  off: '타임박스가 시작할 때 이 기기로 알림 받기',
+  denied: '알림이 차단되어 있어요. 브라우저(앱) 설정에서 알림을 허용해주세요',
+  unsupported: '이 브라우저는 알림을 지원하지 않아요',
+  'ios-needs-install': '아이폰·아이패드는 홈 화면에 앱을 설치한 뒤 켤 수 있어요',
+  'not-configured': '알림 서버 설정이 아직 안 되어 있어요 (README 참고)',
+};
+
+// 타임박스 알림 (웹 푸시) - 기기마다 따로 켜고 끔
+function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void }) {
+  const { state, busy, error, enable, disable, test } = usePushNotifications();
+  const [testSent, setTestSent] = useState(false);
+  const available = state === 'on' || state === 'off';
+
+  async function toggle() {
+    if (state === 'on') { if (await disable()) onEnabledChange(false); }
+    else if (await enable()) onEnabledChange(true);
+  }
+
+  return (
+    <>
+      <div className="px-4 min-h-[52px] py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="flex-shrink-0 text-gray-500 dark:text-gray-400"><Bell size={17} /></span>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">알림</p>
+            <p className={`text-xs mt-0.5 ${available ? 'text-gray-500 dark:text-gray-400' : 'text-amber-700 dark:text-amber-400'}`}>{PUSH_DESC[state]}</p>
+            {error && <p className="text-xs mt-0.5 text-red-600 dark:text-red-400">{error}</p>}
+          </div>
+        </div>
+        {available && <Switch label="알림" checked={state === 'on'} onChange={() => { if (!busy) toggle(); }} />}
+      </div>
+      {state === 'on' && (
+        <LinkRow
+          icon={<BellRing size={17} />}
+          title="테스트 알림 보내기"
+          desc={testSent ? '보냈어요! 잠시 후 알림이 오는지 확인해보세요' : '서버에서 이 계정의 기기들로 알림을 보내봐요'}
+          chevron={false}
+          onClick={async () => { if (!busy) setTestSent(await test()); }}
+        />
+      )}
+    </>
+  );
+}
+
 function FieldRow({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
     <div className="px-4 py-3.5">
@@ -115,7 +164,7 @@ function FieldRow({ title, desc, children }: { title: string; desc?: string; chi
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, subcategories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, subcategories, todos, notes, monthlyGoals, ddays, schedules, timeblocks, isAdmin, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -137,7 +186,7 @@ export default function SettingsPage() {
   function handleExport() {
     const payload = {
       exportedAt: new Date().toISOString(),
-      todos, categories, subcategories, notes, monthlyGoals, ddays,
+      todos, categories, subcategories, notes, monthlyGoals, ddays, schedules, timeblocks,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -246,10 +295,7 @@ export default function SettingsPage() {
         </Group>
 
         <Group title="정리">
-          <div className="px-4 min-h-[52px] py-3 flex items-center justify-between gap-3">
-            <RowContent icon={<Bell size={17} />} title="알림" desc="할 일 알림 받기" />
-            <Switch label="알림" checked={settings.notifications} onChange={() => updateSettings({ notifications: !settings.notifications })} />
-          </div>
+          <PushRows onEnabledChange={on => updateSettings({ notifications: on })} />
           <LinkRow icon={<Tag size={17} />} title="카테고리 관리" onClick={() => setCurrentScreen('categories')}
             trailing={<span className="text-[13px] tabular-nums text-gray-400">{categories.length}개</span>} />
           <LinkRow icon={<Milestone size={17} />} title="프로젝트 로드맵" desc="카테고리 하나를 골라 타임라인으로 보기" onClick={() => setCurrentScreen('project')} />
