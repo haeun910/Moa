@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Notice } from '../types';
+import { LIMITS } from '../lib/limits';
 
 export default function NoticeModal({ onClose }: { onClose: () => void }) {
   const { notices, isAdmin, addNotice, updateNotice, deleteNotice } = useApp();
@@ -69,7 +70,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {editing !== null ? (
             <div className="space-y-3">
-              <input
+              <input maxLength={LIMITS.title}
                 autoFocus
                 type="text"
                 value={title}
@@ -77,7 +78,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                 placeholder="제목"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm font-semibold transition-all"
               />
-              <textarea
+              <textarea maxLength={LIMITS.longText}
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 placeholder="내용을 입력하세요"

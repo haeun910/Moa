@@ -21,6 +21,7 @@ import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
+import { LIMITS } from '../lib/limits';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -762,7 +763,7 @@ export default function TodayPage() {
                         </div>
                         {weekAddDate === dateStr ? (
                           <div className="mt-1 flex items-center gap-1 flex-shrink-0">
-                            <input
+                            <input maxLength={LIMITS.title}
                               autoFocus
                               value={weekAddTitle}
                               onChange={e => setWeekAddTitle(e.target.value)}

@@ -7,6 +7,7 @@ import RepeatPicker from './RepeatPicker';
 import SeriesScopePicker from './SeriesScopePicker';
 import type { SeriesScope } from './SeriesScopePicker';
 import type { ScheduleItem } from '../types';
+import { LIMITS } from '../lib/limits';
 
 interface Props {
   schedule?: ScheduleItem;
@@ -104,7 +105,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
-          <input
+          <input maxLength={LIMITS.title}
             autoFocus
             type="text"
             value={title}
@@ -127,7 +128,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
               className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
             />
           </div>
-          <textarea
+          <textarea maxLength={LIMITS.longText}
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="메모 (선택)"

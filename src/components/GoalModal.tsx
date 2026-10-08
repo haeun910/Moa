@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { MonthlyGoal } from '../types';
+import { LIMITS } from '../lib/limits';
 
 interface Props {
   month: string;
@@ -64,7 +65,7 @@ export default function GoalModal({ month, goal, onClose }: Props) {
         </div>
 
         <div className="px-6 py-5 space-y-4">
-          <input
+          <input maxLength={LIMITS.title}
             autoFocus
             type="text"
             value={title}

@@ -34,6 +34,11 @@ declare
   container record;
   new_subcat_id uuid;
 begin
+  -- 새로 만든 DB(최신 schema.sql)에는 예전 subtasks 테이블이 없으므로 옮길 것도 없음
+  if to_regclass('public.subtasks') is null then
+    return;
+  end if;
+
   for container in
     select distinct t.user_id, t.category_id, t.title
     from public.todos t

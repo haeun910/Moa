@@ -6,6 +6,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { LIMITS } from '../lib/limits';
 
 export default function WeeklyModal({ onClose }: { onClose: () => void }) {
   const { todos, toggleTodo, addTodo } = useApp();
@@ -114,7 +115,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                   {/* Add button */}
                   {addingDate === dateStr ? (
                     <div className="mt-2 flex items-center gap-1 flex-shrink-0">
-                      <input
+                      <input maxLength={LIMITS.title}
                         autoFocus
                         value={addTitle}
                         onChange={e => setAddTitle(e.target.value)}

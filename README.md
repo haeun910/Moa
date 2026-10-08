@@ -50,14 +50,13 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ### 3. Supabase 데이터베이스 설정
 
-Supabase 대시보드 → **SQL Editor**에서 아래 순서대로 실행합니다.
+Supabase 대시보드 → **SQL Editor**에서 실행합니다.
 
-1. [`supabase/schema.sql`](supabase/schema.sql) — 전체 테이블, RLS 정책, 신규 가입자 기본 카테고리 설정
-2. [`supabase/migrations/001_add_start_time.sql`](supabase/migrations/001_add_start_time.sql)
-3. [`supabase/migrations/002_monthly_goals_ddays.sql`](supabase/migrations/002_monthly_goals_ddays.sql)
-4. [`supabase/migrations/003_notices.sql`](supabase/migrations/003_notices.sql) — 공지사항 기능 (관리자 계정 UUID를 본인 것으로 바꿔서 실행)
-5. 나머지 [`supabase/migrations/`](supabase/migrations/) 파일도 번호 순서대로 실행 (예: `012_recurrence_series.sql` — 반복 일정/할 일 묶음 수정·삭제)
-   (`017_timebox_push_cron.sql`은 아래 "타임박스 알림" 설정을 마친 뒤에 실행)
+**새 프로젝트:** [`supabase/schema.sql`](supabase/schema.sql) 하나만 실행하면 됩니다. 모든 테이블, RLS 정책, 함수, 신규 가입자 기본 카테고리까지 마이그레이션 001~016, 018을 모두 실행한 것과 같은 상태가 됩니다. 실행 전에 파일 안의 관리자 계정 UUID를 본인 것으로 바꾸세요. (`017_timebox_push_cron.sql`은 아래 "타임박스 알림" 설정을 마친 뒤에 따로 실행)
+
+**이미 운영 중인 DB:** `schema.sql`은 실행하지 말고, [`supabase/migrations/`](supabase/migrations/)에서 아직 실행하지 않은 파일만 번호 순서대로 실행합니다. 예를 들어 `018_hardening.sql`은 순서 바꾸기를 요청 한 번으로 저장하는 함수, 남의 데이터를 연결하지 못하게 막는 검사, 글자 수 상한을 추가합니다. 실행하지 않아도 앱은 동작하지만(예전 방식으로 저장) 보안 검사는 빠집니다.
+
+`schema.sql`과 마이그레이션 결과가 같은지는 `npm run test:db`로 검사합니다(아래 "테스트" 참고).
 
 Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Providers**에서 Google을 활성화하고 OAuth 클라이언트를 등록해야 합니다.
 
@@ -122,7 +121,17 @@ Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Pro
 > - 아이폰·아이패드는 iOS 16.4 이상에서 **홈 화면에 설치한 앱**으로만 알림을 받을 수 있어요.
 > - 알림은 기기(브라우저)마다 따로 켭니다. 로그아웃하면 그 기기의 알림 구독은 자동으로 정리돼요.
 
-### 5. 개발 서버 실행
+### 5. 오류 수집(Sentry) — 선택
+
+사용자 화면에서 난 오류(저장 실패, 화면 오류 등)를 운영자가 모아 보려면 [Sentry](https://sentry.io)에서 React 프로젝트를 만들고 DSN을 환경변수로 넣습니다.
+
+```bash
+VITE_SENTRY_DSN=https://...@....ingest.sentry.io/...
+```
+
+넣지 않으면 오류는 브라우저 콘솔에만 남고 Sentry 코드도 번들에 들어가지 않습니다. 이메일·IP·입력한 내용은 보내지 않고 계정 ID(UUID)만 붙입니다.
+
+### 6. 개발 서버 실행
 
 ```bash
 npm run dev
@@ -136,6 +145,11 @@ npm run dev
 | `npm run build` | 타입 체크 후 프로덕션 빌드 |
 | `npm run preview` | 빌드 결과 미리보기 |
 | `npm run lint` | oxlint 실행 |
+| `npm test` | 단위 테스트 (Vitest) |
+| `npm run test:db` | 로컬 Postgres에서 `schema.sql`과 마이그레이션 결과 비교 + RLS·탈퇴·소유자 확인 등 DB 테스트 (`PGHOST`/`PGUSER` 등으로 접속 정보 지정) |
+| `npm run test:e2e` | 가짜 Supabase로 화면 스모크 테스트 (Playwright, 할 일 1,000개 넘게 불러오기 포함). 설치된 크롬을 쓰려면 `CHROMIUM_PATH` 지정 |
+
+GitHub에 푸시하면 `.github/workflows/ci.yml`이 위 검사를 모두 자동으로 돌립니다.
 
 ## 폴더 구조
 
@@ -148,8 +162,9 @@ src/
   pages/        화면 단위 페이지
   types/        공용 타입 정의
 supabase/
-  schema.sql        기본 스키마
-  migrations/       스키마 변경 이력 (번호 순으로 실행)
+  schema.sql        새 프로젝트용 전체 스키마 (마이그레이션 결과와 같음)
+  migrations/       스키마 변경 이력 (운영 중인 DB에는 번호 순으로 실행)
+  tests/            스키마 비교·DB 동작 테스트 (npm run test:db)
   functions/        Edge Functions (send-timebox-push: 타임박스 알림 발송)
 public/
   push-sw.js        서비스워커에 덧붙는 웹 푸시 처리
@@ -157,4 +172,4 @@ public/
 
 ## 배포
 
-Vite로 빌드되는 정적 SPA + PWA입니다. Vercel, Netlify 등 정적 호스팅 서비스에 연결해 `npm run build`(빌드 명령), `dist`(출력 폴더)로 배포할 수 있습니다. 배포 환경에도 `.env`와 동일한 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`(타임박스 알림을 쓰면 `VITE_VAPID_PUBLIC_KEY`도) 환경변수를 설정해야 합니다.
+Vite로 빌드되는 정적 SPA + PWA입니다. Vercel, Netlify 등 정적 호스팅 서비스에 연결해 `npm run build`(빌드 명령), `dist`(출력 폴더)로 배포할 수 있습니다. 배포 환경에도 `.env`와 동일한 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`(타임박스 알림을 쓰면 `VITE_VAPID_PUBLIC_KEY`, 오류 수집을 쓰면 `VITE_SENTRY_DSN`도) 환경변수를 설정해야 합니다.

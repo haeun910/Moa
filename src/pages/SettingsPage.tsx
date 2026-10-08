@@ -19,6 +19,9 @@ import OnboardingModal from '../components/OnboardingModal';
 import FeedbackModal from '../components/FeedbackModal';
 import FeedbackListModal from '../components/FeedbackListModal';
 import { APP_VERSION } from '../data/changelog';
+import { exportAllUserData } from '../lib/db';
+import { showToast } from '../lib/toast';
+import { reportError } from '../lib/monitoring';
 import type { Settings } from '../types';
 
 // ── 설정 화면 구성 ─────────────────────────────────────────
@@ -176,7 +179,7 @@ function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void 
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, subcategories, todos, notes, noteFolders, monthlyGoals, ddays, schedules, timeblocks, isAdmin, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, isAdmin, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -201,11 +204,20 @@ export default function SettingsPage() {
 
   const hasEmailPassword = user?.app_metadata?.providers?.includes('email') ?? false;
 
-  function handleExport() {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays, schedules, timeblocks,
-    };
+  const [exporting, setExporting] = useState(false);
+  async function handleExport() {
+    if (!user || exporting) return;
+    setExporting(true);
+    let payload;
+    try {
+      payload = await exportAllUserData(user.id);
+    } catch (err) {
+      reportError(err, 'export');
+      showToast('데이터를 내보내지 못했어요. 잠시 후 다시 시도해주세요.', 'error', 5000);
+      return;
+    } finally {
+      setExporting(false);
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -288,7 +300,7 @@ export default function SettingsPage() {
   const accountRows = (
     <>
       {hasEmailPassword && <Row Icon={KeyRound} label="비밀번호 변경" onClick={() => setShowPasswordModal(true)} />}
-      <Row Icon={FileDown} label="데이터 내보내기" desc="할 일 · 메모 등을 JSON 파일로 백업" onClick={handleExport} chevron={false} />
+      <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
       <Row Icon={LogOut} label={signingOut ? '로그아웃 중...' : '로그아웃'} onClick={handleSignOut} chevron={false} />
       <Row Icon={UserX} label="계정 삭제" onClick={() => setShowDeleteModal(true)} danger chevron={false} />
     </>
