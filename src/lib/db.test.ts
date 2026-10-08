@@ -14,7 +14,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-const { fetchAllPages, PAGE_SIZE, reorderItems } = await import('./db');
+const { fetchAllPages, PAGE_SIZE, reorderItems, emptyIfMissingTable } = await import('./db');
 
 describe('fetchAllPages', () => {
   it('1,000줄이 넘어도 끝까지 이어서 가져온다', async () => {
@@ -74,5 +74,17 @@ describe('reorderItems', () => {
     const err = { code: '42501', message: 'permission denied' };
     rpc.mockResolvedValue({ error: err });
     await expect(reorderItems('todos', ['a'])).rejects.toBe(err);
+  });
+});
+
+describe('emptyIfMissingTable', () => {
+  it('테이블이 없는 DB(마이그레이션 전)에서는 빈 목록', async () => {
+    await expect(emptyIfMissingTable(Promise.reject({ code: 'PGRST205', message: "Could not find the table 'public.schedules'" }))).resolves.toEqual([]);
+    await expect(emptyIfMissingTable(Promise.reject({ code: '42P01', message: 'relation "timeblocks" does not exist' }))).resolves.toEqual([]);
+  });
+
+  it('일시적인 오류는 그대로 던져서 백업이 빠진 채 성공하지 않게 한다', async () => {
+    await expect(emptyIfMissingTable(Promise.reject(new TypeError('Failed to fetch')))).rejects.toThrow('Failed to fetch');
+    await expect(emptyIfMissingTable(Promise.reject({ code: '57014', message: 'canceling statement due to statement timeout' }))).rejects.toMatchObject({ code: '57014' });
   });
 });

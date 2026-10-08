@@ -8,6 +8,7 @@ import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
 import { showSaveError, markSaveErrorHandled } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
+import { createSerialWriter } from '../lib/serialWrites';
 import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -276,6 +277,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const timeblocksRef = useRef(timeblocks);
   timeblocksRef.current = timeblocks;
   // 새 할 일의 sort_order. 연달아 추가할 때 다음 렌더 전이라 todos.length가 그대로여서 같은 값이 겹쳤음
+  // 완료 체크처럼 빠르게 반복되는 저장을 항목별로 순서대로 보냄
+  const serialWriteRef = useRef(createSerialWriter());
   const nextTodoSortRef = useRef(0);
   const takeTodoSortOrders = (count: number) => {
     const start = Math.max(nextTodoSortRef.current, todosRef.current.length);
@@ -514,7 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 다음 렌더 전에 또 눌려도 방금 바꾼 값을 기준으로 뒤집도록 참조도 바로 갱신
     todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed } : t);
     setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-    await db.updateTodo(id, { completed });
+    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed }));
   }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
@@ -649,7 +652,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const completed = !goal.completed;
     monthlyGoalsRef.current = monthlyGoalsRef.current.map(g => g.id === id ? { ...g, completed } : g);
     setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed } : g));
-    await db.updateMonthlyGoal(id, { completed });
+    await serialWriteRef.current(`goal:${id}`, () => db.updateMonthlyGoal(id, { completed }));
   }, []);
 
   const deleteMonthlyGoal = useCallback(async (id: string) => {
@@ -791,7 +794,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const completed = !block.completed;
     timeblocksRef.current = timeblocksRef.current.map(b => b.id === id ? { ...b, completed } : b);
     setTimeblocks(prev => prev.map(b => b.id === id ? { ...b, completed } : b));
-    await db.updateTimeBlock(id, { completed });
+    await serialWriteRef.current(`block:${id}`, () => db.updateTimeBlock(id, { completed }));
   }, [toggleTodo]);
 
   const ensureTimeBlocksFrom = useCallback(async (dateKey: string) => {

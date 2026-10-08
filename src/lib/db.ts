@@ -86,13 +86,13 @@ export async function deleteMyAccount(userId: string): Promise<void> {
 // Categories
 // ────────────────────────────────────────────────
 export async function fetchCategories(userId: string): Promise<DbCategory[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbCategory>((from, to) => supabase
     .from('categories')
     .select('*')
     .eq('user_id', userId)
-    .order('sort_order');
-  if (error) throw error;
-  return data ?? [];
+    .order('sort_order')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createCategory(userId: string, name: string, color: string, sortOrder = 0, description?: string | null): Promise<DbCategory> {
@@ -119,13 +119,13 @@ export async function deleteCategory(id: string): Promise<void> {
 // Subcategories (카테고리 하위 그룹)
 // ────────────────────────────────────────────────
 export async function fetchSubcategories(userId: string): Promise<DbSubcategory[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbSubcategory>((from, to) => supabase
     .from('subcategories')
     .select('*')
     .eq('user_id', userId)
-    .order('sort_order');
-  if (error) throw error;
-  return data ?? [];
+    .order('sort_order')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createSubcategory(userId: string, categoryId: string, name: string, sortOrder = 0): Promise<DbSubcategory> {
@@ -272,14 +272,14 @@ export async function deleteNote(id: string): Promise<void> {
 
 // 메모 폴더
 export async function fetchNoteFolders(userId: string): Promise<DbNoteFolder[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbNoteFolder>((from, to) => supabase
     .from('note_folders')
     .select('*')
     .eq('user_id', userId)
     .order('sort_order')
-    .order('created_at');
-  if (error) throw error;
-  return data ?? [];
+    .order('created_at')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createNoteFolder(userId: string, name: string, sortOrder: number): Promise<DbNoteFolder> {
@@ -522,6 +522,24 @@ export async function deleteTimeBlock(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// 테이블이 아직 없는 DB(해당 마이그레이션 실행 전)인지. 일시적인 네트워크·서버 오류와 구분하기 위함
+export function isMissingTableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  if (code === 'PGRST205' || code === '42P01') return true;
+  return typeof message === 'string' && /Could not find the table|relation .* does not exist/i.test(message);
+}
+
+// 테이블이 없을 때만 빈 목록으로 보고, 그 밖의 실패는 그대로 던짐 (빠진 채로 백업이 '성공'하면 안 되므로)
+export async function emptyIfMissingTable<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (err) {
+    if (isMissingTableError(err)) return [];
+    throw err;
+  }
+}
+
 // ────────────────────────────────────────────────
 // 데이터 내보내기(백업) - 화면에 불러온 것이 아니라 서버에 있는 본인 데이터 전체
 // (예전엔 화면 상태를 그대로 저장해서, 2주보다 오래된 타임박스 등이 백업에서 빠졌음)
@@ -532,11 +550,11 @@ export async function exportAllUserData(userId: string) {
     fetchCategories(userId),
     fetchSubcategories(userId),
     fetchNotes(userId),
-    fetchNoteFolders(userId).catch(() => []),
+    emptyIfMissingTable(fetchNoteFolders(userId)),
     fetchMonthlyGoals(userId),
     fetchDDays(userId),
-    fetchSchedules(userId).catch(() => []),
-    fetchAllTimeBlocks(userId).catch(() => []),
+    emptyIfMissingTable(fetchSchedules(userId)),
+    emptyIfMissingTable(fetchAllTimeBlocks(userId)),
     fetchSettings(userId),
   ]);
   return {
