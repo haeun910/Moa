@@ -9,6 +9,7 @@ import { newSeriesId } from '../lib/recurrence';
 import { showSaveError, markSaveErrorHandled } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
+import { applySeriesUpdate, spanToRange } from '../lib/timebox';
 import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -60,7 +61,7 @@ function toSchedule(s: DbSchedule): ScheduleItem {
 function toTimeBlock(b: DbTimeBlock): TimeBlock {
   return {
     id: b.id, title: b.title, todoId: b.todo_id, color: b.color, startAt: b.start_at, endAt: b.end_at,
-    completed: b.completed, remindMinutes: b.remind_minutes, createdAt: b.created_at,
+    completed: b.completed, remindMinutes: b.remind_minutes, createdAt: b.created_at, seriesId: b.series_id ?? null,
   };
 }
 
@@ -74,7 +75,9 @@ function screenFromUrl(): Screen | null {
   return screen === 'timebox' ? 'timebox' : null;
 }
 
-export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt'>;
+export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
+// 반복 블록은 할 일과 연결하지 않고 제목·색·알림만 가짐
+export type TimeBlockSeriesFields = Pick<TimeBlock, 'title' | 'color' | 'remindMinutes'>;
 
 function toNotice(n: DbNotice): Notice {
   return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
@@ -154,6 +157,9 @@ interface AppContextType {
   updateTimeBlock: (id: string, updates: Partial<TimeBlockFields>) => Promise<void>;
   deleteTimeBlock: (id: string) => Promise<void>;
   toggleTimeBlock: (id: string) => Promise<void>;
+  addTimeBlockSeries: (fields: TimeBlockSeriesFields, dateKeys: string[], startMin: number, endMin: number, existingId?: string) => Promise<void>;
+  updateTimeBlockSeries: (seriesId: string, fromStartAt: string | null, updates: Partial<TimeBlockSeriesFields> & { startMin?: number; endMin?: number }) => Promise<void>;
+  deleteTimeBlockSeries: (seriesId: string, fromStartAt: string | null) => Promise<void>;
   ensureTimeBlocksFrom: (dateKey: string) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
@@ -797,6 +803,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await serialWriteRef.current(`block:${id}`, () => db.updateTimeBlock(id, { completed }));
   }, [toggleTodo]);
 
+  // 반복 블록 (매주 고정 일정): 날짜마다 같은 시간의 블록을 만들고 seriesId로 묶음
+  const addTimeBlockSeries = useCallback(async (fields: TimeBlockSeriesFields, dateKeys: string[], startMin: number, endMin: number, existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // 기존 블록을 반복으로 바꾸기: 이 블록이 첫 회차 (dateKeys에는 이 블록 날짜를 빼고 넘김)
+      await db.setSeriesId('timeblocks', existingId, seriesId);
+      setTimeblocks(prev => prev.map(b => b.id === existingId ? { ...b, seriesId } : b));
+    }
+    if (dateKeys.length === 0) return;
+    const rows = await db.createTimeBlocks(user.id, dateKeys.map(dateKey => {
+      const range = spanToRange(dateKey, startMin, endMin);
+      return { title: fields.title, color: fields.color, start_at: range.startAt, end_at: range.endAt, remind_minutes: fields.remindMinutes };
+    }), seriesId);
+    setTimeblocks(prev => sortTimeBlocks([...prev, ...rows.map(toTimeBlock)]));
+  }, [user]);
+
+  // 반복 블록 여러 회차를 한 번에 고치기. 시간을 바꾸면 각 회차의 날짜는 그대로 두고 시각만 바꿈
+  const updateTimeBlockSeries = useCallback(async (seriesId: string, fromStartAt: string | null, updates: Partial<TimeBlockSeriesFields> & { startMin?: number; endMin?: number }) => {
+    const rows = await db.fetchTimeBlockSeries(seriesId, fromStartAt);
+    const next = applySeriesUpdate(rows, updates);
+    const byId = new Map(next.map(r => [r.id, toTimeBlock(r)]));
+    setTimeblocks(prev => sortTimeBlocks(prev.map(b => byId.get(b.id) ?? b)));
+    await db.saveTimeBlocks(next);
+  }, []);
+
+  const deleteTimeBlockSeries = useCallback(async (seriesId: string, fromStartAt: string | null) => {
+    setTimeblocks(prev => prev.filter(b => !(b.seriesId === seriesId && (!fromStartAt || b.startAt >= fromStartAt))));
+    await db.deleteTimeBlockSeries(seriesId, fromStartAt);
+  }, []);
+
   const ensureTimeBlocksFrom = useCallback(async (dateKey: string) => {
     if (!user) return;
     const from = parseISO(dateKey);
@@ -906,6 +943,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateTimeBlock: guard(updateTimeBlock, B),
       deleteTimeBlock: guard(deleteTimeBlock, B),
       toggleTimeBlock: guard(toggleTimeBlock, B),
+      addTimeBlockSeries: guard(addTimeBlockSeries, B, true),
+      updateTimeBlockSeries: guard(updateTimeBlockSeries, B),
+      deleteTimeBlockSeries: guard(deleteTimeBlockSeries, B),
       ensureTimeBlocksFrom,
       addNotice: guard(addNotice, ['notices'], true),
       updateNotice: guard(updateNotice, ['notices']),

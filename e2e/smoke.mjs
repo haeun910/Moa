@@ -3,6 +3,7 @@
 //
 // 1) 로그인 전: 로그인 화면이 오류 없이 뜨는지
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
+// 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -58,6 +59,10 @@ async function mockSupabase(page, seen) {
       seen.todoPages.push(offset);
       return route.fulfill({ json: todos.slice(offset, offset + limit) });
     }
+    if (table === 'timeblocks' && route.request().method() === 'POST') {
+      seen.timeblockInserts.push(JSON.parse(route.request().postData() ?? '[]'));
+      return route.fulfill({ json: [] });
+    }
     if (table === 'user_settings') return route.fulfill({ json: wantsObject ? settings : [settings] });
     if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: wantsObject ? {} : [] });
     return route.fulfill({ status: 404, body: '' });
@@ -82,9 +87,9 @@ try {
     await page.close();
   }
 
-  // 2) 로그인 후 - 1,000개가 넘는 할 일
-  {
-    const context = await browser.newContext();
+  // 로그인한 상태의 새 브라우저 창
+  async function loggedInContext() {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const exp = Math.floor(Date.now() / 1000) + 3600;
     const session = {
       access_token: fakeJwt({ sub: USER_ID, role: 'authenticated', exp, aud: 'authenticated' }),
@@ -99,8 +104,14 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const seen = { todoPages: [] };
+    const seen = { todoPages: [], timeblockInserts: [] };
     await mockSupabase(page, seen);
+    return { context, page, errors, seen };
+  }
+
+  // 2) 로그인 후 - 1,000개가 넘는 할 일
+  {
+    const { context, page, errors, seen } = await loggedInContext();
     await page.goto(BASE);
     // 화면 크기에 따라 숨겨진 쪽 목록에 있을 수 있어서 "화면에 그려졌는지"만 확인
     await page.getByText(`할 일 ${TOTAL_TODOS}`, { exact: true }).first().waitFor({ state: 'attached', timeout: 15000 });
@@ -109,6 +120,28 @@ try {
     if (firstLoad.join(',') !== '0,1000,2000') fail(`할 일을 1,000개씩 나눠 끝까지 받아야 함 (받은 위치: ${firstLoad.join(',')})`);
     else console.log(`✅ 할 일 ${TOTAL_TODOS}개를 3번에 나눠 끝까지 불러옴 (마지막 할 일까지 화면에 그려짐)`);
     if (errors.length) fail(`로그인 후 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 3) 타임박스 매주 고정 블록
+  {
+    const { context, page, errors, seen } = await loggedInContext();
+    await page.goto(`${BASE}/?screen=timebox`);
+    await page.getByRole('button', { name: /^추가$|타임박스 추가/ }).first().click({ timeout: 15000 });
+    await page.getByPlaceholder('무엇을 할까요?').fill('운동');
+    await page.getByRole('button', { name: '매주', exact: true }).click();
+    const save = page.getByRole('button', { name: /^\d+개 추가$/ });
+    const label = await save.textContent();
+    const expected = Number(label.match(/\d+/)[0]);
+    await save.click();
+    await page.waitForTimeout(500);
+    const rows = seen.timeblockInserts.flat();
+    const seriesIds = new Set(rows.map(r => r.series_id));
+    if (rows.length !== expected || expected < 50) fail(`매주 반복 블록 ${expected}개가 저장돼야 함 (저장된 개수: ${rows.length})`);
+    else if (seriesIds.size !== 1 || !rows[0].series_id) fail('반복 블록은 같은 series_id로 묶여야 함');
+    else if (new Set(rows.map(r => new Date(r.start_at).getDay())).size !== 1) fail('매주 반복은 같은 요일에만 만들어져야 함');
+    else console.log(`✅ 타임박스 매주 반복: 1년치 ${rows.length}개 블록이 한 묶음으로 저장됨`);
+    if (errors.length) fail(`타임박스 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

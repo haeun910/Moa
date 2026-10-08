@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react';
 import { X, Trash2, Link2, Unlink, ListChecks, BellOff, Timer, Check } from 'lucide-react';
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, addYears, format, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import TodoPicker from './TodoPicker';
+import RepeatPicker from './RepeatPicker';
+import SeriesScopePicker from './SeriesScopePicker';
+import type { SeriesScope } from './SeriesScopePicker';
+import { buildRecurringDates } from '../lib/recurrence';
+import type { RepeatRule } from '../lib/recurrence';
 import {
   BLOCK_COLORS, DEFAULT_BLOCK_COLOR, DAY_MINUTES, REMIND_OPTIONS,
   durationLabel, formatMinutes, getBlockSpan, parseMinutes, spanToRange,
@@ -25,6 +30,11 @@ interface Props {
 }
 
 const QUICK_DURATIONS = [15, 30, 60, 90, 120];
+
+// 기상·운동처럼 늘 같은 시간에 하는 일은 오래 이어지므로 종료일 기본값을 1년 뒤로
+function oneYearLater(startDate: string): string {
+  return format(addYears(parseISO(startDate), 1), 'yyyy-MM-dd');
+}
 const ADD_TO_LIST_PREF_KEY = 'timebox-add-to-list';
 
 // "할 일 목록에도 추가"를 마지막에 고른 대로 기억 (처음엔 켜둠)
@@ -39,7 +49,10 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 bor
 
 // 타임박스 블록 만들기/고치기: 무엇을(제목 또는 할 일) · 언제(날짜, 시작~끝) · 알림
 export default function TimeBlockModal({ block, draft, onClose }: Props) {
-  const { todos, categories, subcategories, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen } = useApp();
+  const {
+    todos, categories, subcategories, timeblocks, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen,
+    addTimeBlockSeries, updateTimeBlockSeries, deleteTimeBlockSeries,
+  } = useApp();
   const push = usePushNotifications();
   const isEdit = !!block;
   const initial = block ? getBlockSpan(block) : draft!;
@@ -62,13 +75,32 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const todo = useMemo(() => todos.find(t => t.id === todoId), [todos, todoId]);
+
+  // 반복으로 만든 블록이면 저장/삭제 범위(이 블록만 · 이후 모두 · 전체)를 고름
+  const seriesId = block?.seriesId ?? null;
+  const seriesItems = seriesId ? timeblocks.filter(b => b.seriesId === seriesId) : [];
+  const inSeries = seriesItems.length > 1;
+  const [scope, setScope] = useState<SeriesScope>('one');
+  const followingCount = block ? seriesItems.filter(b => b.startAt >= block.startAt).length : 0;
+  const scopeFrom = scope === 'following' && block ? block.startAt : null;
+
+  // 반복 (매일 기상, 매주 월·수·금 운동 등). 반복 블록은 할 일과 연결하지 않음 (회차마다 할 일이 생기지 않게)
+  const canRepeat = !inSeries && !todo;
+  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
+  const repeating = canRepeat && repeat.freq !== 'none';
+  const repeatDates = repeating ? buildRecurringDates(dateKey, repeat) : [];
+  // 기존 블록을 반복으로 바꿀 때 새로 만들어지는 개수 (이 블록 날짜는 제외)
+  const newRepeatCount = isEdit ? repeatDates.filter(d => d !== dateKey).length : repeatDates.length;
+  // 반복 블록에는 할 일 연결/할 일 목록 추가를 쓰지 않음
+  const noTodoLink = repeating || inSeries;
+  const willAddToList = addToList && !noTodoLink;
   const todoCat = todo?.categoryId ? categories.find(c => c.id === todo.categoryId) : undefined;
 
   const startMin = parseMinutes(start);
   const endMin = parseMinutes(end, true);
   const validTime = startMin !== null && endMin !== null && endMin > startMin;
   const effectiveTitle = todo ? todo.title : title.trim();
-  const canSave = validTime && Boolean(effectiveTitle) && Boolean(dateKey) && !saving;
+  const canSave = validTime && Boolean(effectiveTitle) && Boolean(dateKey) && !saving && (!repeating || repeatDates.length > 0);
 
   function pickTodo(t: Todo) {
     setTodoId(t.id);
@@ -100,10 +132,32 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
     setSaving(true);
     try {
       const range = spanToRange(dateKey, startMin, endMin);
+      const seriesFields = { title: effectiveTitle, color, remindMinutes: remind };
+      if (repeating) {
+        if (isEdit) {
+          // 기존 블록을 반복으로 바꾸기: 이 블록은 내용·시간만 저장하고 반복 묶음의 첫 회차로 사용
+          await updateTimeBlock(block.id, { ...seriesFields, todoId: null, startAt: range.startAt, endAt: range.endAt });
+          await addTimeBlockSeries(seriesFields, repeatDates.filter(d => d !== dateKey), startMin, endMin, block.id);
+        } else {
+          await addTimeBlockSeries(seriesFields, repeatDates, startMin, endMin);
+        }
+        onClose();
+        return;
+      }
+      if (isEdit && inSeries && scope !== 'one' && seriesId) {
+        // 시간을 바꿨을 때만 회차들의 시각을 바꿈 (따로 옮겨 둔 회차가 제목만 고쳐도 원래 시간으로 돌아가지 않게)
+        const initialSpan = getBlockSpan(block);
+        const timeChanged = startMin !== initialSpan.startMin || endMin !== initialSpan.endMin;
+        await updateTimeBlockSeries(seriesId, scopeFrom, { ...seriesFields, ...(timeChanged ? { startMin, endMin } : {}) });
+        // 날짜 변경은 이 블록에만 적용
+        if (dateKey !== initialSpan.dateKey) await updateTimeBlock(block.id, { startAt: range.startAt, endAt: range.endAt });
+        onClose();
+        return;
+      }
       // 할 일 목록에도 추가: 블록 날짜의 할 일을 새로 만들고 이 블록을 그 할 일에 연결
       // (연결되면 제목·완료 체크가 홈 화면 할 일과 같이 움직임)
       let linkedId = todo ? todo.id : null;
-      if (!linkedId && addToList) {
+      if (!linkedId && willAddToList) {
         const created = await addTodo({
           title: effectiveTitle, completed: block?.completed ?? false,
           categoryId: listCategoryId,
@@ -129,8 +183,13 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
   }
 
   function handleDelete() {
-    if (block) { deleteTimeBlock(block.id); onClose(); }
+    if (!block) return;
+    if (inSeries && scope !== 'one' && seriesId) deleteTimeBlockSeries(seriesId, scopeFrom);
+    else deleteTimeBlock(block.id);
+    onClose();
   }
+
+  const deleteCount = inSeries ? (scope === 'all' ? seriesItems.length : scope === 'following' ? followingCount : 1) : 1;
 
   const pushOff = remind !== null && push.state !== 'on';
 
@@ -172,21 +231,21 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                   placeholder="무엇을 할까요?"
                   className={inputCls}
                 />
-                <button onClick={() => setPicking(v => !v)} title="할 일에서 고르기" aria-label="할 일에서 고르기" aria-expanded={picking}
+                {!noTodoLink && <button onClick={() => setPicking(v => !v)} title="할 일에서 고르기" aria-label="할 일에서 고르기" aria-expanded={picking}
                   className={`btn-secondary flex-shrink-0 px-3 ${picking ? 'ring-leaf-500 text-leaf-700 dark:text-leaf-300' : ''}`}>
                   <ListChecks size={15} />
                   <span className="hidden sm:inline text-[13px]">할 일</span>
-                </button>
+                </button>}
               </div>
             )}
-            {picking && (
+            {picking && !noTodoLink && (
               <div className="mt-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-inset ring-gray-200/70 dark:ring-gray-800">
                 <TodoPicker rangeFrom={dateKey} rangeTo={dateKey} rangeLabel="이 날" onPick={pickTodo} compact />
               </div>
             )}
 
             {/* 직접 적은 블록: 홈 화면 할 일 목록에도 새 할 일로 추가 */}
-            {!todo && !picking && (
+            {!todo && !picking && !noTodoLink && (
               <div className="mt-2.5">
                 <button type="button" role="checkbox" aria-checked={addToList} onClick={toggleAddToList}
                   className="flex items-center gap-2 text-[13px] text-gray-700 dark:text-gray-200">
@@ -275,7 +334,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
           </div>
 
           {/* 색 (할 일과 연결된 블록, 할 일 목록에 같이 추가하는 블록은 카테고리 색을 따라감) */}
-          {!todo && !addToList && (
+          {!todo && !willAddToList && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10">색</span>
               <div className="flex gap-1.5 flex-wrap">
@@ -286,6 +345,22 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                 ))}
               </div>
             </div>
+          )}
+
+          {canRepeat && (
+            <RepeatPicker
+              startDate={dateKey}
+              rule={repeat}
+              onChange={setRepeat}
+              occurrenceCount={repeatDates.length}
+              itemLabel="블록"
+              convertingExisting={isEdit}
+              defaultUntil={oneYearLater}
+            />
+          )}
+
+          {isEdit && inSeries && (
+            <SeriesScopePicker scope={scope} onChange={setScope} seriesCount={seriesItems.length} followingCount={followingCount} />
           )}
 
           {/* 알림 */}
@@ -324,7 +399,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                 <button onClick={handleDelete}
                   className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
                   <Trash2 size={14} />
-                  정말 삭제
+                  {deleteCount > 1 ? `${deleteCount}개 삭제` : '정말 삭제'}
                 </button>
               ) : (
                 <button onClick={() => setConfirmDelete(true)} aria-label="삭제"
@@ -338,7 +413,9 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
               취소
             </button>
             <button onClick={handleSave} disabled={!canSave} className="btn-primary flex-1 py-2.5">
-              {saving ? '저장 중...' : isEdit ? '저장' : '추가'}
+              {saving ? '저장 중...'
+                : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
+                : isEdit ? '저장' : '추가'}
             </button>
           </div>
         </div>

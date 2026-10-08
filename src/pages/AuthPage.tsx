@@ -7,6 +7,17 @@ import Logo from '../components/Logo';
 
 type Mode = 'login' | 'signup' | 'forgot';
 
+// 구글 로그인에서 돌아왔는데 실패한 경우(취소, 설정 문제 등) 주소에 붙어 오는 오류를 읽고 주소는 깨끗하게 정리
+function readOAuthError(): string {
+  const params = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const code = params.get('error') ?? hash.get('error');
+  if (!code) return '';
+  window.history.replaceState(null, '', window.location.pathname);
+  if (code === 'access_denied') return 'Google 로그인이 취소되었습니다.';
+  return 'Google 로그인에 실패했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.';
+}
+
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
@@ -15,7 +26,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(readOAuthError);
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
