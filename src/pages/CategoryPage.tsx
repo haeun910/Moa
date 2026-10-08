@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
 import type { Category, Subcategory } from '../types';
+import { LIMITS } from '../lib/limits';
 
 // 하위카테고리 한 줄: 드래그로 순서를 바꿀 수 있음
 function SortableSubcategoryRow({
@@ -35,14 +36,14 @@ function SortableSubcategoryRow({
   if (editing) {
     return (
       <div ref={setNodeRef} style={style} className="py-1.5 space-y-2">
-        <input
+        <input maxLength={LIMITS.subcategoryName}
           autoFocus
           value={editName}
           onChange={e => onEditName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
           className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
         />
-        <textarea
+        <textarea maxLength={LIMITS.longText}
           value={editNotes}
           onChange={e => onEditNotes(e.target.value)}
           placeholder="메모 (저장소 화면에서만 보여요, 선택)"
@@ -148,7 +149,7 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
       </DndContext>
       {adding ? (
         <div className="flex items-center gap-2 py-1">
-          <input
+          <input maxLength={LIMITS.subcategoryName}
             autoFocus
             value={newName}
             onChange={e => setNewName(e.target.value)}
@@ -216,11 +217,11 @@ function SortableCategoryItem({
     <div className="px-4 py-3">
       {editingId === cat.id ? (
         <div className="space-y-3">
-          <input value={editName} onChange={e => onEditName(e.target.value)}
+          <input maxLength={LIMITS.categoryName} value={editName} onChange={e => onEditName(e.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
             onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
           />
-          <textarea value={editDescription} onChange={e => onEditDescription(e.target.value)}
+          <textarea maxLength={LIMITS.longText} value={editDescription} onChange={e => onEditDescription(e.target.value)}
             placeholder="설명 (저장소 화면에서만 보여요, 선택)"
             rows={2}
             className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
@@ -362,12 +363,12 @@ export default function CategoryPage() {
         {showAdd && (
           <div className="rounded-xl surface p-4 space-y-3 mb-4">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">새 카테고리</p>
-            <input value={newName} onChange={e => setNewName(e.target.value)}
+            <input maxLength={LIMITS.categoryName} value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="카테고리 이름"
               className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
             />
-            <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)}
+            <textarea maxLength={LIMITS.longText} value={newDescription} onChange={e => setNewDescription(e.target.value)}
               placeholder="설명 (저장소 화면에서만 보여요, 선택)"
               rows={2}
               className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"

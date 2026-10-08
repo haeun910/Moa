@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import * as db from '../lib/db';
 import { APP_VERSION } from '../data/changelog';
 import { showToast } from '../lib/toast';
+import { LIMITS } from '../lib/limits';
 
 const MAX_LENGTH = 2000;
 
@@ -56,7 +57,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
             불편했던 점, 있었으면 하는 기능, 버그 등 무엇이든 편하게 적어주세요.
             보낸 내용은 운영자만 볼 수 있어요.
           </p>
-          <textarea
+          <textarea maxLength={LIMITS.feedback}
             autoFocus
             value={content}
             onChange={e => setContent(e.target.value.slice(0, MAX_LENGTH))}

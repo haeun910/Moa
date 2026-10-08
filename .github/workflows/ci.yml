@@ -1,0 +1,41 @@
+# 푸시·PR마다 자동 검사: 린트 → 타입 검사·빌드 → 단위 테스트 → DB 스키마·보안 테스트 → 화면 스모크 테스트
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - name: DB 스키마 일치 + 보안 테스트
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          npm run test:db
+      - name: 화면 스모크 테스트
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
