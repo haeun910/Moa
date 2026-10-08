@@ -9,6 +9,7 @@ import {
   durationLabel, formatMinutes, getBlockSpan, parseMinutes, spanToRange,
 } from '../lib/timebox';
 import type { TimeBlock, Todo } from '../types';
+import { LIMITS } from '../lib/limits';
 
 export interface TimeBlockDraft {
   dateKey: string;
@@ -163,7 +164,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
               </div>
             ) : (
               <div className="flex gap-2">
-                <input
+                <input maxLength={LIMITS.title}
                   autoFocus={!isEdit}
                   value={title}
                   onChange={e => setTitle(e.target.value)}

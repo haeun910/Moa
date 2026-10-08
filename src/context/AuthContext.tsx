@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { setMonitoringUser } from '../lib/monitoring';
 import { disablePush } from '../lib/push';
 
 interface AuthContextType {
@@ -43,6 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 오류 기록에 어느 계정에서 났는지(UUID만) 붙임
+  useEffect(() => { setMonitoringUser(user?.id ?? null); }, [user?.id]);
 
   async function signUp(email: string, password: string, displayName?: string) {
     const { error } = await supabase.auth.signUp({

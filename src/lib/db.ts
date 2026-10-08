@@ -2,6 +2,27 @@ import { supabase } from './supabase';
 import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbNoteFolder, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbTimeBlock, DbNotice, AdminStats } from './supabase';
 
 // ────────────────────────────────────────────────
+// 여러 번 나눠서 전부 가져오기
+// Supabase API는 한 번에 최대 1,000줄(대시보드 API 설정의 Max rows 기본값)만 돌려줘서,
+// 할 일·일정처럼 계속 쌓이는 데이터는 이걸 넘으면 뒤쪽이 아무 오류 없이 잘렸음.
+// 같은 정렬로 1,000줄씩 이어서 받고, 정렬값이 같은 줄이 페이지 경계에서 섞이지 않도록 id를 마지막 정렬 기준으로 씀.
+// ────────────────────────────────────────────────
+export const PAGE_SIZE = 1000;
+
+export async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) return all;
+  }
+}
+
+// ────────────────────────────────────────────────
 // 관리자 통계 (관리자 계정만 실제 값을 받을 수 있음 - DB 함수에서 강제)
 // ────────────────────────────────────────────────
 export async function fetchAdminStats(): Promise<AdminStats> {
@@ -65,13 +86,13 @@ export async function deleteMyAccount(userId: string): Promise<void> {
 // Categories
 // ────────────────────────────────────────────────
 export async function fetchCategories(userId: string): Promise<DbCategory[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbCategory>((from, to) => supabase
     .from('categories')
     .select('*')
     .eq('user_id', userId)
-    .order('sort_order');
-  if (error) throw error;
-  return data ?? [];
+    .order('sort_order')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createCategory(userId: string, name: string, color: string, sortOrder = 0, description?: string | null): Promise<DbCategory> {
@@ -98,13 +119,13 @@ export async function deleteCategory(id: string): Promise<void> {
 // Subcategories (카테고리 하위 그룹)
 // ────────────────────────────────────────────────
 export async function fetchSubcategories(userId: string): Promise<DbSubcategory[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbSubcategory>((from, to) => supabase
     .from('subcategories')
     .select('*')
     .eq('user_id', userId)
-    .order('sort_order');
-  if (error) throw error;
-  return data ?? [];
+    .order('sort_order')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createSubcategory(userId: string, categoryId: string, name: string, sortOrder = 0): Promise<DbSubcategory> {
@@ -131,16 +152,16 @@ export async function deleteSubcategory(id: string): Promise<void> {
 // Todos
 // ────────────────────────────────────────────────
 export async function fetchTodos(userId: string): Promise<DbTodo[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbTodo>((from, to) => supabase
     .from('todos')
     .select('*')
     .eq('user_id', userId)
     // sort_order가 같은(주로 기본값 0인 새 항목들) 행이 많아서 sort_order만으로는
     // 순서가 매번 뒤바뀌어 보이는 문제가 있었음 → created_at을 2차 정렬 기준으로 추가해 항상 안정적인 순서를 보장
     .order('sort_order')
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+    .order('created_at', { ascending: true })
+    .order('id')
+    .range(from, to));
 }
 
 export async function createTodo(
@@ -219,13 +240,13 @@ export async function deleteTodoSeries(seriesId: string, fromDate: string | null
 // Notes
 // ────────────────────────────────────────────────
 export async function fetchNotes(userId: string): Promise<DbNote[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbNote>((from, to) => supabase
     .from('notes')
     .select('*')
     .eq('user_id', userId)
-    .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+    .order('updated_at', { ascending: false })
+    .order('id')
+    .range(from, to));
 }
 
 export async function createNote(userId: string, title: string, content: string, folderId: string | null = null): Promise<DbNote> {
@@ -251,14 +272,14 @@ export async function deleteNote(id: string): Promise<void> {
 
 // 메모 폴더
 export async function fetchNoteFolders(userId: string): Promise<DbNoteFolder[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbNoteFolder>((from, to) => supabase
     .from('note_folders')
     .select('*')
     .eq('user_id', userId)
     .order('sort_order')
-    .order('created_at');
-  if (error) throw error;
-  return data ?? [];
+    .order('created_at')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createNoteFolder(userId: string, name: string, sortOrder: number): Promise<DbNoteFolder> {
@@ -306,14 +327,14 @@ export async function upsertSettings(userId: string, updates: Partial<Pick<DbSet
 // Monthly Goals
 // ────────────────────────────────────────────────
 export async function fetchMonthlyGoals(userId: string): Promise<DbMonthlyGoal[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbMonthlyGoal>((from, to) => supabase
     .from('monthly_goals')
     .select('*')
     .eq('user_id', userId)
     .order('month')
-    .order('sort_order');
-  if (error) throw error;
-  return data ?? [];
+    .order('sort_order')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createMonthlyGoal(userId: string, month: string, title: string): Promise<DbMonthlyGoal> {
@@ -340,13 +361,13 @@ export async function deleteMonthlyGoal(id: string): Promise<void> {
 // D-Days
 // ────────────────────────────────────────────────
 export async function fetchDDays(userId: string): Promise<DbDDay[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbDDay>((from, to) => supabase
     .from('ddays')
     .select('*')
     .eq('user_id', userId)
-    .order('target_date');
-  if (error) throw error;
-  return data ?? [];
+    .order('target_date')
+    .order('id')
+    .range(from, to));
 }
 
 export async function createDDay(userId: string, title: string, targetDate: string): Promise<DbDDay> {
@@ -373,14 +394,14 @@ export async function deleteDDay(id: string): Promise<void> {
 // Schedules (날짜/시간이 정해진 일정 - 할 일과는 별개)
 // ────────────────────────────────────────────────
 export async function fetchSchedules(userId: string): Promise<DbSchedule[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<DbSchedule>((from, to) => supabase
     .from('schedules')
     .select('*')
     .eq('user_id', userId)
     .order('date')
-    .order('start_time', { ascending: true, nullsFirst: false });
-  if (error) throw error;
-  return data ?? [];
+    .order('start_time', { ascending: true, nullsFirst: false })
+    .order('id')
+    .range(from, to));
 }
 
 export async function createSchedule(
@@ -459,15 +480,20 @@ export async function deleteFeedback(id: string): Promise<void> {
 // ────────────────────────────────────────────────
 // 블록은 매일 쌓이므로 전부 불러오지 않고 fromIso 이후(필요하면 toIso 이전)만 가져옴
 export async function fetchTimeBlocks(userId: string, fromIso: string, toIso?: string): Promise<DbTimeBlock[]> {
-  let query = supabase
-    .from('timeblocks')
-    .select('*')
-    .eq('user_id', userId)
-    .gte('start_at', fromIso);
-  if (toIso) query = query.lt('start_at', toIso);
-  const { data, error } = await query.order('start_at');
-  if (error) throw error;
-  return data ?? [];
+  return fetchAllPages<DbTimeBlock>((from, to) => {
+    let query = supabase
+      .from('timeblocks')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('start_at', fromIso);
+    if (toIso) query = query.lt('start_at', toIso);
+    return query.order('start_at').order('id').range(from, to);
+  });
+}
+
+// 백업용: 화면에 불러온 2주치만이 아니라 전체 타임박스
+export async function fetchAllTimeBlocks(userId: string): Promise<DbTimeBlock[]> {
+  return fetchTimeBlocks(userId, '1970-01-01T00:00:00Z');
 }
 
 export async function createTimeBlock(
@@ -494,4 +520,65 @@ export async function updateTimeBlock(
 export async function deleteTimeBlock(id: string): Promise<void> {
   const { error } = await supabase.from('timeblocks').delete().eq('id', id);
   if (error) throw error;
+}
+
+// 테이블이 아직 없는 DB(해당 마이그레이션 실행 전)인지. 일시적인 네트워크·서버 오류와 구분하기 위함
+export function isMissingTableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  if (code === 'PGRST205' || code === '42P01') return true;
+  return typeof message === 'string' && /Could not find the table|relation .* does not exist/i.test(message);
+}
+
+// 테이블이 없을 때만 빈 목록으로 보고, 그 밖의 실패는 그대로 던짐 (빠진 채로 백업이 '성공'하면 안 되므로)
+export async function emptyIfMissingTable<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (err) {
+    if (isMissingTableError(err)) return [];
+    throw err;
+  }
+}
+
+// ────────────────────────────────────────────────
+// 데이터 내보내기(백업) - 화면에 불러온 것이 아니라 서버에 있는 본인 데이터 전체
+// (예전엔 화면 상태를 그대로 저장해서, 2주보다 오래된 타임박스 등이 백업에서 빠졌음)
+// ────────────────────────────────────────────────
+export async function exportAllUserData(userId: string) {
+  const [todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays, schedules, timeblocks, settings] = await Promise.all([
+    fetchTodos(userId),
+    fetchCategories(userId),
+    fetchSubcategories(userId),
+    fetchNotes(userId),
+    emptyIfMissingTable(fetchNoteFolders(userId)),
+    fetchMonthlyGoals(userId),
+    fetchDDays(userId),
+    emptyIfMissingTable(fetchSchedules(userId)),
+    emptyIfMissingTable(fetchAllTimeBlocks(userId)),
+    fetchSettings(userId),
+  ]);
+  return {
+    exportedAt: new Date().toISOString(),
+    // 서버에 저장된 그대로의 형식(컬럼 이름 snake_case)
+    format: 'moa-db-rows-v1',
+    todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays, schedules, timeblocks, settings,
+  };
+}
+
+// ────────────────────────────────────────────────
+// 순서 바꾸기 - 한 번의 요청으로 sort_order를 목록 순서(0, 1, 2, ...)대로 저장 (018 마이그레이션의 reorder_items)
+// 예전엔 항목 수만큼 따로 요청을 보내서, 50개를 옮기면 요청 50번 + 실시간 알림 50번이 생겼음
+// ────────────────────────────────────────────────
+export type ReorderTable = 'todos' | 'categories' | 'subcategories';
+
+export async function reorderItems(table: ReorderTable, orderedIds: string[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  const { error } = await supabase.rpc('reorder_items', { p_table: table, p_ids: orderedIds });
+  if (!error) return;
+  // 018을 아직 실행하지 않은 DB: 예전처럼 한 줄씩 저장
+  const missingFunction = error.code === 'PGRST202' || /reorder_items/.test(error.message ?? '');
+  if (!missingFunction) throw error;
+  const results = await Promise.all(orderedIds.map((id, i) => supabase.from(table).update({ sort_order: i }).eq('id', id)));
+  const failed = results.find(r => r.error);
+  if (failed?.error) throw failed.error;
 }

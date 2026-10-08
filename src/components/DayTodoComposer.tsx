@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
+import { LIMITS } from '../lib/limits';
 
 const LAST_CATEGORY_KEY = 'day-composer-last-category';
 
@@ -179,7 +180,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
             )}
 
             <div className="flex items-center gap-1 bg-white dark:bg-gray-800/60 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-leaf-500 pl-3 pr-1.5 py-1.5">
-              <input
+              <input maxLength={LIMITS.title}
                 ref={inputRef}
                 type="text"
                 value={title}

@@ -7,6 +7,8 @@ import { useAuth } from './AuthContext';
 import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
 import { showSaveError, markSaveErrorHandled } from '../lib/toast';
+import { reportError } from '../lib/monitoring';
+import { createSerialWriter } from '../lib/serialWrites';
 import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -250,7 +252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const resync = useCallback((kind: Resource, delayMs = 300) => {
     clearTimeout(resyncTimersRef.current[kind]);
     resyncTimersRef.current[kind] = setTimeout(() => {
-      fetchersRef.current?.[kind]().catch(err => console.error(`resync ${kind} failed`, err));
+      fetchersRef.current?.[kind]().catch(err => reportError(err, `resync ${kind}`));
     }, delayMs);
   }, []);
   const resyncAll = useCallback(() => {
@@ -264,6 +266,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
   const didSetInitialScreenRef = useRef(false);
+
+  // 최신 목록을 렌더 사이에도 바로 읽기 위한 참조.
+  // 완료 토글처럼 "지금 값의 반대"를 저장해야 하는 함수가 이전 렌더의 목록을 보면,
+  // 빠르게 두 번 눌렀을 때 두 번 다 같은 값을 저장해 화면과 DB가 어긋났음
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
+  const monthlyGoalsRef = useRef(monthlyGoals);
+  monthlyGoalsRef.current = monthlyGoals;
+  const timeblocksRef = useRef(timeblocks);
+  timeblocksRef.current = timeblocks;
+  // 새 할 일의 sort_order. 연달아 추가할 때 다음 렌더 전이라 todos.length가 그대로여서 같은 값이 겹쳤음
+  // 완료 체크처럼 빠르게 반복되는 저장을 항목별로 순서대로 보냄
+  const serialWriteRef = useRef(createSerialWriter());
+  const nextTodoSortRef = useRef(0);
+  const takeTodoSortOrders = (count: number) => {
+    const start = Math.max(nextTodoSortRef.current, todosRef.current.length);
+    nextTodoSortRef.current = start + count;
+    return start;
+  };
 
   // ── 초기 데이터 로드 ────────────────────────────────────
   useEffect(() => {
@@ -316,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }).catch(err => {
       // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
-      console.error('initial load failed', err);
+      reportError(err, 'initial load');
       setLoadError(true);
     }).finally(() => setDataLoading(false));
     // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
@@ -416,12 +437,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
-      sort_order: todos.length,
+      sort_order: takeTodoSortOrders(1),
     });
     const todo = toTodo(row);
     setTodos(prev => [...prev, todo]);
     return todo;
-  }, [user, todos.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // 반복 할 일: 각 날짜마다 독립된 할 일을 한 번에 만들고 같은 seriesId로 묶음
   const addTodoSeries = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => {
@@ -433,6 +455,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTodos(prev => prev.map(t => t.id === existingId ? { ...t, seriesId } : t));
     }
     if (dates.length === 0) return;
+    const firstSort = takeTodoSortOrders(dates.length);
     const rows = await db.createTodos(user.id, dates.map((date, i) => ({
       title: fields.title,
       completed: fields.completed,
@@ -443,10 +466,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       notes: fields.notes,
-      sort_order: todos.length + i,
+      sort_order: firstSort + i,
     })), seriesId);
     setTodos(prev => [...prev, ...rows.map(toTodo)]);
-  }, [user, todos.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const updateTodoSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => {
     const dbUpdates: Parameters<typeof db.updateTodoSeries>[2] = {};
@@ -487,10 +511,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTodo = useCallback(async (id: string) => {
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    const todo = todos.find(t => t.id === id);
-    if (todo) await db.updateTodo(id, { completed: !todo.completed });
-  }, [todos]);
+    const todo = todosRef.current.find(t => t.id === id);
+    if (!todo) return;
+    const completed = !todo.completed;
+    // 다음 렌더 전에 또 눌려도 방금 바꾼 값을 기준으로 뒤집도록 참조도 바로 갱신
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
+    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed }));
+  }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
     setTodos(prev => {
@@ -499,7 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const rest = prev.filter(t => !orderedIds.includes(t.id));
       return [...reordered, ...rest];
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateTodo(id, { sort_order: i })));
+    await db.reorderItems('todos', orderedIds);
   }, []);
 
   // ── Categories ───────────────────────────────────────────
@@ -531,7 +559,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const map = new Map(prev.map(c => [c.id, c]));
       return orderedIds.map(id => map.get(id)!).filter(Boolean);
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateCategory(id, { sort_order: i })));
+    await db.reorderItems('categories', orderedIds);
   }, []);
 
   // ── Subcategories (카테고리 하위 그룹) ──────────────────────
@@ -560,7 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const rest = prev.filter(s => !orderedIds.includes(s.id));
       return [...reordered, ...rest];
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateSubcategory(id, { sort_order: i })));
+    await db.reorderItems('subcategories', orderedIds);
   }, []);
 
   // ── Notes ────────────────────────────────────────────────
@@ -619,10 +647,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleMonthlyGoal = useCallback(async (id: string) => {
-    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
-    const goal = monthlyGoals.find(g => g.id === id);
-    if (goal) await db.updateMonthlyGoal(id, { completed: !goal.completed });
-  }, [monthlyGoals]);
+    const goal = monthlyGoalsRef.current.find(g => g.id === id);
+    if (!goal) return;
+    const completed = !goal.completed;
+    monthlyGoalsRef.current = monthlyGoalsRef.current.map(g => g.id === id ? { ...g, completed } : g);
+    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed } : g));
+    await serialWriteRef.current(`goal:${id}`, () => db.updateMonthlyGoal(id, { completed }));
+  }, []);
 
   const deleteMonthlyGoal = useCallback(async (id: string) => {
     setMonthlyGoals(prev => prev.filter(g => g.id !== id));
@@ -754,15 +785,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // 할 일과 연결된 블록이면 그 할 일을 완료 처리, 아니면 블록 자체를 완료 처리
   const toggleTimeBlock = useCallback(async (id: string) => {
-    const block = timeblocks.find(b => b.id === id);
+    const block = timeblocksRef.current.find(b => b.id === id);
     if (!block) return;
-    if (block.todoId && todos.some(t => t.id === block.todoId)) {
+    if (block.todoId && todosRef.current.some(t => t.id === block.todoId)) {
       await toggleTodo(block.todoId);
       return;
     }
-    setTimeblocks(prev => prev.map(b => b.id === id ? { ...b, completed: !b.completed } : b));
-    await db.updateTimeBlock(id, { completed: !block.completed });
-  }, [timeblocks, todos, toggleTodo]);
+    const completed = !block.completed;
+    timeblocksRef.current = timeblocksRef.current.map(b => b.id === id ? { ...b, completed } : b);
+    setTimeblocks(prev => prev.map(b => b.id === id ? { ...b, completed } : b));
+    await serialWriteRef.current(`block:${id}`, () => db.updateTimeBlock(id, { completed }));
+  }, [toggleTodo]);
 
   const ensureTimeBlocksFrom = useCallback(async (dateKey: string) => {
     if (!user) return;
@@ -816,7 +849,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         return await fn(...args);
       } catch (err) {
-        console.error('save failed', err);
+        reportError(err, 'save');
         showSaveError();
         for (const kind of kinds) resync(kind, 0);
         if (rethrow) throw markSaveErrorHandled(err);

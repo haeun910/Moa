@@ -13,6 +13,7 @@ import SortableTodoItem, { TodoRows } from '../components/SortableTodoItem';
 import TodoModal from '../components/TodoModal';
 import CategoryFilter from '../components/CategoryFilter';
 import type { Todo, Category, Subcategory, Settings } from '../types';
+import { LIMITS } from '../lib/limits';
 
 const NO_CATEGORY_GROUP_ID = '__none__';
 
@@ -132,7 +133,7 @@ function CategoryQuickAdd({ categoryId, subcategoryId, onAdd, placeholder = '할
   return (
     <div className="flex items-center gap-2 pl-2.5 pr-1.5 h-9 rounded-lg mt-1.5 text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-900/60 focus-within:bg-white dark:focus-within:bg-gray-900 focus-within:ring-1 focus-within:ring-gray-200 dark:focus-within:ring-gray-700 focus-within:shadow-sm transition-colors group">
       <Plus size={15} className="flex-shrink-0 group-focus-within:text-leaf-600" />
-      <input
+      <input maxLength={LIMITS.title}
         ref={ref}
         type="text"
         value={title}
@@ -422,7 +423,7 @@ export default function AllTodosPage() {
         <div className="max-w-3xl mx-auto px-4 lg:px-8 pb-3 lg:pb-6 pt-8 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent dark:from-gray-950 dark:via-gray-950/90">
           <div className="pointer-events-auto bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-leaf-500 transition-shadow flex items-center gap-1 pl-3.5 pr-1.5 py-1.5">
             <Plus size={16} className="text-gray-400 flex-shrink-0" />
-            <input ref={quickInputRef} type="text" value={quickTitle}
+            <input maxLength={LIMITS.title} ref={quickInputRef} type="text" value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
               placeholder={placeholder}
               className="flex-1 min-w-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5 px-1.5"

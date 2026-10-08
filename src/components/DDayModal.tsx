@@ -3,6 +3,7 @@ import { X, Flag } from 'lucide-react';
 import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import type { DDay } from '../types';
+import { LIMITS } from '../lib/limits';
 
 export default function DDayModal({ dday, onClose }: { dday?: DDay; onClose: () => void }) {
   const { addDDay, updateDDay } = useApp();
@@ -46,7 +47,7 @@ export default function DDayModal({ dday, onClose }: { dday?: DDay; onClose: () 
         </div>
 
         <div className="px-6 py-5 space-y-3">
-          <input
+          <input maxLength={LIMITS.title}
             autoFocus
             type="text"
             value={title}

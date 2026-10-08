@@ -7,6 +7,7 @@ import type { RepeatRule } from '../lib/recurrence';
 import RepeatPicker from './RepeatPicker';
 import SeriesScopePicker from './SeriesScopePicker';
 import type { SeriesScope } from './SeriesScopePicker';
+import { LIMITS } from '../lib/limits';
 
 interface Props {
   todo?: Todo;
@@ -149,7 +150,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Title */}
           <div>
             <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">제목</label>
-            <input
+            <input maxLength={LIMITS.title}
               autoFocus
               type="text"
               value={title}
@@ -284,7 +285,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 ))}
                 {addingSubcat ? (
                   <div className="flex items-center gap-1">
-                    <input
+                    <input maxLength={LIMITS.subcategoryName}
                       autoFocus
                       type="text"
                       value={newSubcatName}
@@ -314,7 +315,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Notes */}
           <div>
             <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">메모</label>
-            <textarea
+            <textarea maxLength={LIMITS.longText}
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="메모를 입력하세요 (선택)"

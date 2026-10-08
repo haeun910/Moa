@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, FolderPlus, Folder, Pencil, Trash2, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { LIMITS } from '../lib/limits';
 
 // 메모 폴더 관리: 추가 / 이름 바꾸기 / 삭제 (삭제해도 메모는 "폴더 없음"으로 남음)
 export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
@@ -45,7 +46,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
                 <Folder size={16} className="flex-shrink-0 text-amber-500" />
                 {editingId === f.id ? (
                   <>
-                    <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
+                    <input maxLength={LIMITS.folderName} autoFocus value={editName} onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveRename(); if (e.key === 'Escape') setEditingId(null); }}
                       className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
                     <button onClick={saveRename} aria-label="이름 저장" className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center"><Check size={14} /></button>
@@ -75,7 +76,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex-shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
           <FolderPlus size={16} className="flex-shrink-0 text-gray-400 ml-2" />
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="새 폴더 이름"
+          <input maxLength={LIMITS.folderName} value={newName} onChange={e => setNewName(e.target.value)} placeholder="새 폴더 이름"
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
             className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
           <button onClick={handleAdd} disabled={!newName.trim()}

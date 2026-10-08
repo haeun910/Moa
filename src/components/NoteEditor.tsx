@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Note } from '../types';
+import { LIMITS } from '../lib/limits';
 
 interface Props {
   note?: Note; // 없으면 새 메모 (처음 글자를 쓰는 순간 만들어짐)
@@ -155,7 +156,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-5 sm:px-8 py-5 flex flex-col min-h-full">
           <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center mb-3">{updatedLabel}</p>
-          <input
+          <input maxLength={LIMITS.title}
             ref={titleRef}
             value={title}
             onChange={e => { setTitle(e.target.value); scheduleSave(); }}
@@ -163,7 +164,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
             placeholder="제목"
             className="w-full bg-transparent text-xl sm:text-2xl font-bold text-gray-900 dark:text-white placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none mb-3"
           />
-          <textarea
+          <textarea maxLength={LIMITS.noteContent}
             ref={contentRef}
             value={content}
             onChange={e => { setContent(e.target.value); scheduleSave(); }}

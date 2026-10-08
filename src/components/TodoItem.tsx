@@ -3,6 +3,7 @@ import { Check, Trash2, Clock, Flag, StickyNote, Repeat } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
+import { LIMITS } from '../lib/limits';
 
 interface Props {
   todo: Todo;
@@ -79,7 +80,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         {/* Title + meta */}
         <div className="flex-1 min-w-0">
           {editingTitle ? (
-            <input
+            <input maxLength={LIMITS.title}
               autoFocus
               type="text"
               value={editTitleValue}
