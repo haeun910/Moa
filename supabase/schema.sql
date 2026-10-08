@@ -170,6 +170,7 @@ create table if not exists public.timeblocks (
   remind_minutes  integer default 0 check (remind_minutes is null or remind_minutes between 0 and 120), -- null = 알림 없음
   notified_at     timestamptz,               -- 알림을 보낸 시각 (시간을 바꾸면 앱이 null로 돌림)
   created_at      timestamptz not null default now(),
+  series_id       uuid,                      -- 같은 반복(매주 고정 등)으로 만들어진 블록 묶음
   constraint timeblocks_time_order check (end_at > start_at),
   constraint timeblocks_title_length check (char_length(title) <= 500)
 );
@@ -205,6 +206,7 @@ create index if not exists idx_schedules_series           on public.schedules(se
 create index if not exists idx_feedback_created           on public.feedback(created_at desc);
 create index if not exists idx_timeblocks_user_start      on public.timeblocks(user_id, start_at);
 create index if not exists idx_timeblocks_todo            on public.timeblocks(todo_id);
+create index if not exists idx_timeblocks_series          on public.timeblocks(series_id, start_at) where series_id is not null;
 create index if not exists idx_timeblocks_pending_reminder on public.timeblocks(start_at)
   where notified_at is null and remind_minutes is not null;
 create index if not exists idx_push_subscriptions_user    on public.push_subscriptions(user_id);

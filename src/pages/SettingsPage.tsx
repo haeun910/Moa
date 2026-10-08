@@ -227,14 +227,16 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   }
 
-  const displayName = user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? '';
+  // 구글로 가입한 사람은 display_name 대신 구글 이름(full_name/name)이 들어 있음
+  const meta = user?.user_metadata;
+  const displayName = meta?.display_name ?? meta?.full_name ?? meta?.name ?? user?.email?.split('@')[0] ?? '';
   const initials = displayName.slice(0, 2).toUpperCase();
   const visibleSections = SECTIONS.filter(s => !s.adminOnly || isAdmin);
 
   const avatar = (size: 'sm' | 'lg') => (
     <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-leaf-50 dark:ring-leaf-900/30' : 'w-9 h-9 text-xs'} rounded-full bg-leaf-600 dark:bg-leaf-500 text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
       {user?.user_metadata?.avatar_url
-        ? <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" alt="" />
+        ? <img src={user.user_metadata.avatar_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
         : (initials || '?')}
     </span>
   );

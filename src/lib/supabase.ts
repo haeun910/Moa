@@ -127,6 +127,7 @@ export interface DbTimeBlock {
   remind_minutes: number | null;
   notified_at: string | null;
   created_at: string;
+  series_id?: string | null; // 019 전 DB에는 없음
 }
 
 export interface DbNotice {

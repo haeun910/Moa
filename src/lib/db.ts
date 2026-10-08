@@ -197,7 +197,7 @@ function isMissingSeriesColumn(error: { message?: string } | null): boolean {
   return !!error?.message && error.message.includes('series_id');
 }
 
-async function insertMany<T>(table: 'todos' | 'schedules', rows: Record<string, unknown>[]): Promise<T[]> {
+async function insertMany<T>(table: 'todos' | 'schedules' | 'timeblocks', rows: Record<string, unknown>[]): Promise<T[]> {
   if (rows.length === 0) return [];
   const first = await supabase.from(table).insert(rows).select('*');
   if (!first.error) return (first.data ?? []) as T[];
@@ -214,7 +214,7 @@ function seriesQuery<Q extends { eq: (col: string, v: string) => Q; gte: (col: s
 }
 
 // 기존 항목 하나를 반복 묶음에 넣음 (반복으로 바꾸기). series_id 컬럼이 없으면(012 전) 묶음만 생략
-export async function setSeriesId(table: 'todos' | 'schedules', id: string, seriesId: string): Promise<void> {
+export async function setSeriesId(table: 'todos' | 'schedules' | 'timeblocks', id: string, seriesId: string): Promise<void> {
   const { error } = await supabase.from(table).update({ series_id: seriesId }).eq('id', id);
   if (error && !isMissingSeriesColumn(error)) throw error;
 }
@@ -507,6 +507,38 @@ export async function createTimeBlock(
     .single();
   if (error) throw error;
   return data;
+}
+
+// 반복 블록: 회차마다 블록 행을 만들고 같은 series_id로 묶음 (019 전 DB면 묶음 없이 만들어짐)
+export async function createTimeBlocks(
+  userId: string,
+  rows: Pick<DbTimeBlock, 'title' | 'color' | 'start_at' | 'end_at' | 'remind_minutes'>[],
+  seriesId: string,
+): Promise<DbTimeBlock[]> {
+  return insertMany<DbTimeBlock>('timeblocks', rows.map(r => ({ user_id: userId, ...r, todo_id: null, series_id: seriesId })));
+}
+
+// 반복 블록 회차들 (fromIso가 있으면 그 시각 이후 시작하는 회차만). 화면에 안 불러온 예전 회차까지 서버에서 직접 찾음
+export async function fetchTimeBlockSeries(seriesId: string, fromIso: string | null): Promise<DbTimeBlock[]> {
+  return fetchAllPages<DbTimeBlock>((from, to) => {
+    let query = supabase.from('timeblocks').select('*').eq('series_id', seriesId);
+    if (fromIso) query = query.gte('start_at', fromIso);
+    return query.order('start_at').order('id').range(from, to);
+  });
+}
+
+// 여러 블록을 한 번에 고치기 (회차마다 날짜가 달라서 시각은 행마다 계산해서 넘김)
+export async function saveTimeBlocks(rows: DbTimeBlock[]): Promise<void> {
+  if (rows.length === 0) return;
+  const { error } = await supabase.from('timeblocks').upsert(rows);
+  if (error) throw error;
+}
+
+export async function deleteTimeBlockSeries(seriesId: string, fromIso: string | null): Promise<void> {
+  let query = supabase.from('timeblocks').delete().eq('series_id', seriesId);
+  if (fromIso) query = query.gte('start_at', fromIso);
+  const { error } = await query;
+  if (error) throw error;
 }
 
 export async function updateTimeBlock(
