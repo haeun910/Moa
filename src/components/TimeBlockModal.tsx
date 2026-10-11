@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, Trash2, Link2, Unlink, ListChecks, BellOff, Timer, Check } from 'lucide-react';
 import { addDays, addYears, format, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
@@ -15,6 +15,7 @@ import {
 } from '../lib/timebox';
 import type { TimeBlock, Todo } from '../types';
 import { LIMITS } from '../lib/limits';
+import { fetchTimeBlockSeriesStarts } from '../lib/db';
 
 export interface TimeBlockDraft {
   dateKey: string;
@@ -78,10 +79,24 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
 
   // 반복으로 만든 블록이면 저장/삭제 범위(이 블록만 · 이후 모두 · 전체)를 고름
   const seriesId = block?.seriesId ?? null;
-  const seriesItems = seriesId ? timeblocks.filter(b => b.seriesId === seriesId) : [];
-  const inSeries = seriesItems.length > 1;
+  const inSeries = !!seriesId;
+  // 화면에는 최근 2주 이후 블록만 불러와 있어서, 회차 수는 서버에서 따로 셈 (받기 전에는 불러온 것으로 표시)
+  const loadedStarts = useMemo(
+    () => (seriesId ? timeblocks.filter(b => b.seriesId === seriesId).map(b => b.startAt) : []),
+    [timeblocks, seriesId],
+  );
+  const [serverStarts, setServerStarts] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!seriesId) return;
+    let cancelled = false;
+    fetchTimeBlockSeriesStarts(seriesId).then(starts => { if (!cancelled) setServerStarts(starts); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [seriesId]);
+  const seriesStarts = serverStarts ?? loadedStarts;
+  const seriesCount = seriesStarts.length;
   const [scope, setScope] = useState<SeriesScope>('one');
-  const followingCount = block ? seriesItems.filter(b => b.startAt >= block.startAt).length : 0;
+  // 시각 비교는 문자열이 아니라 시간 값으로 (서버와 앱의 시각 표기 형식이 다를 수 있음)
+  const followingCount = block ? seriesStarts.filter(t => Date.parse(t) >= Date.parse(block.startAt)).length : 0;
   const scopeFrom = scope === 'following' && block ? block.startAt : null;
 
   // 반복 (매일 기상, 매주 월·수·금 운동 등). 반복 블록은 할 일과 연결하지 않음 (회차마다 할 일이 생기지 않게)
@@ -133,7 +148,8 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
     try {
       const range = spanToRange(dateKey, startMin, endMin);
       const seriesFields = { title: effectiveTitle, color, remindMinutes: remind };
-      if (repeating) {
+      // 기존 블록인데 새로 생길 회차가 없으면(종료일이 이 날짜 등) 반복으로 바꾸지 않고 그냥 저장
+      if (repeating && (!isEdit || newRepeatCount > 0)) {
         if (isEdit) {
           // 기존 블록을 반복으로 바꾸기: 이 블록은 내용·시간만 저장하고 반복 묶음의 첫 회차로 사용
           await updateTimeBlock(block.id, { ...seriesFields, todoId: null, startAt: range.startAt, endAt: range.endAt });
@@ -189,7 +205,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
     onClose();
   }
 
-  const deleteCount = inSeries ? (scope === 'all' ? seriesItems.length : scope === 'following' ? followingCount : 1) : 1;
+  const deleteCount = inSeries ? (scope === 'all' ? seriesCount : scope === 'following' ? followingCount : 1) : 1;
 
   const pushOff = remind !== null && push.state !== 'on';
 
@@ -360,7 +376,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
           )}
 
           {isEdit && inSeries && (
-            <SeriesScopePicker scope={scope} onChange={setScope} seriesCount={seriesItems.length} followingCount={followingCount} />
+            <SeriesScopePicker scope={scope} onChange={setScope} seriesCount={seriesCount} followingCount={followingCount} />
           )}
 
           {/* 알림 */}

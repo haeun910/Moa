@@ -826,7 +826,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = applySeriesUpdate(rows, updates);
     const byId = new Map(next.map(r => [r.id, toTimeBlock(r)]));
     setTimeblocks(prev => sortTimeBlocks(prev.map(b => byId.get(b.id) ?? b)));
-    await db.saveTimeBlocks(next);
+    // 제목·색·알림은 묶음 전체에 한 번에, 시각은 바뀐 회차만 행마다 저장 (가져온 행 전체를 덮어쓰지 않음)
+    const fields: Parameters<typeof db.updateTimeBlockSeriesFields>[2] = {};
+    if (updates.title !== undefined) fields.title = updates.title;
+    if ('color' in updates) fields.color = updates.color ?? null;
+    if ('remindMinutes' in updates && rows.some(r => r.remind_minutes !== updates.remindMinutes)) {
+      fields.remind_minutes = updates.remindMinutes ?? null;
+      fields.notified_at = null;
+    }
+    await db.updateTimeBlockSeriesFields(seriesId, fromStartAt, fields);
+    const before = new Map(rows.map(r => [r.id, r.start_at]));
+    await db.updateTimeBlockTimes(next.filter(r => before.get(r.id) !== r.start_at));
   }, []);
 
   const deleteTimeBlockSeries = useCallback(async (seriesId: string, fromStartAt: string | null) => {

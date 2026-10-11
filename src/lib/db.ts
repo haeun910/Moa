@@ -527,11 +527,36 @@ export async function fetchTimeBlockSeries(seriesId: string, fromIso: string | n
   });
 }
 
-// 여러 블록을 한 번에 고치기 (회차마다 날짜가 달라서 시각은 행마다 계산해서 넘김)
-export async function saveTimeBlocks(rows: DbTimeBlock[]): Promise<void> {
-  if (rows.length === 0) return;
-  const { error } = await supabase.from('timeblocks').upsert(rows);
+// 반복 블록 회차들의 시작 시각만 (회차 수 표시용)
+export async function fetchTimeBlockSeriesStarts(seriesId: string): Promise<string[]> {
+  const rows = await fetchAllPages<{ start_at: string }>((from, to) => supabase
+    .from('timeblocks').select('start_at').eq('series_id', seriesId)
+    .order('start_at').order('id').range(from, to));
+  return rows.map(r => r.start_at);
+}
+
+// 반복 블록 여러 회차에 같은 값(제목·색·알림)을 한 번에 저장. 바꾼 칸만 보내서
+// 다른 기기에서 방금 고친 완료 체크·시간 등은 덮어쓰지 않음
+export async function updateTimeBlockSeriesFields(
+  seriesId: string, fromIso: string | null,
+  updates: Partial<Pick<DbTimeBlock, 'title' | 'color' | 'remind_minutes' | 'notified_at'>>,
+): Promise<void> {
+  if (Object.keys(updates).length === 0) return;
+  let query = supabase.from('timeblocks').update(updates).eq('series_id', seriesId);
+  if (fromIso) query = query.gte('start_at', fromIso);
+  const { error } = await query;
   if (error) throw error;
+}
+
+// 회차마다 날짜가 달라 시각은 행마다 따로 저장 (시각 칸만 바꿈. 그 사이 지워진 회차는 다시 생기지 않음)
+export async function updateTimeBlockTimes(rows: { id: string; start_at: string; end_at: string }[]): Promise<void> {
+  const CHUNK = 20;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const results = await Promise.all(rows.slice(i, i + CHUNK).map(r =>
+      supabase.from('timeblocks').update({ start_at: r.start_at, end_at: r.end_at, notified_at: null }).eq('id', r.id)));
+    const failed = results.find(r => r.error);
+    if (failed?.error) throw failed.error;
+  }
 }
 
 export async function deleteTimeBlockSeries(seriesId: string, fromIso: string | null): Promise<void> {
