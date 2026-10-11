@@ -12,10 +12,11 @@ interface Props {
   itemLabel: string; // "할 일" / "일정"
   accent?: 'leaf' | 'blue';
   convertingExisting?: boolean; // 이미 있는 항목을 반복으로 바꾸는 중 (안내 문구만 다름)
+  defaultUntil?: (startDate: string, freq: RepeatFreq) => string; // 종료일 기본값을 다르게 줄 때 (타임박스 고정 일정은 1년)
 }
 
 // 반복 설정 UI (할 일/일정 공용): 매일/매주/격주/매월 + (매주·격주면) 요일 + 종료일
-export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false }: Props) {
+export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false, defaultUntil = defaultRepeatUntil }: Props) {
   const on = accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white';
   const off = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
   const ring = accent === 'blue' ? 'focus:ring-blue-400' : 'focus:ring-leaf-400';
@@ -26,7 +27,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
       ? [new Date(`${startDate}T00:00:00`).getDay()]
       : rule.weekdays;
     // 종료일을 아직 안 정했으면 반복 종류에 맞는 기본값을 채워줌
-    const until = freq !== 'none' && !rule.until && startDate ? defaultRepeatUntil(startDate, freq) : rule.until;
+    const until = freq !== 'none' && !rule.until && startDate ? defaultUntil(startDate, freq) : rule.until;
     onChange({ ...rule, freq, weekdays, until });
   }
 

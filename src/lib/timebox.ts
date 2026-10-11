@@ -1,5 +1,6 @@
 import { addMinutes, differenceInMinutes, format, parseISO, startOfDay } from 'date-fns';
 import type { Category, TimeBlock, Todo } from '../types';
+import type { DbTimeBlock } from './supabase';
 
 // 타임박스 화면 공통 계산 (분 단위). 하루 = 0 ~ 1440분, 블록은 같은 날 안에서만 (24:00까지)
 export const DAY_MINUTES = 24 * 60;
@@ -138,4 +139,29 @@ export function findFreeSlot(spans: { startMin: number; endMin: number }[], from
   }
   if (candidate + duration > DAY_MINUTES) return clamp(Math.ceil(fromMin / SNAP_MINUTES) * SNAP_MINUTES, 0, DAY_MINUTES - duration);
   return candidate;
+}
+
+// 반복 블록 여러 회차에 같은 수정을 적용. 시간(startMin/endMin)을 주면 각 회차의 날짜는 그대로 두고 시각만 바꿈.
+// 시각이나 알림 시점이 바뀐 회차는 새 시간에 다시 울리도록 "보냄" 표시를 지움
+export function applySeriesUpdate(
+  rows: DbTimeBlock[],
+  updates: { title?: string; color?: string | null; remindMinutes?: number | null; startMin?: number; endMin?: number },
+): DbTimeBlock[] {
+  const timeChanged = updates.startMin !== undefined && updates.endMin !== undefined;
+  return rows.map(r => {
+    const row = { ...r };
+    if (updates.title !== undefined) row.title = updates.title;
+    if ('color' in updates) row.color = updates.color ?? null;
+    if ('remindMinutes' in updates && updates.remindMinutes !== r.remind_minutes) {
+      row.remind_minutes = updates.remindMinutes ?? null;
+      row.notified_at = null;
+    }
+    if (timeChanged) {
+      const range = spanToRange(getBlockSpan({ startAt: r.start_at, endAt: r.end_at }).dateKey, updates.startMin!, updates.endMin!);
+      if (range.startAt !== r.start_at) row.notified_at = null;
+      row.start_at = range.startAt;
+      row.end_at = range.endAt;
+    }
+    return row;
+  });
 }

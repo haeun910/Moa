@@ -52,7 +52,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 Supabase 대시보드 → **SQL Editor**에서 실행합니다.
 
-**새 프로젝트:** [`supabase/schema.sql`](supabase/schema.sql) 하나만 실행하면 됩니다. 모든 테이블, RLS 정책, 함수, 신규 가입자 기본 카테고리까지 마이그레이션 001~016, 018을 모두 실행한 것과 같은 상태가 됩니다. 실행 전에 파일 안의 관리자 계정 UUID를 본인 것으로 바꾸세요. (`017_timebox_push_cron.sql`은 아래 "타임박스 알림" 설정을 마친 뒤에 따로 실행)
+**새 프로젝트:** [`supabase/schema.sql`](supabase/schema.sql) 하나만 실행하면 됩니다. 모든 테이블, RLS 정책, 함수, 신규 가입자 기본 카테고리까지 마이그레이션 001~016, 018, 019를 모두 실행한 것과 같은 상태가 됩니다. 실행 전에 파일 안의 관리자 계정 UUID를 본인 것으로 바꾸세요. (`017_timebox_push_cron.sql`은 아래 "타임박스 알림" 설정을 마친 뒤에 따로 실행)
 
 **이미 운영 중인 DB:** `schema.sql`은 실행하지 말고, [`supabase/migrations/`](supabase/migrations/)에서 아직 실행하지 않은 파일만 번호 순서대로 실행합니다. 예를 들어 `018_hardening.sql`은 순서 바꾸기를 요청 한 번으로 저장하는 함수, 남의 데이터를 연결하지 못하게 막는 검사, 글자 수 상한을 추가합니다. 실행하지 않아도 앱은 동작하지만(예전 방식으로 저장) 보안 검사는 빠집니다.
 

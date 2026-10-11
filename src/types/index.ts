@@ -93,6 +93,7 @@ export interface TimeBlock {
   completed: boolean; // 할 일과 연결 안 된 블록의 완료 여부
   remindMinutes: number | null; // 시작 몇 분 전에 알릴지 (0 = 시작 시각, null = 알림 없음)
   createdAt: string;
+  seriesId: string | null; // 반복(매주 고정 등)으로 만든 블록 묶음
 }
 
 export interface Notice {

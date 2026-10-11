@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { ChevronLeft, ChevronRight, Plus, ListChecks, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, ListChecks, PanelRightClose, PanelRightOpen, Repeat, X } from 'lucide-react';
 import { addDays, addWeeks, eachDayOfInterval, endOfWeek, format, parseISO, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -571,7 +571,7 @@ interface BlockViewProps {
   onToggle: () => void;
 }
 
-function BlockView({ span, layout, title, color, done, isNow, isPast, lifted, onPointerDown, onResizePointerDown, onClick, onToggle }: BlockViewProps) {
+function BlockView({ block, span, layout, title, color, done, isNow, isPast, lifted, onPointerDown, onResizePointerDown, onClick, onToggle }: BlockViewProps) {
   const height = Math.max((span.endMin - span.startMin) * MIN_PX, 18);
   const roomy = height >= 40;
   // 겹치는 블록은 칸을 똑같이 나누면 너무 좁아져서, 앞 블록을 넓게 두고 뒤 블록이 위에 살짝 겹쳐 올라오게 함
@@ -619,8 +619,9 @@ function BlockView({ span, layout, title, color, done, isNow, isPast, lifted, on
             {title}
           </p>
           {roomy && (
-            <p className="text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300 truncate">
+            <p className="flex items-center gap-1 text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300 truncate">
               {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
+              {block.seriesId && <Repeat size={9} className="flex-shrink-0" aria-label="반복" />}
             </p>
           )}
         </div>

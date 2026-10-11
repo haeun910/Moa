@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.0',
+    date: '2026-10-08',
+    changes: [
+      '타임박스 반복: 기상·운동처럼 늘 같은 시간에 하는 일을 매일/매주 요일별로 고정해 두기 (블록 추가 창의 "반복")',
+      '반복 블록은 이 블록만 · 이후 모두 · 전체를 골라 한꺼번에 시간·제목을 바꾸거나 지울 수 있음',
+    ],
+  },
+  {
     version: '2.4.0',
     date: '2026-10-08',
     changes: [
