@@ -493,12 +493,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ids = todosRef.current.filter(t => inSeries(t, seriesId, fromDate)).map(t => t.id);
     setTodos(prev => prev.filter(t => !inSeries(t, seriesId, fromDate)));
     removeLinkedBlocksLocally(ids);
-    await db.deleteTodoSeries(seriesId, fromDate);
+    // 블록 먼저: 할 일을 먼저 지우면 DB가 블록의 todo_id를 비워서(on delete set null) 찾을 수 없게 됨
     if (ids.length) await db.deleteTimeBlocksForTodos(ids);
+    await db.deleteTodoSeries(seriesId, fromDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => {
+  // followBlocks: 블록을 옮겨서 할 일을 맞추는 경우에는 false (다시 블록들을 옮기지 않도록)
+  const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>, followBlocks = true) => {
     if (!user) return;
     const dbUpdates: Parameters<typeof db.updateTodo>[1] = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -514,7 +516,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const before = todosRef.current.find(t => t.id === id);
     setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     await db.updateTodo(id, dbUpdates);
-    if (before) await followTodoWithBlocks(before, updates);
+    if (before && followBlocks) await followTodoWithBlocks(before, updates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -536,7 +538,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const span = getBlockSpan(block);
       const length = span.endMin - span.startMin;
-      const startMin = timeChanged ? Math.min(parseMinutes(newTime!) ?? span.startMin, DAY_MINUTES - length) : span.startMin;
+      // 시간이 바뀌면: 원래 시간이 있었으면 그만큼 같이 밀고(여러 번에 나눠 잡은 블록도 간격 유지),
+      // 없었으면 블록이 하나일 때만 새 시각으로
+      const oldMin = before.startTime ? parseMinutes(before.startTime) : null;
+      const newMin = parseMinutes(newTime ?? '');
+      let startMin = span.startMin;
+      if (timeChanged && newMin !== null) {
+        if (oldMin !== null) startMin = span.startMin + (newMin - oldMin);
+        else if (linked.length === 1) startMin = newMin;
+      }
+      startMin = Math.max(0, Math.min(startMin, DAY_MINUTES - length));
       const range = spanToRange(newDate, startMin, startMin + length);
       if (range.startAt === block.startAt && range.endAt === block.endAt) continue;
       timeblocksRef.current = timeblocksRef.current.map(b => b.id === block.id ? { ...b, ...range } : b);
@@ -554,8 +565,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteTodo = useCallback(async (id: string) => {
     setTodos(prev => prev.filter(t => t.id !== id));
     removeLinkedBlocksLocally([id]);
-    await db.deleteTodo(id);
     await db.deleteTimeBlocksForTodos([id]);
+    await db.deleteTodo(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -787,17 +798,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── 타임박스 (시간 블록) ──────────────────────────────
   // 저장소(날짜 없음)에 있던 할 일을 블록에 넣으면 그 날 할 일로 옮겨서 홈 화면 그 날짜에도 보이게 함
-  const scheduleLinkedTodo = useCallback(async (todoId: string | null | undefined, startAt: string) => {
+  // 블록을 만들거나 옮기면 연결된 할 일도 맞춤
+  // - 날짜 없는 할 일: 블록 날짜로
+  // - 할 일 날짜에 있던 블록을 다른 날로 옮기면: 할 일도 그 날로 (그 날 연결 블록이 이것 하나일 때)
+  // - 시간이 정해진 할 일: 그 날 연결 블록이 이것 하나면 할 일 시간도 블록 시작 시각으로
+  //   (한 할 일을 여러 번에 나눠 잡은 경우에는 할 일 시간은 그대로 둠)
+  const scheduleLinkedTodo = useCallback(async (blockId: string | null, todoId: string | null | undefined, startAt: string, prevStartAt?: string) => {
     if (!todoId) return;
-    const todo = todos.find(t => t.id === todoId);
+    const todo = todosRef.current.find(t => t.id === todoId);
     if (!todo) return;
     const start = parseISO(startAt);
     const dateKey = format(start, 'yyyy-MM-dd');
     const time = format(start, 'HH:mm');
-    if (!todo.date) await updateTodo(todoId, { date: dateKey });
-    // 할 일에 시간이 정해져 있고 같은 날 블록이면, 블록 시간에 맞춰 할 일 시간도 옮김 (오늘 할 일 목록과 어긋나지 않게)
-    else if (todo.date === dateKey && todo.startTime && todo.startTime !== time) await updateTodo(todoId, { startTime: time });
-  }, [todos, updateTodo]);
+    const prevDate = prevStartAt ? format(parseISO(prevStartAt), 'yyyy-MM-dd') : null;
+    const othersOn = (day: string) => timeblocksRef.current.some(b => b.id !== blockId && b.todoId === todoId && getBlockSpan(b).dateKey === day);
+    if (!todo.date) { await updateTodo(todoId, { date: dateKey }, false); return; }
+    const updates: Partial<Todo> = {};
+    if (todo.date !== dateKey && prevDate === todo.date && !othersOn(prevDate)) updates.date = dateKey;
+    const landsOnTodoDay = (updates.date ?? todo.date) === dateKey;
+    if (landsOnTodoDay && todo.startTime && todo.startTime !== time && !othersOn(dateKey)) updates.startTime = time;
+    if (Object.keys(updates).length) await updateTodo(todoId, updates, false);
+  }, [updateTodo]);
 
   const addTimeBlock = useCallback(async (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => {
     if (!user) return null;
@@ -812,7 +833,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const block = toTimeBlock(row);
     setTimeblocks(prev => sortTimeBlocks([...prev, block]));
-    await scheduleLinkedTodo(fields.todoId, fields.startAt);
+    await scheduleLinkedTodo(block.id, fields.todoId, fields.startAt);
     return block;
   }, [user, scheduleLinkedTodo]);
 
@@ -832,7 +853,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.startAt !== undefined || 'remindMinutes' in updates) dbUpdates.notified_at = null;
     await db.updateTimeBlock(id, dbUpdates);
     const linkedTodoId = 'todoId' in updates ? updates.todoId : block?.todoId;
-    if (linkedTodoId && (updates.todoId || updates.startAt)) await scheduleLinkedTodo(linkedTodoId, updates.startAt ?? block?.startAt ?? new Date().toISOString());
+    if (linkedTodoId && (updates.todoId || updates.startAt)) await scheduleLinkedTodo(id, linkedTodoId, updates.startAt ?? block?.startAt ?? new Date().toISOString(), block?.startAt);
   }, [scheduleLinkedTodo]);
 
   const deleteTimeBlock = useCallback(async (id: string) => {
@@ -967,9 +988,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTodo: guard(addTodo, T, true),
       addTodoSeries: guard(addTodoSeries, T, true),
       updateTodoSeries: guard(updateTodoSeries, T),
-      deleteTodoSeries: guard(deleteTodoSeries, T),
-      updateTodo: guard(updateTodo, T),
-      deleteTodo: guard(deleteTodo, T),
+      deleteTodoSeries: guard(deleteTodoSeries, B),
+      updateTodo: guard(updateTodo, B),
+      deleteTodo: guard(deleteTodo, B),
       toggleTodo: guard(toggleTodo, T),
       reorderTodos: guard(reorderTodos, T),
       addCategory: guard(addCategory, ['categories'], true),

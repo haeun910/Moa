@@ -654,7 +654,7 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
       tabIndex={0}
       onPointerDown={onPointerDown}
       onClick={e => { e.stopPropagation(); onClick(); }}
-      onKeyDown={e => { if (e.key === 'Enter') onClick(); }}
+      onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onClick(); }}
       className={`group absolute rounded-lg overflow-hidden cursor-pointer select-none transition-[box-shadow,opacity] ${
         lifted ? 'shadow-lg opacity-95' : 'hover:shadow-md'
       } ${isPast && !isNow && !lifted ? 'opacity-60' : ''} ${layout.col > 0 ? 'ring-1 ring-white dark:ring-gray-900' : ''}`}
@@ -758,7 +758,7 @@ function AgendaView({ item, layout, isPast, onPointerDown, onClick, onToggle }: 
       title={`${label} · ${formatMinutes(item.startMin)} ${item.title}${item.kind === 'todo' ? ' (눌러서 타임박스로 고정)' : ''}`}
       onPointerDown={e => { if (onPointerDown) onPointerDown(e); else e.stopPropagation(); }}
       onClick={e => { e.stopPropagation(); onClick(); }}
-      onKeyDown={e => { if (e.key === 'Enter') onClick(); }}
+      onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onClick(); }}
       className={`absolute rounded-lg overflow-hidden cursor-pointer select-none hover:shadow-md transition-shadow border border-dashed ${
         isPast ? 'opacity-60' : ''
       } ${layout.col > 0 ? 'ring-1 ring-white dark:ring-gray-900' : ''}`}
