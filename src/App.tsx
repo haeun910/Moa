@@ -9,12 +9,14 @@ import UpdatePrompt from './components/UpdatePrompt';
 import Toaster from './components/Toaster';
 import OnboardingModal from './components/OnboardingModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
-import TodayPage from './pages/TodayPage';
+import HomePage from './pages/HomePage';
 import { useApp } from './context/AppContext';
 import { hasSeenOnboarding, markOnboardingSeen } from './lib/onboarding';
 import { AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
 
 // 첫 화면(홈)을 빼고는 필요할 때 불러와서 처음 여는 속도를 줄임
+// 예전 홈(월 달력). 지금은 "달력" 메뉴
+const TodayPage = lazy(() => import('./pages/TodayPage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const AllTodosPage = lazy(() => import('./pages/AllTodosPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
@@ -126,7 +128,8 @@ function AppContent() {
   return (
     <Layout>
       <Suspense fallback={<LoadingScreen message="화면을 여는 중이에요" />}>
-        {currentScreen === 'today'    && <TodayPage />}
+        {currentScreen === 'today'    && <HomePage />}
+        {currentScreen === 'month'    && <TodayPage />}
         {currentScreen === 'calendar' && <CalendarPage />}
         {currentScreen === 'all'      && <AllTodosPage />}
         {currentScreen === 'notes'    && <NotesPage />}

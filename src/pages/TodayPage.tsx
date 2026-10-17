@@ -9,7 +9,6 @@ import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
 import ScheduleDeleteButton from '../components/ScheduleDeleteButton';
 import OverdueModal from '../components/OverdueModal';
-import TodayTimeline from '../components/TodayTimeline';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -110,6 +109,7 @@ function OverviewColumn({
   );
 }
 
+// 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
 export default function TodayPage() {
   const {
     todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
@@ -594,9 +594,6 @@ export default function TodayPage() {
               ))}
             </OverviewColumn>
           </section>
-
-          {/* ── 오늘 타임박스: 오늘 하루 시간 계획을 가로 막대로 ── */}
-          <TodayTimeline />
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (

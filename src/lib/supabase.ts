@@ -141,7 +141,7 @@ export interface DbNotice {
 export interface DbSettings {
   user_id: string;
   theme: 'light' | 'dark' | 'system';
-  default_screen: 'today' | 'calendar' | 'all' | 'notes' | 'timebox';
+  default_screen: 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   list_sort_by: 'manual' | 'date' | 'name';
   hide_completed: boolean;

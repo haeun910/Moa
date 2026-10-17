@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Home, Archive, NotebookPen, Settings, Timer } from 'lucide-react';
+import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -8,6 +8,7 @@ import Logo from './Logo';
 
 const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }> }[] = [
   { screen: 'today', label: '홈', Icon: Home },
+  { screen: 'month', label: '달력', Icon: CalendarDays },
   { screen: 'timebox', label: '타임박스', Icon: Timer },
   { screen: 'all', label: '저장소', Icon: Archive },
   { screen: 'notes', label: '메모', Icon: NotebookPen },
@@ -18,7 +19,7 @@ const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number
 function navOwner(screen: Screen): Screen {
   if (screen === 'categories' || screen === 'terms' || screen === 'privacy') return 'settings';
   if (screen === 'project') return 'all';
-  if (screen === 'calendar') return 'today';
+  if (screen === 'calendar') return 'month';
   return screen;
 }
 

@@ -5,6 +5,7 @@
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정과 D-Day가 타임박스에 보이는지
+// 5) 홈: 오늘 요약(할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -165,6 +166,32 @@ try {
       fail('시간이 정해진 할 일·일정과 D-Day가 타임박스에 보여야 함');
     }
     if (errors.length) fail(`타임박스 연동 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 5) 홈 요약 화면 + 달력 메뉴
+  {
+    const { context, page, errors } = await loggedInContext();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByText(`할 일 ${TOTAL_TODOS}`, { exact: true }).first().waitFor({ timeout: 5000 });
+      await page.getByRole('button', { name: /치과 예약/ }).first().waitFor({ timeout: 5000 });
+      await page.getByText('오늘 진행률').waitFor({ timeout: 5000 });
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/home-desktop.png`, fullPage: true });
+      if (process.env.SHOT_DIR) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.screenshot({ path: `${process.env.SHOT_DIR}/home-mobile.png` });
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
+      await page.getByRole('button', { name: '달력', exact: true }).first().click();
+      await page.getByRole('tablist', { name: '달력 보기' }).waitFor({ timeout: 10000 });
+      console.log('✅ 홈: 오늘 요약이 보이고, 달력 메뉴로 월 달력이 열림');
+    } catch {
+      fail('홈에 오늘 요약이 보이고 달력 메뉴로 월 달력이 열려야 함');
+    }
+    if (errors.length) fail(`홈 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

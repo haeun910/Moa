@@ -45,7 +45,7 @@ export interface NoteFolder {
 
 export interface Settings {
   theme: 'light' | 'dark' | 'system';
-  defaultScreen: 'today' | 'calendar' | 'all' | 'notes' | 'timebox';
+  defaultScreen: 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   listSortBy: 'manual' | 'date' | 'name'; // 목록 정렬 기준
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
@@ -53,7 +53,7 @@ export interface Settings {
   calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
 }
 
-export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
+export type Screen = 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
 
 export interface MonthlyGoal {
   id: string;
