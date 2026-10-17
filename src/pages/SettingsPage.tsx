@@ -45,6 +45,7 @@ const THEME_OPTS: { value: Settings['theme']; label: string; Icon: typeof Sun }[
 ];
 const SCREEN_OPTS: { value: Settings['defaultScreen']; label: string }[] = [
   { value: 'today', label: '홈' },
+  { value: 'month', label: '달력' },
   { value: 'timebox', label: '타임박스' },
   { value: 'all', label: '저장소' },
   { value: 'notes', label: '메모' },

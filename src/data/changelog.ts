@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.7.0',
+    date: '2026-10-17',
+    changes: [
+      '새 홈 화면: 앱을 열면 오늘 할 일·오늘 일정·오늘 타임박스·다가오는 D-Day·이번 달 목표를 한 화면에서 확인',
+      '홈 위쪽에 오늘 진행률, 연속 달성, 이번 주 달성률(지난주 대비), 밀린 할 일 요약 숫자',
+      '예전 홈(월/주 달력)은 아래 메뉴의 "달력"으로 옮김 (설정 > 시작 화면에서 "달력"을 고르면 예전처럼 달력으로 시작)',
+    ],
+  },
+  {
     version: '2.6.0',
     date: '2026-10-17',
     changes: [

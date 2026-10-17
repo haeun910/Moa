@@ -75,7 +75,7 @@ export default function CalendarPage() {
       {/* Date nav */}
       <div className="flex-shrink-0 px-4 lg:px-8 pt-6 sm:pt-8 pb-4 border-b border-gray-200/80 dark:border-gray-800">
         <div className="flex items-center gap-1 mb-1 -ml-1.5">
-          <button onClick={() => setCurrentScreen('today')} aria-label="홈으로 돌아가기"
+          <button onClick={() => setCurrentScreen('month')} aria-label="달력으로 돌아가기"
             className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <ArrowLeft size={17} />
           </button>
