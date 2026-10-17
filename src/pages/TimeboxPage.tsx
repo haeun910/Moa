@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { ChevronLeft, ChevronRight, Plus, ListChecks, PanelRightClose, PanelRightOpen, Repeat, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Flag, Plus, ListChecks, PanelRightClose, PanelRightOpen, Repeat, X } from 'lucide-react';
 import { addDays, addWeeks, eachDayOfInterval, endOfWeek, format, parseISO, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -9,13 +9,18 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import TimeBlockModal from '../components/TimeBlockModal';
 import type { TimeBlockDraft } from '../components/TimeBlockModal';
 import TodoPicker from '../components/TodoPicker';
+import ScheduleModal from '../components/ScheduleModal';
+import DDayModal from '../components/DDayModal';
+import TodoModal from '../components/TodoModal';
+import { buildAgenda } from '../lib/agenda';
+import type { AgendaAllDay, AgendaTimed } from '../lib/agenda';
 import {
   DAY_MINUTES, DEFAULT_BLOCK_MINUTES, SNAP_MINUTES,
   blockColor, blockDone, blockTitle, clamp, durationLabel, findFreeSlot, formatMinutes,
-  getBlockSpan, layoutOverlaps, minutesNow, snapMinutes, spanToRange,
+  getBlockSpan, layoutOverlaps, minutesNow, parseMinutes, snapMinutes, spanToRange,
 } from '../lib/timebox';
 import type { BlockSpan } from '../lib/timebox';
-import type { TimeBlock, Todo } from '../types';
+import type { DDay, ScheduleItem, TimeBlock, Todo } from '../types';
 
 const HOUR_PX = 52;
 const MIN_PX = HOUR_PX / 60;
@@ -31,6 +36,8 @@ type Drag =
   | { kind: 'todo'; todo: Todo; x: number; y: number; originX: number; originY: number; active: boolean; target: { dateKey: string; startMin: number } | null };
 
 type ModalState = { block: TimeBlock } | { draft: TimeBlockDraft };
+// 다른 기능(일정·D-Day·할 일)의 항목을 눌렀을 때 여는 원래 편집 창
+type SourceModal = { schedule: ScheduleItem } | { dday: DDay } | { todo: Todo };
 
 function weekdayTone(dow: number) {
   if (dow === 0) return 'text-red-500 dark:text-red-400';
@@ -39,7 +46,7 @@ function weekdayTone(dow: number) {
 }
 
 export default function TimeboxPage() {
-  const { timeblocks, todos, categories, addTimeBlock, updateTimeBlock, toggleTimeBlock, ensureTimeBlocksFrom } = useApp();
+  const { timeblocks, todos, categories, schedules, ddays, addTimeBlock, updateTimeBlock, toggleTimeBlock, toggleTodo, ensureTimeBlocksFrom } = useApp();
   const now = useNow();
   const todayKey = format(now, 'yyyy-MM-dd');
   const nowMin = minutesNow(now);
@@ -54,6 +61,7 @@ export default function TimeboxPage() {
   });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [sourceModal, setSourceModal] = useState<SourceModal | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
 
   const dragRef = useRef<Drag | null>(null);
@@ -89,6 +97,13 @@ export default function TimeboxPage() {
     }
     return map;
   }, [timeblocks]);
+
+  // 시간이 정해진 할 일·일정, 종일 일정·D-Day (블록이 아니라 원래 기능에서 그대로 가져와 보여줌)
+  const agenda = useMemo(
+    () => buildAgenda(days, { todos, schedules, ddays, timeblocks, categories, todayKey }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [weekStartKey, todayKey, todos, schedules, ddays, timeblocks, categories],
+  );
 
   // 끄는 동안에는 옮겨질 위치를 미리 보여줌
   function displaySpan(block: TimeBlock, span: BlockSpan): BlockSpan {
@@ -270,13 +285,40 @@ export default function TimeboxPage() {
     setDragState({ kind: 'todo', todo, x: e.clientX, y: e.clientY, originX: e.clientX, originY: e.clientY, active: false, target: null });
   }
 
+  // 빈 시간 찾을 때는 블록뿐 아니라 시간이 정해진 할 일·일정도 피함
+  function busySpans(dateKey: string): BlockSpan[] {
+    return [
+      ...(spansByDay.get(dateKey) ?? []).map(({ span }) => span),
+      ...(agenda.get(dateKey)?.timed ?? []).map(item => ({ dateKey, startMin: item.startMin, endMin: item.endMin })),
+    ];
+  }
+
+  // 시간이 정해진 할 일을 누르면 그 시간 그대로 블록으로 고정하는 창을 열고, 일정은 일정 창을 엶
+  function handleAgendaClick(item: AgendaTimed, dateKey: string) {
+    if (suppressClickRef.current) return;
+    if (item.kind === 'todo') setModal({ draft: { dateKey, startMin: item.startMin, endMin: item.endMin, todoId: item.todo.id } });
+    else setSourceModal({ schedule: item.schedule });
+  }
+
+  function handleAllDayClick(item: AgendaAllDay) {
+    if (item.kind === 'schedule') { setSourceModal({ schedule: item.schedule }); return; }
+    const fromTodo = item.dday.fromTodoId ? todosById.get(item.dday.fromTodoId) : undefined;
+    setSourceModal(fromTodo ? { todo: fromTodo } : { dday: item.dday });
+  }
+
   // 할 일을 누르면: 보고 있는 날(이번 주에 오늘이 있으면 오늘)의 다음 빈 시간에 1시간짜리로 제안
   function handleTodoPick(todo: Todo) {
     if (suppressClickRef.current) return;
+    // 할 일에 이번 주 날짜와 시간이 정해져 있으면 그 시간 그대로 제안
+    const ownStart = todo.date && days.includes(todo.date) && todo.startTime ? parseMinutes(todo.startTime) : null;
+    if (todo.date && ownStart !== null && ownStart < DAY_MINUTES) {
+      setSheetOpen(false);
+      setModal({ draft: { dateKey: todo.date, startMin: ownStart, endMin: Math.min(DAY_MINUTES, ownStart + DEFAULT_BLOCK_MINUTES), todoId: todo.id } });
+      return;
+    }
     const dateKey = isWide ? (days.includes(todayKey) ? todayKey : days[0]) : focusDay;
     const from = dateKey === todayKey ? nowMin : 9 * 60;
-    const spans = (spansByDay.get(dateKey) ?? []).map(({ span }) => span);
-    const startMin = findFreeSlot(spans, from, DEFAULT_BLOCK_MINUTES);
+    const startMin = findFreeSlot(busySpans(dateKey), from, DEFAULT_BLOCK_MINUTES);
     setSheetOpen(false);
     setModal({ draft: { dateKey, startMin, endMin: Math.min(DAY_MINUTES, startMin + DEFAULT_BLOCK_MINUTES), todoId: todo.id } });
   }
@@ -284,8 +326,7 @@ export default function TimeboxPage() {
   function openNewBlock() {
     const dateKey = isWide ? (days.includes(todayKey) ? todayKey : days[0]) : focusDay;
     const from = dateKey === todayKey ? nowMin : 9 * 60;
-    const spans = (spansByDay.get(dateKey) ?? []).map(({ span }) => span);
-    const startMin = findFreeSlot(spans, from, DEFAULT_BLOCK_MINUTES);
+    const startMin = findFreeSlot(busySpans(dateKey), from, DEFAULT_BLOCK_MINUTES);
     setModal({ draft: { dateKey, startMin, endMin: Math.min(DAY_MINUTES, startMin + DEFAULT_BLOCK_MINUTES) } });
   }
 
@@ -358,7 +399,7 @@ export default function TimeboxPage() {
               const day = parseISO(dateKey);
               const selected = dateKey === focusDay;
               const isToday = dateKey === todayKey;
-              const count = spansByDay.get(dateKey)?.length ?? 0;
+              const count = (spansByDay.get(dateKey)?.length ?? 0) + (agenda.get(dateKey)?.timed.length ?? 0) + (agenda.get(dateKey)?.allDay.length ?? 0);
               return (
                 <button key={dateKey} role="tab" aria-selected={selected} onClick={() => setFocusDay(dateKey)}
                   className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
@@ -407,9 +448,17 @@ export default function TimeboxPage() {
                     <p className="text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                       {planned ? durationLabel(planned) : ' '}
                     </p>
+                    <AllDayChips items={agenda.get(dateKey)?.allDay ?? []} onClick={handleAllDayClick} compact />
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* 좁은 화면: 고른 날의 종일 일정·D-Day */}
+          {!isWide && (agenda.get(focusDay)?.allDay.length ?? 0) > 0 && (
+            <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 px-3 py-2">
+              <AllDayChips items={agenda.get(focusDay)!.allDay} onClick={handleAllDayClick} />
             </div>
           )}
 
@@ -437,7 +486,11 @@ export default function TimeboxPage() {
 
               {visibleDays.map(dateKey => {
                 const items = displayByDay.get(dateKey) ?? [];
-                const layout = layoutOverlaps(items.map(({ block, span }) => ({ id: block.id, startMin: span.startMin, endMin: span.endMin })));
+                const timed = agenda.get(dateKey)?.timed ?? [];
+                const layout = layoutOverlaps([
+                  ...items.map(({ block, span }) => ({ id: block.id, startMin: span.startMin, endMin: span.endMin })),
+                  ...timed.map(item => ({ id: item.key, startMin: item.startMin, endMin: item.endMin })),
+                ]);
                 const isToday = dateKey === todayKey;
                 const ghost =
                   drag?.kind === 'create' && drag.dateKey === dateKey
@@ -469,6 +522,18 @@ export default function TimeboxPage() {
                         onResizePointerDown={e => handleResizePointerDown(e, block, span)}
                         onClick={() => { if (!suppressClickRef.current) setModal({ block }); }}
                         onToggle={() => toggleTimeBlock(block.id)}
+                      />
+                    ))}
+
+                    {timed.map(item => (
+                      <AgendaView
+                        key={item.key}
+                        item={item}
+                        layout={layout.get(item.key) ?? { col: 0, cols: 1 }}
+                        isPast={dateKey < todayKey || (isToday && item.endMin <= nowMin)}
+                        onPointerDown={item.kind === 'todo' ? e => { e.stopPropagation(); handleTodoDragStart(e, item.todo); } : undefined}
+                        onClick={() => handleAgendaClick(item, dateKey)}
+                        onToggle={item.kind === 'todo' ? () => toggleTodo(item.todo.id) : undefined}
                       />
                     ))}
 
@@ -551,6 +616,9 @@ export default function TimeboxPage() {
           onClose={() => setModal(null)}
         />
       )}
+      {sourceModal && 'schedule' in sourceModal && <ScheduleModal schedule={sourceModal.schedule} onClose={() => setSourceModal(null)} />}
+      {sourceModal && 'dday' in sourceModal && <DDayModal dday={sourceModal.dday} onClose={() => setSourceModal(null)} />}
+      {sourceModal && 'todo' in sourceModal && <TodoModal todo={sourceModal.todo} onClose={() => setSourceModal(null)} />}
     </div>
   );
 }
@@ -634,6 +702,105 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
         className="absolute bottom-0 inset-x-0 h-2 cursor-ns-resize touch-none flex items-end justify-center"
       >
         <span className="mb-[2px] w-6 h-[3px] rounded-full opacity-0 group-hover:opacity-60 transition-opacity" style={{ backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+// 종일 일정·D-Day 칩 (요일 머리글 / 좁은 화면은 시간표 위)
+function AllDayChips({ items, onClick, compact }: { items: AgendaAllDay[]; onClick: (item: AgendaAllDay) => void; compact?: boolean }) {
+  if (items.length === 0) return null;
+  return (
+    <div className={`flex gap-1 ${compact ? 'flex-col mt-1' : 'flex-wrap'}`}>
+      {items.map(item => {
+        const isDday = item.kind === 'dday';
+        return (
+          <button key={item.key} onClick={() => onClick(item)} title={`${isDday ? 'D-Day' : '일정'} · ${item.title}`}
+            className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-[10.5px] font-medium text-left ${
+              isDday
+                ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+            }`}>
+            {isDday ? <Flag size={10} className="flex-shrink-0" /> : <CalendarDays size={10} className="flex-shrink-0" />}
+            <span className="truncate">{item.title}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface AgendaViewProps {
+  item: AgendaTimed;
+  layout: { col: number; cols: number };
+  isPast: boolean;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  onClick: () => void;
+  onToggle?: () => void;
+}
+
+// 시간이 정해진 할 일·일정: 블록과 구분되게 점선 테두리로 보여줌
+function AgendaView({ item, layout, isPast, onPointerDown, onClick, onToggle }: AgendaViewProps) {
+  const height = Math.max((item.endMin - item.startMin) * MIN_PX, 18);
+  const roomy = height >= 40;
+  const slot = 100 / layout.cols;
+  const left = layout.col * slot;
+  const width = layout.col === layout.cols - 1 ? slot : Math.min(100 - left, slot * 1.7);
+  const { color, done } = item;
+  const label = item.kind === 'todo' ? '할 일' : '일정';
+
+  return (
+    <div
+      data-block
+      data-agenda={item.kind}
+      role="button"
+      tabIndex={0}
+      title={`${label} · ${formatMinutes(item.startMin)} ${item.title}${item.kind === 'todo' ? ' (눌러서 타임박스로 고정)' : ''}`}
+      onPointerDown={e => { if (onPointerDown) onPointerDown(e); else e.stopPropagation(); }}
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      onKeyDown={e => { if (e.key === 'Enter') onClick(); }}
+      className={`absolute rounded-lg overflow-hidden cursor-pointer select-none hover:shadow-md transition-shadow border border-dashed ${
+        isPast ? 'opacity-60' : ''
+      } ${layout.col > 0 ? 'ring-1 ring-white dark:ring-gray-900' : ''}`}
+      style={{
+        top: item.startMin * MIN_PX + 1,
+        height: height - 2,
+        left: `calc(${left}% + 2px)`,
+        width: `calc(${width}% - 4px)`,
+        zIndex: 10 + layout.col,
+        backgroundColor: `${color}${done ? '0d' : '17'}`,
+        borderColor: `${color}99`,
+        borderLeft: `3px solid ${color}`,
+      }}
+    >
+      <div className={`flex items-start gap-1 h-full ${roomy ? 'px-1.5 py-1' : 'px-1.5 items-center'}`}>
+        {onToggle ? (
+          <button
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onToggle(); }}
+            aria-label={done ? '완료 취소' : '완료'}
+            className={`flex-shrink-0 w-3.5 h-3.5 mt-px rounded-full border-[1.5px] flex items-center justify-center bg-white/70 dark:bg-gray-900/50 ${roomy ? '' : 'hidden sm:flex'}`}
+            style={{ borderColor: color, backgroundColor: done ? color : undefined }}
+          >
+            {done && (
+              <svg width="7" height="7" viewBox="0 0 8 8" fill="none" aria-hidden>
+                <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        ) : (
+          <CalendarDays size={11} className={`flex-shrink-0 mt-px ${roomy ? '' : 'hidden sm:block'}`} style={{ color }} />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className={`text-[11.5px] leading-[1.3] font-medium text-gray-800 dark:text-gray-100 ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+            {item.title}
+          </p>
+          {roomy && (
+            <p className="text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400 truncate">
+              {formatMinutes(item.startMin)} · {label}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

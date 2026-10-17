@@ -7,6 +7,7 @@ import GoalModal from '../components/GoalModal';
 import DDayModal from '../components/DDayModal';
 import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
+import ScheduleDeleteButton from '../components/ScheduleDeleteButton';
 import OverdueModal from '../components/OverdueModal';
 import TodayTimeline from '../components/TodayTimeline';
 import {
@@ -22,6 +23,7 @@ import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
+import { todoDdays } from '../lib/agenda';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -112,7 +114,7 @@ export default function TodayPage() {
   const {
     todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
-    ddays, deleteDDay, schedules, deleteSchedule, notices, setCurrentScreen,
+    ddays, deleteDDay, schedules, notices, setCurrentScreen,
   } = useApp();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -195,10 +197,7 @@ export default function TodayPage() {
 
   // 할 일에 "D-Day로 표시" 체크를 하면 여기서 가상 D-Day로 합쳐져서 항상 자동으로 동기화됨
   // (마감일이 있으면 마감일, 없으면 작업 날짜를 기준일로 사용)
-  const todoDdays: DDay[] = todos
-    .filter(t => t.isDday && (t.dueDate || t.date))
-    .map(t => ({ id: `todo-${t.id}`, title: t.title, targetDate: (t.dueDate || t.date) as string, fromTodoId: t.id }));
-  const allDdays = [...ddays, ...todoDdays].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+  const allDdays = [...ddays, ...todoDdays(todos, todayStr)].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
   // 위쪽 위젯에는 지나간 D-Day는 숨기고, "D-Day" 제목을 누르면 지나간 것까지 전체를 보여줌
   const upcomingDdays = allDdays.filter(d => differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0);
   // 선택한 날이 기준일인 D-Day (날짜 패널의 할 일 목록 맨 위에 일정과 함께 보여줌)
@@ -320,13 +319,8 @@ export default function TodayPage() {
                   <span className="flex-shrink-0 w-11 text-xs font-semibold tabular-nums text-blue-600 dark:text-blue-300">{s.startTime ?? '종일'}</span>
                   <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate">{s.title}</span>
                   {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
-                  <button
-                    onClick={e => { e.stopPropagation(); deleteSchedule(s.id); }}
-                    aria-label="일정 삭제"
-                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <ScheduleDeleteButton schedule={s}
+                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
                 </div>
               ))}
             </div>
@@ -594,10 +588,8 @@ export default function TodayPage() {
                   {s.startTime && (
                     <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{s.startTime}</span>
                   )}
-                  <button onClick={e => { e.stopPropagation(); deleteSchedule(s.id); }} aria-label="일정 삭제"
-                    className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all">
-                    <Trash2 size={12} />
-                  </button>
+                  <ScheduleDeleteButton schedule={s} size={12}
+                    className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
                 </div>
               ))}
             </OverviewColumn>
@@ -745,6 +737,18 @@ export default function TodayPage() {
                           </div>
                         </div>
                         <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
+                          {/* 월간 보기처럼 D-Day·일정도 함께 */}
+                          {allDdays.filter(d => d.targetDate === dateStr).map(d => (
+                            <p key={`dday-${d.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-rose-50 dark:bg-rose-900/30 text-[10.5px] font-medium text-rose-700 dark:text-rose-300 truncate">
+                              <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
+                            </p>
+                          ))}
+                          {schedules.filter(sc => sc.date === dateStr).sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
+                            <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-[10.5px] font-medium text-blue-700 dark:text-blue-300 truncate">
+                              {sc.startTime && <span className="flex-shrink-0 tabular-nums">{sc.startTime}</span>}
+                              <span className="truncate">{sc.title}</span>
+                            </p>
+                          ))}
                           {dayTodos.map(todo => (
                             <div key={todo.id}
                               className="flex items-start gap-1.5 cursor-pointer group"

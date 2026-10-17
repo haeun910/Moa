@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
 import { LIMITS } from '../lib/limits';
+import SeriesDeleteChoice from './SeriesDeleteChoice';
 
 interface Props {
   todo: Todo;
@@ -14,7 +15,11 @@ interface Props {
 }
 
 export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }: Props) {
-  const { toggleTodo, updateTodo, deleteTodo, categories } = useApp();
+  const { todos, toggleTodo, updateTodo, deleteTodo, deleteTodoSeries, categories } = useApp();
+  // 반복으로 만든 할 일이면 지울 때 이것만 / 이후 모두 / 전체 를 고를 수 있게
+  const seriesItems = todo.seriesId ? todos.filter(t => t.seriesId === todo.seriesId) : [];
+  const inSeries = seriesItems.length > 1;
+  const followingCount = todo.date ? seriesItems.filter(t => t.date && t.date >= todo.date!).length : seriesItems.length;
   const [showDelete, setShowDelete] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -140,7 +145,19 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         </div>
 
         {/* Delete (실수로 지우지 않도록 한 번 더 확인) */}
-        {confirmDelete ? (
+        {confirmDelete && inSeries ? (
+          <div className={`transition-opacity duration-200 ${showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <SeriesDeleteChoice
+              seriesCount={seriesItems.length}
+              followingCount={followingCount}
+              onCancel={() => setConfirmDelete(false)}
+              onDelete={scope => {
+                if (scope === 'one' || !todo.seriesId) deleteTodo(todo.id);
+                else deleteTodoSeries(todo.seriesId, scope === 'following' ? todo.date : null);
+              }}
+            />
+          </div>
+        ) : confirmDelete ? (
           <div className={`flex items-center gap-1 flex-shrink-0 transition-opacity duration-200 ${showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button onClick={() => setConfirmDelete(false)}
               className="text-[11px] font-medium px-2 py-1 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 whitespace-nowrap">취소</button>

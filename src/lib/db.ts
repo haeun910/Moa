@@ -574,6 +574,14 @@ export async function updateTimeBlock(
   if (error) throw error;
 }
 
+// 할 일을 지우면 그 할 일에 연결해 둔 블록도 같이 지움 (남겨 두면 옛 제목으로 알림이 계속 감)
+export async function deleteTimeBlocksForTodos(todoIds: string[]): Promise<void> {
+  for (let i = 0; i < todoIds.length; i += 200) {
+    const { error } = await supabase.from('timeblocks').delete().in('todo_id', todoIds.slice(i, i + 200));
+    if (error) throw error;
+  }
+}
+
 export async function deleteTimeBlock(id: string): Promise<void> {
   const { error } = await supabase.from('timeblocks').delete().eq('id', id);
   if (error) throw error;

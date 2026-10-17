@@ -4,22 +4,26 @@ import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
 import TimeBlockModal from './TimeBlockModal';
+import ScheduleModal from './ScheduleModal';
+import { buildAgenda } from '../lib/agenda';
+import type { AgendaTimed } from '../lib/agenda';
 import type { TimeBlockDraft } from './TimeBlockModal';
 import {
   DAY_MINUTES, DEFAULT_BLOCK_MINUTES, blockColor, blockDone, blockTitle, clamp, findFreeSlot,
   formatMinutes, getBlockSpan, layoutOverlaps, minutesNow,
 } from '../lib/timebox';
-import type { TimeBlock } from '../types';
+import type { ScheduleItem, TimeBlock } from '../types';
 
 const MIN_RANGE_HOURS = 8;
 
 // 홈 화면: 오늘 하루 타임박스를 가로 막대로 한눈에 (지금 하는 것 / 다음 할 것 + 지금 시각 선)
 export default function TodayTimeline() {
-  const { timeblocks, todos, categories, setCurrentScreen } = useApp();
+  const { timeblocks, todos, categories, schedules, ddays, setCurrentScreen } = useApp();
   const now = useNow();
   const todayKey = format(now, 'yyyy-MM-dd');
   const nowMin = minutesNow(now);
   const [modal, setModal] = useState<{ block?: TimeBlock; draft?: TimeBlockDraft } | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<ScheduleItem | null>(null);
 
   const todosById = useMemo(() => new Map(todos.map(t => [t.id, t])), [todos]);
   const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
@@ -28,16 +32,27 @@ export default function TodayTimeline() {
     .map(block => ({ block, span: getBlockSpan(block) }))
     .filter(({ span }) => span.dateKey === todayKey), [timeblocks, todayKey]);
 
-  const current = items.find(({ span }) => span.startMin <= nowMin && nowMin < span.endMin);
-  const next = items.find(({ span }) => span.startMin > nowMin);
+  // 블록 말고도 시간이 정해진 오늘 할 일·일정을 같이 보여줌 (점선)
+  const agendaItems = useMemo<AgendaTimed[]>(
+    () => buildAgenda([todayKey], { todos, schedules, ddays, timeblocks, categories, todayKey }).get(todayKey)?.timed ?? [],
+    [todayKey, todos, schedules, ddays, timeblocks, categories],
+  );
+  // 지금/다음 표시와 범위 계산은 블록과 할 일·일정을 모두 보고 정함
+  const entries = [
+    ...items.map(({ block, span }) => ({ id: block.id, startMin: span.startMin, endMin: span.endMin, title: blockTitle(block, todosById) })),
+    ...agendaItems.map(item => ({ id: item.key, startMin: item.startMin, endMin: item.endMin, title: item.title })),
+  ].sort((a, b) => a.startMin - b.startMin);
+
+  const current = entries.find(e => e.startMin <= nowMin && nowMin < e.endMin);
+  const next = entries.find(e => e.startMin > nowMin);
   const doneCount = items.filter(({ block }) => blockDone(block, todosById)).length;
 
   // 보여줄 시간 범위: 오늘 블록들(과 지금 시각)을 감싸는 정각 단위, 최소 8시간
   let rangeStart = 9 * 60;
   let rangeEnd = 18 * 60;
-  if (items.length) {
-    rangeStart = Math.floor(Math.min(...items.map(i => i.span.startMin), nowMin) / 60) * 60;
-    rangeEnd = Math.ceil(Math.max(...items.map(i => i.span.endMin), nowMin + 1) / 60) * 60;
+  if (entries.length) {
+    rangeStart = Math.floor(Math.min(...entries.map(e => e.startMin), nowMin) / 60) * 60;
+    rangeEnd = Math.ceil(Math.max(...entries.map(e => e.endMin), nowMin + 1) / 60) * 60;
     if (rangeEnd - rangeStart < MIN_RANGE_HOURS * 60) {
       rangeEnd = Math.min(DAY_MINUTES, rangeStart + MIN_RANGE_HOURS * 60);
       rangeStart = Math.max(0, rangeEnd - MIN_RANGE_HOURS * 60);
@@ -49,17 +64,17 @@ export default function TodayTimeline() {
   const ticks: number[] = [];
   for (let m = Math.ceil(rangeStart / tickStep) * tickStep; m <= rangeEnd; m += tickStep) ticks.push(m);
 
-  const layout = layoutOverlaps(items.map(({ block, span }) => ({ id: block.id, startMin: span.startMin, endMin: span.endMin })));
+  const layout = layoutOverlaps(entries);
 
   function addBlock() {
-    const startMin = findFreeSlot(items.map(i => i.span), nowMin, DEFAULT_BLOCK_MINUTES);
+    const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), nowMin, DEFAULT_BLOCK_MINUTES);
     setModal({ draft: { dateKey: todayKey, startMin, endMin: Math.min(DAY_MINUTES, startMin + DEFAULT_BLOCK_MINUTES) } });
   }
 
   const statusText = current
-    ? { label: '지금', title: blockTitle(current.block, todosById), time: `~${formatMinutes(current.span.endMin)}` }
+    ? { label: '지금', title: current.title, time: `~${formatMinutes(current.endMin)}` }
     : next
-      ? { label: '다음', title: blockTitle(next.block, todosById), time: formatMinutes(next.span.startMin) }
+      ? { label: '다음', title: next.title, time: formatMinutes(next.startMin) }
       : null;
 
   return (
@@ -96,7 +111,7 @@ export default function TodayTimeline() {
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {entries.length === 0 ? (
         <button onClick={addBlock}
           className="w-full h-11 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-[13px] text-gray-400 dark:text-gray-500 hover:text-leaf-700 dark:hover:text-leaf-300 hover:border-leaf-400 transition-colors">
           오늘 할 일을 시간에 배치해보세요
@@ -141,6 +156,41 @@ export default function TodayTimeline() {
                 </button>
               );
             })}
+            {agendaItems.map(item => {
+              const { col, cols } = layout.get(item.key) ?? { col: 0, cols: 1 };
+              const isNow = item.startMin <= nowMin && nowMin < item.endMin;
+              const kindLabel = item.kind === 'todo' ? '할 일' : '일정';
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    if (item.kind === 'todo') setModal({ draft: { dateKey: todayKey, startMin: item.startMin, endMin: item.endMin, todoId: item.todo.id } });
+                    else setScheduleModal(item.schedule);
+                  }}
+                  title={`${formatMinutes(item.startMin)} ${kindLabel} · ${item.title}`}
+                  className={`absolute rounded-md px-1.5 text-left overflow-hidden border border-dashed transition-opacity hover:opacity-100 ${
+                    item.endMin <= nowMin && !isNow ? 'opacity-55' : ''
+                  }`}
+                  style={{
+                    left: `calc(${pct(item.startMin)}% + 1px)`,
+                    width: `calc(${pct(item.endMin) - pct(item.startMin)}% - 2px)`,
+                    top: `calc(${(col / cols) * 100}% + 3px)`,
+                    height: `calc(${100 / cols}% - 6px)`,
+                    backgroundColor: `${item.color}${item.done ? '0d' : '17'}`,
+                    borderColor: `${item.color}99`,
+                    borderLeft: `3px solid ${item.color}`,
+                  }}
+                >
+                  <span className={`block truncate text-[11px] leading-[1.25] font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}
+                    style={{ lineHeight: cols > 1 ? '1.1' : undefined, marginTop: cols > 1 ? 0 : 4 }}>
+                    {item.title}
+                  </span>
+                  {cols === 1 && (
+                    <span className="block truncate text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
+                  )}
+                </button>
+              );
+            })}
             {nowMin >= rangeStart && nowMin <= rangeEnd && (
               <div className="absolute inset-y-0 w-[1.5px] bg-red-500 pointer-events-none" style={{ left: `${pct(nowMin)}%` }} aria-hidden>
                 <div className="absolute -top-px -left-[3px] w-[7.5px] h-[7.5px] rounded-full bg-red-500" />
@@ -157,6 +207,7 @@ export default function TodayTimeline() {
         </div>
       )}
 
+      {scheduleModal && <ScheduleModal schedule={scheduleModal} onClose={() => setScheduleModal(null)} />}
       {modal && <TimeBlockModal block={modal.block} draft={modal.draft} onClose={() => setModal(null)} />}
     </section>
   );
