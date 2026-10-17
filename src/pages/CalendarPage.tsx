@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Clock } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Flag, Plus, Clock } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import TodoModal from '../components/TodoModal';
 import CategoryFilter from '../components/CategoryFilter';
-import type { Todo } from '../types';
+import ScheduleModal from '../components/ScheduleModal';
+import DDayModal from '../components/DDayModal';
+import { todoDdays } from '../lib/agenda';
+import type { DDay, ScheduleItem, Todo } from '../types';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -14,18 +17,38 @@ function formatHour(h: number) {
 }
 
 export default function CalendarPage() {
-  const { todos, selectedDate, setSelectedDate, setCurrentScreen } = useApp();
+  const { todos, schedules, ddays, selectedDate, setSelectedDate, setCurrentScreen } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [defaultTime, setDefaultTime] = useState<string | undefined>();
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const [openSchedule, setOpenSchedule] = useState<ScheduleItem | null>(null);
+  const [openDday, setOpenDday] = useState<DDay | null>(null);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const dayTodos = todos.filter(t => t.date === selectedDate);
   const filtered = activeCatId ? dayTodos.filter(t => t.categoryId === activeCatId) : dayTodos;
 
   const allDayTodos = filtered.filter(t => !t.startTime);
-  const timedTodos = filtered.filter(t => t.startTime);
+  const timedTodos = filtered.filter(t => t.startTime).sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+
+  // 할 일뿐 아니라 그 날의 일정·D-Day도 같이 (카테고리 필터를 고르면 할 일만)
+  const daySchedules = activeCatId ? [] : schedules.filter(sc => sc.date === selectedDate)
+    .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+  const dayDdays = activeCatId ? [] : [...ddays, ...todoDdays(todos, todayStr)].filter(d => d.targetDate === selectedDate);
+  const allDaySchedules = daySchedules.filter(sc => !sc.startTime);
+  const schedulesByHour: Record<number, ScheduleItem[]> = {};
+  for (const sc of daySchedules) {
+    if (!sc.startTime) continue;
+    const h = parseInt(sc.startTime.split(':')[0], 10);
+    (schedulesByHour[h] ??= []).push(sc);
+  }
+
+  function openDdayItem(d: DDay) {
+    const fromTodo = d.fromTodoId ? todos.find(t => t.id === d.fromTodoId) : undefined;
+    if (fromTodo) openEdit(fromTodo);
+    else setOpenDday(d);
+  }
 
   // Group timed todos by hour
   const todosByHour: Record<number, Todo[]> = {};
@@ -100,10 +123,21 @@ export default function CalendarPage() {
       {/* Schedule body */}
       <div className="flex-1 overflow-y-auto">
         {/* All-day section */}
-        {allDayTodos.length > 0 && (
+        {(allDayTodos.length > 0 || allDaySchedules.length > 0 || dayDdays.length > 0) && (
           <div className="border-b border-gray-200/80 dark:border-gray-800 px-4 lg:px-8 py-3">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">하루 종일</p>
             <div className="space-y-1.5">
+              {dayDdays.map(d => (
+                <button key={`dday-${d.id}`} onClick={() => openDdayItem(d)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-rose-50 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300">
+                  <Flag size={13} className="flex-shrink-0" />
+                  <span className="text-sm flex-1 truncate">{d.title}</span>
+                  <span className="text-[11px] font-semibold">D-Day</span>
+                </button>
+              ))}
+              {allDaySchedules.map(sc => (
+                <ScheduleChip key={sc.id} schedule={sc} onOpen={setOpenSchedule} />
+              ))}
               {allDayTodos.map(todo => (
                 <AllDayTodoChip key={todo.id} todo={todo} onEdit={openEdit} />
               ))}
@@ -127,11 +161,16 @@ export default function CalendarPage() {
                 className="flex-1 pl-2 pt-1 pb-1 relative cursor-pointer hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
                 onClick={() => openNewAtTime(h)}
               >
+                {(schedulesByHour[h] ?? []).map(sc => (
+                  <div key={sc.id} className="mb-1" onClick={e => e.stopPropagation()}>
+                    <ScheduleChip schedule={sc} onOpen={setOpenSchedule} />
+                  </div>
+                ))}
                 {(todosByHour[h] ?? []).map(todo => (
                   <TimeSlotTodo key={todo.id} todo={todo} onEdit={e => { e.stopPropagation(); openEdit(todo); }} />
                 ))}
                 {/* Add hint */}
-                {!(todosByHour[h]?.length) && (
+                {!(todosByHour[h]?.length) && !(schedulesByHour[h]?.length) && (
                   <span className="absolute inset-0 flex items-center pl-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Plus size={12} className="text-leaf-600 mr-1" />
                     <span className="text-[11px] font-medium text-leaf-600">추가</span>
@@ -152,6 +191,8 @@ export default function CalendarPage() {
         <Plus size={24} />
       </button>
 
+      {openSchedule && <ScheduleModal schedule={openSchedule} onClose={() => setOpenSchedule(null)} />}
+      {openDday && <DDayModal dday={openDday} onClose={() => setOpenDday(null)} />}
       {showModal && (
         <TodoModal
           todo={editTodo}
@@ -231,5 +272,16 @@ function TimeSlotTodo({ todo, onEdit }: { todo: Todo; onEdit: (e: React.MouseEve
         )}
       </div>
     </div>
+  );
+}
+
+function ScheduleChip({ schedule, onOpen }: { schedule: ScheduleItem; onOpen: (s: ScheduleItem) => void }) {
+  return (
+    <button onClick={() => onOpen(schedule)}
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-blue-50 dark:bg-blue-900/25 border-l-[3px] border-blue-500">
+      <CalendarDays size={13} className="flex-shrink-0 text-blue-600 dark:text-blue-300" />
+      <span className="text-xs font-medium flex-1 truncate text-gray-800 dark:text-gray-100">{schedule.title}</span>
+      {schedule.startTime && <span className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{schedule.startTime}</span>}
+    </button>
   );
 }

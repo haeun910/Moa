@@ -4,6 +4,7 @@
 // 1) 로그인 전: 로그인 화면이 오류 없이 뜨는지
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
+// 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정과 D-Day가 타임박스에 보이는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -41,9 +42,11 @@ async function mockSupabase(page, seen) {
   const todos = Array.from({ length: TOTAL_TODOS }, (_, i) => ({
     id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     user_id: USER_ID, title: `할 일 ${i + 1}`, completed: false, category_id: null, subcategory_id: null,
-    date: i === TOTAL_TODOS - 1 ? today : null, due_date: null, is_dday: false, start_time: null, notes: null,
+    date: i === TOTAL_TODOS - 1 ? today : null, due_date: null, is_dday: false, start_time: i === TOTAL_TODOS - 1 ? '10:00' : null, notes: null,
     sort_order: i, series_id: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   }));
+  const schedules = [{ id: 'sch-1', user_id: USER_ID, title: '치과 예약', date: today, start_time: '14:00', notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' }];
+  const ddays = [{ id: 'dd-1', user_id: USER_ID, title: '시험날', target_date: today, created_at: '2026-01-01T00:00:00Z' }];
   const settings = {
     user_id: USER_ID, theme: 'light', default_screen: 'today', notifications: false, list_sort_by: 'manual',
     hide_completed: false, hidden_category_ids: [], calendar_text_size: 'medium', updated_at: '2026-01-01T00:00:00Z',
@@ -63,6 +66,8 @@ async function mockSupabase(page, seen) {
       seen.timeblockInserts.push(JSON.parse(route.request().postData() ?? '[]'));
       return route.fulfill({ json: [] });
     }
+    if (table === 'schedules' && route.request().method() === 'GET') return route.fulfill({ json: schedules });
+    if (table === 'ddays' && route.request().method() === 'GET') return route.fulfill({ json: ddays });
     if (table === 'user_settings') return route.fulfill({ json: wantsObject ? settings : [settings] });
     if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: wantsObject ? {} : [] });
     return route.fulfill({ status: 404, body: '' });
@@ -142,6 +147,24 @@ try {
     else if (new Set(rows.map(r => new Date(r.start_at).getDay())).size !== 1) fail('매주 반복은 같은 요일에만 만들어져야 함');
     else console.log(`✅ 타임박스 매주 반복: 1년치 ${rows.length}개 블록이 한 묶음으로 저장됨`);
     if (errors.length) fail(`타임박스 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 4) 시간이 정해진 할 일·일정, D-Day가 타임박스에 같이 보임
+  {
+    const { context, page, errors } = await loggedInContext();
+    await page.goto(`${BASE}/?screen=timebox`);
+    const todoItem = page.locator('[data-agenda="todo"]', { hasText: `할 일 ${TOTAL_TODOS}` });
+    const scheduleItem = page.locator('[data-agenda="schedule"]', { hasText: '치과 예약' });
+    try {
+      await todoItem.first().waitFor({ timeout: 15000 });
+      await scheduleItem.first().waitFor({ timeout: 5000 });
+      await page.getByRole('button', { name: '시험날' }).first().waitFor({ timeout: 5000 });
+      console.log('✅ 타임박스 연동: 10시 할 일, 14시 일정, 오늘 D-Day가 타임박스에 보임');
+    } catch {
+      fail('시간이 정해진 할 일·일정과 D-Day가 타임박스에 보여야 함');
+    }
+    if (errors.length) fail(`타임박스 연동 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 
