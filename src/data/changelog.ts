@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.7.2',
+    date: '2026-10-19',
+    changes: [
+      '홈 오늘 타임박스가 지금 시각 앞뒤 3시간을 먼저 보여줌 (예: 오후 3시 → 12시~18시, 위아래로 넘기면 하루 전체)',
+      '홈의 다가오는 D-Day와 이번 달 목표를 오늘 일정 아래로 옮김',
+    ],
+  },
+  {
     version: '2.7.1',
     date: '2026-10-19',
     changes: [
