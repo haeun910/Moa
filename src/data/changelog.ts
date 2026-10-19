@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.7.1',
+    date: '2026-10-19',
+    changes: [
+      '홈의 오늘 할 일이 달력 화면처럼 카테고리(·하위카테고리)별로 묶여 보임',
+      '홈의 오늘 타임박스가 오늘 하루 세로 시간표로 바뀜 (빈 시간을 누르면 그 시각에 블록 추가)',
+    ],
+  },
+  {
     version: '2.7.0',
     date: '2026-10-17',
     changes: [

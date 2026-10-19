@@ -17,7 +17,7 @@ import {
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { applyListDisplaySettings } from '../lib/listDisplay';
-import TodoList from '../components/TodoList';
+import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
@@ -112,7 +112,7 @@ function OverviewColumn({
 // 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
 export default function TodayPage() {
   const {
-    todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, schedules, notices, setCurrentScreen,
   } = useApp();
@@ -166,11 +166,6 @@ export default function TodayPage() {
   const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
   const selectedDoneCount = selectedTodos.filter(t => t.completed).length;
 
-  // 선택한 날의 할 일을 카테고리별로 묶어서 목록 사이에 카테고리 이름이 끼어들도록 함
-  const dayGroups = [
-    ...categories.map(cat => ({ cat, groupTodos: selectedTodos.filter(t => t.categoryId === cat.id) })),
-    { cat: null, groupTodos: selectedTodos.filter(t => !t.categoryId) },
-  ].filter(g => g.groupTodos.length > 0);
   const selectedSchedules = schedules.filter(s => s.date === selectedDate);
   // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
   const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
@@ -326,42 +321,7 @@ export default function TodayPage() {
             </div>
           </section>
         )}
-        {dayGroups.map(({ cat, groupTodos }) => {
-          // 카테고리 안에서 다시 하위카테고리별로 나눔 (저장소에서 완료 체크해 오늘로 넘어온
-          // 항목도 하위카테고리가 그대로 보이도록). 하위카테고리가 없는 항목은 그대로 위에 나열.
-          const bareTodos = cat ? groupTodos.filter(t => !t.subcategoryId) : groupTodos;
-          const subGroups = cat
-            ? subcategories
-                .filter(sc => sc.categoryId === cat.id)
-                .map(sc => ({ subcat: sc, subTodos: groupTodos.filter(t => t.subcategoryId === sc.id) }))
-                .filter(g => g.subTodos.length > 0)
-            : [];
-          return (
-            <section key={cat?.id ?? '__none__'}>
-              <div className="flex items-center gap-2 mb-2 px-0.5">
-                {cat ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{cat.name}</span>
-                  </>
-                ) : (
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">분류 없음</span>
-                )}
-                <span className="count-pill">{groupTodos.length}</span>
-              </div>
-              <TodoList todos={bareTodos} onEdit={openEdit} getActions={getTodoActions} />
-              {subGroups.map(({ subcat, subTodos }) => (
-                <div key={subcat.id} className={`${bareTodos.length ? 'mt-3' : ''} pl-3 border-l-2 border-gray-200/80 dark:border-gray-800`}>
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 px-0.5">
-                    {subcat.name}
-                    <span className="count-pill">{subTodos.length}</span>
-                  </p>
-                  <TodoList todos={subTodos} onEdit={openEdit} getActions={getTodoActions} />
-                </div>
-              ))}
-            </section>
-          );
-        })}
+        <CategoryTodoGroups todos={selectedTodos} onEdit={openEdit} getActions={getTodoActions} />
       </div>
     );
   }

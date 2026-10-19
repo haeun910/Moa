@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import { Timer, ChevronRight, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
@@ -15,8 +16,11 @@ import {
 import type { ScheduleItem, TimeBlock } from '../types';
 
 const MIN_RANGE_HOURS = 8;
+const HOUR_PX = 48;
+const MIN_PX = HOUR_PX / 60;
+const LABEL_PX = 40; // 왼쪽 시간 글자 칸 너비
 
-// 홈 화면: 오늘 하루 타임박스를 가로 막대로 한눈에 (지금 하는 것 / 다음 할 것 + 지금 시각 선)
+// 홈 화면: 오늘 하루 타임박스를 세로 시간표로 한눈에 (지금 하는 것 / 다음 할 것 + 지금 시각 선)
 export default function TodayTimeline() {
   const { timeblocks, todos, categories, schedules, ddays, setCurrentScreen } = useApp();
   const now = useNow();
@@ -58,18 +62,37 @@ export default function TodayTimeline() {
       rangeStart = Math.max(0, rangeEnd - MIN_RANGE_HOURS * 60);
     }
   }
-  const range = rangeEnd - rangeStart;
-  const pct = (min: number) => ((clamp(min, rangeStart, rangeEnd) - rangeStart) / range) * 100;
-  const tickStep = range > 14 * 60 ? 180 : range > 9 * 60 ? 120 : 60;
-  const ticks: number[] = [];
-  for (let m = Math.ceil(rangeStart / tickStep) * tickStep; m <= rangeEnd; m += tickStep) ticks.push(m);
+  const hours: number[] = [];
+  for (let m = rangeStart; m < rangeEnd; m += 60) hours.push(m / 60);
 
   const layout = layoutOverlaps(entries);
+  // 세로 위치(시각)와 가로 위치(겹치는 블록끼리 나란히)
+  function place(id: string, startMin: number, endMin: number): React.CSSProperties {
+    const { col, cols } = layout.get(id) ?? { col: 0, cols: 1 };
+    const top = (clamp(startMin, rangeStart, rangeEnd) - rangeStart) * MIN_PX;
+    const height = Math.max(20, (clamp(endMin, rangeStart, rangeEnd) - clamp(startMin, rangeStart, rangeEnd)) * MIN_PX - 2);
+    return {
+      top: top + 1,
+      height,
+      left: `calc(${LABEL_PX}px + (100% - ${LABEL_PX + 2}px) * ${col / cols})`,
+      width: `calc((100% - ${LABEL_PX + 2}px) / ${cols} - 3px)`,
+    };
+  }
 
-  function addBlock() {
-    const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), nowMin, DEFAULT_BLOCK_MINUTES);
+  // 처음 열 때 지금 시각이 보이도록 스크롤
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const hasEntries = entries.length > 0;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = Math.max(0, (clamp(minutesNow(new Date()), rangeStart, rangeEnd) - rangeStart) * MIN_PX - HOUR_PX);
+  }, [hasEntries, rangeStart, rangeEnd]);
+
+  function addBlockAt(fromMin: number) {
+    const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), fromMin, DEFAULT_BLOCK_MINUTES);
     setModal({ draft: { dateKey: todayKey, startMin, endMin: Math.min(DAY_MINUTES, startMin + DEFAULT_BLOCK_MINUTES) } });
   }
+  function addBlock() { addBlockAt(nowMin); }
 
   const statusText = current
     ? { label: '지금', title: current.title, time: `~${formatMinutes(current.endMin)}` }
@@ -78,7 +101,7 @@ export default function TodayTimeline() {
       : null;
 
   return (
-    <section className="flex-shrink-0 rounded-2xl surface px-4 pt-3 pb-3.5 mb-4" aria-label="오늘 타임박스">
+    <section className="flex-shrink-0 rounded-2xl surface px-4 pt-3 pb-3.5" aria-label="오늘 타임박스">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2.5">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Timer size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
@@ -88,7 +111,7 @@ export default function TodayTimeline() {
           </button>
           {items.length > 0 && <span className="count-pill">{doneCount}/{items.length}</span>}
         </div>
-        <div className="order-last sm:order-none basis-full sm:basis-auto flex-1 min-w-0">
+        <div className="order-last basis-full min-w-0">
           {statusText && (
             <p className="min-w-0 flex items-center gap-1.5 text-[12.5px]">
               <span className={`flex-shrink-0 text-[10.5px] font-bold px-1.5 py-px rounded ${
@@ -117,15 +140,22 @@ export default function TodayTimeline() {
           오늘 할 일을 시간에 배치해보세요
         </button>
       ) : (
-        <div>
-          <div className="relative h-11 rounded-lg bg-gray-50 dark:bg-gray-800/40 overflow-hidden">
-            {ticks.map(m => (
-              <div key={m} className="absolute inset-y-0 border-l border-gray-200/70 dark:border-gray-700/60" style={{ left: `${pct(m)}%` }} aria-hidden />
+        <div ref={scrollRef} className="max-h-[560px] overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1">
+          <div className="relative" style={{ height: hours.length * HOUR_PX }}>
+            {/* 시간 눈금: 빈 칸을 누르면 그 시각에 블록 추가 */}
+            {hours.map((h, i) => (
+              <button key={h} onClick={() => addBlockAt(h * 60)} aria-label={`${h}시에 타임박스 추가`}
+                className="group absolute inset-x-0 flex items-start text-left hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
+                style={{ top: i * HOUR_PX, height: HOUR_PX }}>
+                <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500">
+                  {h}시
+                </span>
+                <span className={`flex-1 h-full ${i > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}`} />
+              </button>
             ))}
             {items.map(({ block, span }) => {
               const color = blockColor(block, todosById, categoriesById);
               const done = blockDone(block, todosById);
-              const { col, cols } = layout.get(block.id) ?? { col: 0, cols: 1 };
               const isNow = span.startMin <= nowMin && nowMin < span.endMin;
               const title = blockTitle(block, todosById);
               return (
@@ -133,31 +163,28 @@ export default function TodayTimeline() {
                   key={block.id}
                   onClick={() => setModal({ block })}
                   title={`${formatMinutes(span.startMin)} – ${formatMinutes(span.endMin)} ${title}`}
-                  className={`absolute rounded-md px-1.5 text-left overflow-hidden transition-opacity hover:opacity-100 ${
+                  className={`absolute rounded-md px-2 py-1 text-left overflow-hidden transition-opacity hover:opacity-100 ${
                     span.endMin <= nowMin && !isNow ? 'opacity-55' : ''
                   }`}
                   style={{
-                    left: `calc(${pct(span.startMin)}% + 1px)`,
-                    width: `calc(${pct(span.endMin) - pct(span.startMin)}% - 2px)`,
-                    top: `calc(${(col / cols) * 100}% + 3px)`,
-                    height: `calc(${100 / cols}% - 6px)`,
+                    ...place(block.id, span.startMin, span.endMin),
                     backgroundColor: `${color}${done ? '1c' : '33'}`,
                     borderLeft: `3px solid ${color}`,
                     boxShadow: isNow ? `0 0 0 1.5px ${color}` : undefined,
                   }}
                 >
-                  <span className={`block truncate text-[11px] leading-[1.25] font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}
-                    style={{ lineHeight: cols > 1 ? '1.1' : undefined, marginTop: cols > 1 ? 0 : 4 }}>
+                  <span className={`block truncate text-[12px] leading-tight font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {title}
                   </span>
-                  {cols === 1 && (
-                    <span className="block truncate text-[10px] tabular-nums text-gray-600 dark:text-gray-300">{formatMinutes(span.startMin)}</span>
+                  {(span.endMin - span.startMin) * MIN_PX >= 34 && (
+                    <span className="block truncate text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300">
+                      {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
+                    </span>
                   )}
                 </button>
               );
             })}
             {agendaItems.map(item => {
-              const { col, cols } = layout.get(item.key) ?? { col: 0, cols: 1 };
               const isNow = item.startMin <= nowMin && nowMin < item.endMin;
               const kindLabel = item.kind === 'todo' ? '할 일' : '일정';
               return (
@@ -168,41 +195,30 @@ export default function TodayTimeline() {
                     else setScheduleModal(item.schedule);
                   }}
                   title={`${formatMinutes(item.startMin)} ${kindLabel} · ${item.title}`}
-                  className={`absolute rounded-md px-1.5 text-left overflow-hidden border border-dashed transition-opacity hover:opacity-100 ${
+                  className={`absolute rounded-md px-2 py-1 text-left overflow-hidden border border-dashed transition-opacity hover:opacity-100 ${
                     item.endMin <= nowMin && !isNow ? 'opacity-55' : ''
                   }`}
                   style={{
-                    left: `calc(${pct(item.startMin)}% + 1px)`,
-                    width: `calc(${pct(item.endMin) - pct(item.startMin)}% - 2px)`,
-                    top: `calc(${(col / cols) * 100}% + 3px)`,
-                    height: `calc(${100 / cols}% - 6px)`,
+                    ...place(item.key, item.startMin, item.endMin),
                     backgroundColor: `${item.color}${item.done ? '0d' : '17'}`,
                     borderColor: `${item.color}99`,
                     borderLeft: `3px solid ${item.color}`,
                   }}
                 >
-                  <span className={`block truncate text-[11px] leading-[1.25] font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}
-                    style={{ lineHeight: cols > 1 ? '1.1' : undefined, marginTop: cols > 1 ? 0 : 4 }}>
+                  <span className={`block truncate text-[12px] leading-tight font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {item.title}
                   </span>
-                  {cols === 1 && (
-                    <span className="block truncate text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
+                  {(item.endMin - item.startMin) * MIN_PX >= 34 && (
+                    <span className="block truncate text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
                   )}
                 </button>
               );
             })}
             {nowMin >= rangeStart && nowMin <= rangeEnd && (
-              <div className="absolute inset-y-0 w-[1.5px] bg-red-500 pointer-events-none" style={{ left: `${pct(nowMin)}%` }} aria-hidden>
-                <div className="absolute -top-px -left-[3px] w-[7.5px] h-[7.5px] rounded-full bg-red-500" />
+              <div className="absolute right-0 h-[1.5px] bg-red-500 pointer-events-none" style={{ left: LABEL_PX - 4, top: (nowMin - rangeStart) * MIN_PX }} aria-hidden>
+                <div className="absolute -left-[3px] -top-[3px] w-[7.5px] h-[7.5px] rounded-full bg-red-500" />
               </div>
             )}
-          </div>
-          <div className="relative h-3.5 mt-1" aria-hidden>
-            {ticks.map(m => (
-              <span key={m} className="absolute -translate-x-1/2 text-[10px] tabular-nums text-gray-400 dark:text-gray-500" style={{ left: `${pct(m)}%` }}>
-                {m / 60}시
-              </span>
-            ))}
           </div>
         </div>
       )}

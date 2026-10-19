@@ -5,7 +5,7 @@
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정과 D-Day가 타임박스에 보이는지
-// 5) 홈: 오늘 요약(할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
+// 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -42,10 +42,11 @@ async function mockSupabase(page, seen) {
   const today = new Date().toISOString().slice(0, 10);
   const todos = Array.from({ length: TOTAL_TODOS }, (_, i) => ({
     id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
-    user_id: USER_ID, title: `할 일 ${i + 1}`, completed: false, category_id: null, subcategory_id: null,
+    user_id: USER_ID, title: `할 일 ${i + 1}`, completed: false, category_id: i === TOTAL_TODOS - 1 ? 'cat-1' : null, subcategory_id: null,
     date: i === TOTAL_TODOS - 1 ? today : null, due_date: null, is_dday: false, start_time: i === TOTAL_TODOS - 1 ? '10:00' : null, notes: null,
     sort_order: i, series_id: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   }));
+  const categories = [{ id: 'cat-1', user_id: USER_ID, name: '공부', color: '#4F73A8', description: null, is_default: false, sort_order: 0, created_at: '2026-01-01T00:00:00Z' }];
   const schedules = [{ id: 'sch-1', user_id: USER_ID, title: '치과 예약', date: today, start_time: '14:00', notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' }];
   const ddays = [{ id: 'dd-1', user_id: USER_ID, title: '시험날', target_date: today, created_at: '2026-01-01T00:00:00Z' }];
   const settings = {
@@ -67,6 +68,7 @@ async function mockSupabase(page, seen) {
       seen.timeblockInserts.push(JSON.parse(route.request().postData() ?? '[]'));
       return route.fulfill({ json: [] });
     }
+    if (table === 'categories' && route.request().method() === 'GET') return route.fulfill({ json: categories });
     if (table === 'schedules' && route.request().method() === 'GET') return route.fulfill({ json: schedules });
     if (table === 'ddays' && route.request().method() === 'GET') return route.fulfill({ json: ddays });
     if (table === 'user_settings') return route.fulfill({ json: wantsObject ? settings : [settings] });
@@ -179,6 +181,7 @@ try {
       await page.getByText(`할 일 ${TOTAL_TODOS}`, { exact: true }).first().waitFor({ timeout: 5000 });
       await page.getByRole('button', { name: /치과 예약/ }).first().waitFor({ timeout: 5000 });
       await page.getByText('오늘 진행률').waitFor({ timeout: 5000 });
+      await page.getByText('공부', { exact: true }).first().waitFor({ timeout: 5000 }); // 오늘 할 일이 카테고리별로 묶여 보임
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/home-desktop.png`, fullPage: true });
       if (process.env.SHOT_DIR) {
         await page.setViewportSize({ width: 390, height: 844 });
