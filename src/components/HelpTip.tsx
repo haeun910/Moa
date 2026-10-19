@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 
-// 제목 옆 작은 물음표. 누르면 짧은 안내가 말풍선으로 뜨고, 다른 곳을 누르면 닫힘
+const BUBBLE_PX = 208; // w-52
+
+// 제목 옆 작은 물음표. 누르면 짧은 안내가 말풍선으로 뜨고, 다른 곳을 누르거나 Esc·Tab으로 벗어나면 닫힘
 export default function HelpTip({ text, label }: { text: string; label: string }) {
   const [open, setOpen] = useState(false);
+  // 화면 오른쪽 끝에 가까운 물음표는 말풍선이 잘리지 않게 왼쪽으로 펼침
+  const [alignRight, setAlignRight] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -11,20 +15,36 @@ export default function HelpTip({ text, label }: { text: string; label: string }
     function close(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
+  function toggle() {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setAlignRight(rect.left + BUBBLE_PX > window.innerWidth - 8);
+    }
+    setOpen(v => !v);
+  }
+
   return (
-    <span ref={ref} className="relative inline-flex">
-      <button type="button" onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+    <span ref={ref} className="relative inline-flex"
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false); }}>
+      <button type="button" onClick={e => { e.stopPropagation(); toggle(); }}
         aria-label={`${label} 도움말`} aria-expanded={open}
         className="w-4 h-4 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors">
         <HelpCircle size={13} />
       </button>
       {open && (
         <span role="tooltip"
-          className="absolute -left-1 top-full mt-1.5 z-30 w-52 px-3 py-2 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-[12px] leading-snug font-normal shadow-lg text-left whitespace-normal">
+          className={`absolute ${alignRight ? '-right-1' : '-left-1'} top-full mt-1.5 z-30 w-52 px-3 py-2 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-[12px] leading-snug font-normal shadow-lg text-left whitespace-normal`}>
           {text}
         </span>
       )}
