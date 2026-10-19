@@ -14,7 +14,7 @@ import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
 import TodayTimeline from '../components/TodayTimeline';
-import TodoList from '../components/TodoList';
+import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
 import ScheduleModal from '../components/ScheduleModal';
@@ -236,57 +236,121 @@ export default function HomePage() {
           />
         </section>
 
-        {/* ── 오늘 타임박스 ── */}
-        <div className="mb-1">
-          <TodayTimeline />
-        </div>
-        {box.planned > 0 && (
-          <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mb-4 px-1">
-            오늘 타임박스 {durationLabel(box.planned)} 중 <span className="font-semibold text-gray-700 dark:text-gray-300">{durationLabel(box.done)}</span> 완료
-          </p>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-start gap-4 mt-3">
-          {/* ── 오늘 할 일 ── */}
-          <section className="lg:col-span-3 surface rounded-2xl p-4">
-            <SectionHeader
-              icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
-              title="오늘 할 일"
-              meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
-              actionLabel="달력에서 보기"
-              onAction={() => goCalendar(todayKey)}
-            />
-            {todayTodos.length === 0 && (
-              <p className="text-[13px] text-gray-400 dark:text-gray-500 py-2">오늘 할 일을 아래에 적어보세요</p>
-            )}
-            <TodoList todos={todayTodos} onEdit={todo => setTodoModal({ todo })} />
-            <div className="mt-2">
-              <DayTodoComposer date={todayKey} onOpenDetail={(categoryId, subcategoryId, title) => setTodoModal({ categoryId, subcategoryId, title })} />
-            </div>
-
-            {dueSoon.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">곧 마감</p>
-                <ul className="space-y-1">
-                  {dueSoon.slice(0, 5).map(t => {
-                    const diff = daysUntil(t.dueDate as string, now);
-                    return (
-                      <li key={t.id}>
-                        <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-[13px] text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
-                          <span className={`flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                            {diff === 0 ? '오늘' : `${diff}일 뒤`}
-                          </span>
-                          <span className="truncate">{t.title}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+        <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-start gap-4">
+          <div className="lg:col-span-3 flex flex-col gap-4">
+            {/* ── 오늘 할 일 ── */}
+            <section className="surface rounded-2xl p-4">
+              <SectionHeader
+                icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
+                title="오늘 할 일"
+                meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
+                actionLabel="달력에서 보기"
+                onAction={() => goCalendar(todayKey)}
+              />
+              {todayTodos.length === 0 && (
+                <p className="text-[13px] text-gray-400 dark:text-gray-500 py-2">오늘 할 일을 아래에 적어보세요</p>
+              )}
+              <CategoryTodoGroups todos={todayTodos} onEdit={todo => setTodoModal({ todo })} className="space-y-4" />
+              <div className="mt-3">
+                <DayTodoComposer date={todayKey} onOpenDetail={(categoryId, subcategoryId, title) => setTodoModal({ categoryId, subcategoryId, title })} />
               </div>
-            )}
-          </section>
+
+              {dueSoon.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">곧 마감</p>
+                  <ul className="space-y-1">
+                    {dueSoon.slice(0, 5).map(t => {
+                      const diff = daysUntil(t.dueDate as string, now);
+                      return (
+                        <li key={t.id}>
+                          <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-[13px] text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
+                            <span className={`flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                              {diff === 0 ? '오늘' : `${diff}일 뒤`}
+                            </span>
+                            <span className="truncate">{t.title}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </section>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* ── 다가오는 D-Day ── */}
+              <section className="surface rounded-2xl p-4">
+                <SectionHeader
+                  icon={<Flag size={15} className="text-rose-500" />}
+                  title="다가오는 D-Day"
+                  actionLabel="달력"
+                  onAction={() => goCalendar()}
+                />
+                {upcomingDdays.length === 0 ? (
+                  <p className="text-[13px] text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {upcomingDdays.map(d => {
+                      const diff = daysUntil(d.targetDate, now);
+                      return (
+                        <li key={d.id}>
+                          <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
+                            <span className={`w-14 flex-shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
+                            <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
+                            <span className="ml-auto flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              {/* ── 이번 달 목표 ── */}
+              <section className="surface rounded-2xl p-4">
+                <SectionHeader
+                  icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
+                  title={`${format(now, 'M월')} 목표`}
+                  meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
+                  actionLabel="달력"
+                  onAction={() => goCalendar()}
+                />
+                {goals.length === 0 ? (
+                  <p className="text-[13px] text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
+                ) : (
+                  <>
+                    <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
+                      <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${Math.round((goalsDone / goals.length) * 100)}%` }} />
+                    </div>
+                    <ul className="space-y-1">
+                      {goals.map(g => (
+                        <li key={g.id}>
+                          <button onClick={() => toggleMonthlyGoal(g.id)} className="w-full flex items-center gap-2 text-left py-0.5">
+                            <span className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center ${g.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'}`}>
+                              {g.completed && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                            </span>
+                            <span className={`text-[13px] truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </section>
+
+            </div>
+          </div>
 
           <div className="lg:col-span-2 flex flex-col gap-4">
+            {/* ── 오늘 타임박스 (오늘 하루만 세로로) ── */}
+            <div>
+              <TodayTimeline />
+              {box.planned > 0 && (
+                <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-1.5 px-1">
+                  오늘 타임박스 {durationLabel(box.planned)} 중 <span className="font-semibold text-gray-700 dark:text-gray-300">{durationLabel(box.done)}</span> 완료
+                </p>
+              )}
+            </div>
             {/* ── 오늘 일정 ── */}
             <section className="surface rounded-2xl p-4">
               <SectionHeader
@@ -315,66 +379,6 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-
-            {/* ── 다가오는 D-Day ── */}
-            <section className="surface rounded-2xl p-4">
-              <SectionHeader
-                icon={<Flag size={15} className="text-rose-500" />}
-                title="다가오는 D-Day"
-                actionLabel="달력"
-                onAction={() => goCalendar()}
-              />
-              {upcomingDdays.length === 0 ? (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
-              ) : (
-                <ul className="space-y-1">
-                  {upcomingDdays.map(d => {
-                    const diff = daysUntil(d.targetDate, now);
-                    return (
-                      <li key={d.id}>
-                        <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
-                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
-                          <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
-                          <span className="ml-auto flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            {/* ── 이번 달 목표 ── */}
-            <section className="surface rounded-2xl p-4">
-              <SectionHeader
-                icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
-                title={`${format(now, 'M월')} 목표`}
-                meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
-                actionLabel="달력"
-                onAction={() => goCalendar()}
-              />
-              {goals.length === 0 ? (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
-              ) : (
-                <>
-                  <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
-                    <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${Math.round((goalsDone / goals.length) * 100)}%` }} />
-                  </div>
-                  <ul className="space-y-1">
-                    {goals.map(g => (
-                      <li key={g.id}>
-                        <button onClick={() => toggleMonthlyGoal(g.id)} className="w-full flex items-center gap-2 text-left py-0.5">
-                          <span className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center ${g.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'}`}>
-                            {g.completed && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                          </span>
-                          <span className={`text-[13px] truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
               )}
             </section>
 
