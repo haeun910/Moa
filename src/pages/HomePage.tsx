@@ -14,6 +14,8 @@ import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
 import TodayTimeline from '../components/TodayTimeline';
+import HelpTip from '../components/HelpTip';
+import { GUIDES } from '../data/guides';
 import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
@@ -79,14 +81,15 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
 }
 
 // 카드 묶음 머리글
-function SectionHeader({ icon, title, meta, actionLabel, onAction }: {
-  icon: React.ReactNode; title: string; meta?: React.ReactNode; actionLabel?: string; onAction?: () => void;
+function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
+  icon: React.ReactNode; title: string; help?: string; meta?: React.ReactNode; actionLabel?: string; onAction?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         {icon}
         <h2 className="text-[14px] font-semibold text-gray-900 dark:text-white">{title}</h2>
+        {help && <HelpTip text={help} label={title} />}
         {meta}
       </div>
       {onAction && (
@@ -243,6 +246,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title="오늘 할 일"
+                help={GUIDES.todo}
                 meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
                 actionLabel="달력에서 보기"
                 onAction={() => goCalendar(todayKey)}
@@ -294,6 +298,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<CalendarClock size={15} className="text-[#4F73A8]" />}
                 title="오늘 일정"
+                help={GUIDES.schedule}
                 meta={todaySchedules.length > 0 && <span className="count-pill">{todaySchedules.length}</span>}
                 actionLabel="추가"
                 onAction={() => setScheduleModal({})}
@@ -325,6 +330,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<Flag size={15} className="text-rose-500" />}
                 title="다가오는 D-Day"
+                help={GUIDES.dday}
                 actionLabel="달력"
                 onAction={() => goCalendar()}
               />
@@ -353,6 +359,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title={`${format(now, 'M월')} 목표`}
+                help={GUIDES.goal}
                 meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
                 actionLabel="달력"
                 onAction={() => goCalendar()}

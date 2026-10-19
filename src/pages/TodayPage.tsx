@@ -9,6 +9,8 @@ import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
 import ScheduleDeleteButton from '../components/ScheduleDeleteButton';
 import OverdueModal from '../components/OverdueModal';
+import HelpTip from '../components/HelpTip';
+import { GUIDES } from '../data/guides';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -66,10 +68,11 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 // 상단 요약 띠의 한 칸 (목표 / D-Day / 일정)
 function OverviewColumn({
-  icon, title, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children,
+  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children,
 }: {
   icon: React.ReactNode;
   title: string;
+  help?: string;
   onTitleClick?: () => void;
   titleHint?: string;
   meta?: React.ReactNode;
@@ -92,6 +95,7 @@ function OverviewColumn({
           ) : (
             <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{title}</span>
           )}
+          {help && <HelpTip text={help} label={title} />}
           {meta}
         </div>
         <button onClick={onAdd} aria-label={addLabel} title={addLabel} className="btn-icon w-7 h-7 -mr-1.5">
@@ -463,6 +467,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
               title={`${format(viewMonth, 'M월')} 목표`}
+              help={GUIDES.goal}
               meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
               onAdd={() => setGoalModalState({})}
               addLabel="목표 추가"
@@ -497,6 +502,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<Flag size={14} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
               title="D-Day"
+              help={GUIDES.dday}
               onTitleClick={() => setShowDdayListModal(true)}
               titleHint="지난 D-Day까지 전체 보기"
               onAdd={() => setDdayModalState({})}
@@ -532,6 +538,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<CalendarClock size={14} className="text-blue-500 flex-shrink-0" />}
               title={`${format(viewMonth, 'M월')} 일정`}
+              help={GUIDES.schedule}
               meta={monthSchedules.length > 0 && <span className="count-pill">{monthSchedules.length}</span>}
               onAdd={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })}
               addLabel="일정 추가"

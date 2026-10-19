@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.7.3',
+    date: '2026-10-19',
+    changes: [
+      '할 일·일정·D-Day·목표·타임박스 제목 옆 물음표(?)를 누르면 어떤 걸 적으면 되는지 안내가 보임 (홈·달력 화면)',
+    ],
+  },
+  {
     version: '2.7.2',
     date: '2026-10-19',
     changes: [
