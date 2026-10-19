@@ -15,7 +15,7 @@ import {
 } from '../lib/timebox';
 import type { ScheduleItem, TimeBlock } from '../types';
 
-const MIN_RANGE_HOURS = 8;
+const VISIBLE_HOURS = 6; // 한 번에 보이는 시간 (지금 기준 앞 3시간 ~ 뒤 3시간)
 const HOUR_PX = 48;
 const MIN_PX = HOUR_PX / 60;
 const LABEL_PX = 40; // 왼쪽 시간 글자 칸 너비
@@ -52,16 +52,9 @@ export default function TodayTimeline() {
   const doneCount = items.filter(({ block }) => blockDone(block, todosById)).length;
 
   // 보여줄 시간 범위: 오늘 블록들(과 지금 시각)을 감싸는 정각 단위, 최소 8시간
-  let rangeStart = 9 * 60;
-  let rangeEnd = 18 * 60;
-  if (entries.length) {
-    rangeStart = Math.floor(Math.min(...entries.map(e => e.startMin), nowMin) / 60) * 60;
-    rangeEnd = Math.ceil(Math.max(...entries.map(e => e.endMin), nowMin + 1) / 60) * 60;
-    if (rangeEnd - rangeStart < MIN_RANGE_HOURS * 60) {
-      rangeEnd = Math.min(DAY_MINUTES, rangeStart + MIN_RANGE_HOURS * 60);
-      rangeStart = Math.max(0, rangeEnd - MIN_RANGE_HOURS * 60);
-    }
-  }
+  // 하루 전체(0~24시)를 그려두고, 창을 열 때 지금 시각 앞뒤 3시간이 보이도록 스크롤
+  const rangeStart = 0;
+  const rangeEnd = DAY_MINUTES;
   const hours: number[] = [];
   for (let m = rangeStart; m < rangeEnd; m += 60) hours.push(m / 60);
 
@@ -79,14 +72,13 @@ export default function TodayTimeline() {
     };
   }
 
-  // 처음 열 때 지금 시각이 보이도록 스크롤
+  // 처음 열 때 지금 시각 앞뒤 3시간이 보이도록 스크롤 (예: 15시 → 12시~18시)
   const scrollRef = useRef<HTMLDivElement>(null);
-  const hasEntries = entries.length > 0;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = Math.max(0, (clamp(minutesNow(new Date()), rangeStart, rangeEnd) - rangeStart) * MIN_PX - HOUR_PX);
-  }, [hasEntries, rangeStart, rangeEnd]);
+    el.scrollTop = Math.max(0, (minutesNow(new Date()) - (VISIBLE_HOURS / 2) * 60) * MIN_PX);
+  }, []);
 
   function addBlockAt(fromMin: number) {
     const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), fromMin, DEFAULT_BLOCK_MINUTES);
@@ -134,13 +126,7 @@ export default function TodayTimeline() {
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <button onClick={addBlock}
-          className="w-full h-11 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-[13px] text-gray-400 dark:text-gray-500 hover:text-leaf-700 dark:hover:text-leaf-300 hover:border-leaf-400 transition-colors">
-          오늘 할 일을 시간에 배치해보세요
-        </button>
-      ) : (
-        <div ref={scrollRef} className="max-h-[560px] overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1">
+        <div ref={scrollRef} className="overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1" style={{ height: VISIBLE_HOURS * HOUR_PX + 12 }}>
           <div className="relative" style={{ height: hours.length * HOUR_PX }}>
             {/* 시간 눈금: 빈 칸을 누르면 그 시각에 블록 추가 */}
             {hours.map((h, i) => (
@@ -221,7 +207,6 @@ export default function TodayTimeline() {
             )}
           </div>
         </div>
-      )}
 
       {scheduleModal && <ScheduleModal schedule={scheduleModal} onClose={() => setScheduleModal(null)} />}
       {modal && <TimeBlockModal block={modal.block} draft={modal.draft} onClose={() => setModal(null)} />}

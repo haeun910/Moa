@@ -277,68 +277,6 @@ export default function HomePage() {
               )}
             </section>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* ── 다가오는 D-Day ── */}
-              <section className="surface rounded-2xl p-4">
-                <SectionHeader
-                  icon={<Flag size={15} className="text-rose-500" />}
-                  title="다가오는 D-Day"
-                  actionLabel="달력"
-                  onAction={() => goCalendar()}
-                />
-                {upcomingDdays.length === 0 ? (
-                  <p className="text-[13px] text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {upcomingDdays.map(d => {
-                      const diff = daysUntil(d.targetDate, now);
-                      return (
-                        <li key={d.id}>
-                          <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
-                            <span className={`w-14 flex-shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
-                            <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
-                            <span className="ml-auto flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
-
-              {/* ── 이번 달 목표 ── */}
-              <section className="surface rounded-2xl p-4">
-                <SectionHeader
-                  icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
-                  title={`${format(now, 'M월')} 목표`}
-                  meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
-                  actionLabel="달력"
-                  onAction={() => goCalendar()}
-                />
-                {goals.length === 0 ? (
-                  <p className="text-[13px] text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
-                ) : (
-                  <>
-                    <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
-                      <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${Math.round((goalsDone / goals.length) * 100)}%` }} />
-                    </div>
-                    <ul className="space-y-1">
-                      {goals.map(g => (
-                        <li key={g.id}>
-                          <button onClick={() => toggleMonthlyGoal(g.id)} className="w-full flex items-center gap-2 text-left py-0.5">
-                            <span className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center ${g.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'}`}>
-                              {g.completed && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                            </span>
-                            <span className={`text-[13px] truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </section>
-
-            </div>
           </div>
 
           <div className="lg:col-span-2 flex flex-col gap-4">
@@ -379,6 +317,66 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+
+            {/* ── 다가오는 D-Day ── */}
+            <section className="surface rounded-2xl p-4">
+              <SectionHeader
+                icon={<Flag size={15} className="text-rose-500" />}
+                title="다가오는 D-Day"
+                actionLabel="달력"
+                onAction={() => goCalendar()}
+              />
+              {upcomingDdays.length === 0 ? (
+                <p className="text-[13px] text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
+              ) : (
+                <ul className="space-y-1">
+                  {upcomingDdays.map(d => {
+                    const diff = daysUntil(d.targetDate, now);
+                    return (
+                      <li key={d.id}>
+                        <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
+                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
+                          <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
+                          <span className="ml-auto flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            {/* ── 이번 달 목표 ── */}
+            <section className="surface rounded-2xl p-4">
+              <SectionHeader
+                icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
+                title={`${format(now, 'M월')} 목표`}
+                meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
+                actionLabel="달력"
+                onAction={() => goCalendar()}
+              />
+              {goals.length === 0 ? (
+                <p className="text-[13px] text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
+              ) : (
+                <>
+                  <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
+                    <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${Math.round((goalsDone / goals.length) * 100)}%` }} />
+                  </div>
+                  <ul className="space-y-1">
+                    {goals.map(g => (
+                      <li key={g.id}>
+                        <button onClick={() => toggleMonthlyGoal(g.id)} className="w-full flex items-center gap-2 text-left py-0.5">
+                          <span className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center ${g.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'}`}>
+                            {g.completed && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                          </span>
+                          <span className={`text-[13px] truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </section>
 
