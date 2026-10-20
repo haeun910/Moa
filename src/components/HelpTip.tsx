@@ -3,6 +3,19 @@ import { HelpCircle } from 'lucide-react';
 
 const BUBBLE_PX = 240; // w-60
 
+// 말풍선이 잘리는 오른쪽 경계: 가로로 넘치는 부분을 숨기는 가장 가까운 부모, 없으면 화면 끝
+function clipRight(el: HTMLElement): number {
+  let right = window.innerWidth;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowX } = getComputedStyle(p);
+    if (overflowX !== 'visible') {
+      right = Math.min(right, p.getBoundingClientRect().right);
+      break;
+    }
+  }
+  return right;
+}
+
 // 제목 옆 작은 물음표. 누르면 짧은 안내가 말풍선으로 뜨고, 다른 곳을 누르거나 Esc·Tab으로 벗어나면 닫힘
 export default function HelpTip({ text, label }: { text: string; label: string }) {
   const [open, setOpen] = useState(false);
@@ -29,7 +42,7 @@ export default function HelpTip({ text, label }: { text: string; label: string }
   function toggle() {
     if (!open && ref.current) {
       const rect = ref.current.getBoundingClientRect();
-      setAlignRight(rect.left + BUBBLE_PX > window.innerWidth - 8);
+      setAlignRight(rect.left + BUBBLE_PX > clipRight(ref.current) - 8);
     }
     setOpen(v => !v);
   }

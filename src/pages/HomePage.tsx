@@ -116,12 +116,15 @@ function MemoSection() {
   async function save() {
     const body = text.trim();
     if (!body || saving) return;
-    // 첫 줄은 제목, 나머지는 본문 (메모 화면과 같은 모양으로 저장)
+    // 첫 줄은 제목, 나머지는 본문 (메모 화면과 같은 모양으로 저장).
+    // 첫 줄이 제목 길이 제한보다 길면 잘라 버리지 않고 전체를 본문에 그대로 둠
     const [first, ...rest] = body.split('\n');
+    const title = first.trim();
+    const fits = title.length <= LIMITS.title;
     setSaving(true);
     setError(false);
     try {
-      await addNote(first.trim().slice(0, LIMITS.title), rest.join('\n').trim().slice(0, LIMITS.noteContent));
+      await addNote(fits ? title : title.slice(0, LIMITS.title), fits ? rest.join('\n').trim() : body);
       setText('');
     } catch {
       setError(true);
@@ -149,7 +152,8 @@ function MemoSection() {
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } }}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); save(); } }}
+          maxLength={LIMITS.noteContent}
           rows={2}
           placeholder="떠오른 생각을 바로 적어 보세요"
           aria-label="빠른 메모"
