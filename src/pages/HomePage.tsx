@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
@@ -14,7 +14,9 @@ import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
 import { LIMITS } from '../lib/limits';
+import { isMultiDay, scheduleEndDate, scheduleOnDate } from '../lib/scheduleDates';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
+import { isValidTimeRange, timeRangeEnd, timeRangeLabel } from '../lib/timeRange';
 import { requestOpenNote } from '../lib/openNote';
 import TodayTimeline from '../components/TodayTimeline';
 import HelpTip from '../components/HelpTip';
@@ -80,6 +82,19 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
       {/* 폰에서는 두 칸씩 좁아서 아이콘은 빼고 숫자·설명에 자리를 줌 */}
       <span className="hidden sm:flex">{icon}</span>
     </Tag>
+  );
+}
+
+// 일정 시간 칸: 시작 시간(끝 시간이 있으면 아래 작게), 시간이 없으면 종일, 여러 날이면 기간
+function ScheduleTime({ s }: { s: ScheduleItem }) {
+  const multi = isMultiDay(s);
+  return (
+    <span className="w-11 flex-shrink-0 text-[12px] leading-tight tabular-nums font-medium text-gray-500 dark:text-gray-400">
+      {multi ? '기간' : s.startTime ?? '종일'}
+      {!multi && s.startTime && s.endTime && isValidTimeRange(s.startTime, s.endTime) && (
+        <span className="block text-[10.5px] font-normal text-gray-400">~{s.endTime}</span>
+      )}
+    </span>
   );
 }
 
@@ -242,8 +257,8 @@ export default function HomePage() {
   // ── 오늘 목록 ──
   const todayTodos = applyListDisplaySettings(todos.filter(t => t.date === todayKey), settings);
   const todaySchedules = schedules
-    .filter(s => s.date === todayKey)
-    .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+    .filter(s => scheduleOnDate(s, todayKey))
+    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
   const upcoming = nextSchedule(schedules, now);
   const upcomingDdays = [...ddays, ...todoDdays(todos, todayKey)]
     .filter(d => d.targetDate >= todayKey)
@@ -267,10 +282,11 @@ export default function HomePage() {
   }
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // 끝난 일정은 흐리게 (끝 시간이 없으면 시작부터 1시간, 여러 날 일정은 마지막 날이 아니면 아직 진행 중)
   const isPast = (s: ScheduleItem) => {
-    if (!s.startTime) return false;
-    const [h, m] = s.startTime.split(':').map(Number);
-    return h * 60 + m < nowMinutes;
+    if (!s.startTime || scheduleEndDate(s) !== todayKey || (isMultiDay(s) && !s.endTime)) return false;
+    const end = timeRangeEnd(isMultiDay(s) ? '00:00' : s.startTime, s.endTime);
+    return end !== null && end <= nowMinutes;
   };
 
   return (
@@ -406,7 +422,7 @@ export default function HomePage() {
               {todaySchedules.length === 0 ? (
                 <p className="text-[13px] text-gray-400 dark:text-gray-500">
                   오늘은 정해진 일정이 없어요
-                  {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {upcoming.startTime ?? ''} {upcoming.title}</span></>}
+                  {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {timeRangeLabel(upcoming.startTime, upcoming.endTime)} {upcoming.title}</span></>}
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -415,8 +431,9 @@ export default function HomePage() {
                       <button onClick={() => setScheduleModal({ schedule: s })}
                         className={`w-full flex items-center gap-2.5 text-left px-2 py-1.5 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 ${isPast(s) ? 'opacity-50' : ''}`}>
                         <span className="w-1 self-stretch rounded-full bg-[#4F73A8] flex-shrink-0" />
-                        <span className="w-11 flex-shrink-0 text-[12px] tabular-nums font-medium text-gray-500 dark:text-gray-400">{s.startTime ?? '종일'}</span>
+                        <ScheduleTime s={s} />
                         <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
+                        {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
                         {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-[10.5px] font-semibold text-[#4F73A8] flex items-center gap-0.5"><Clock size={10} />다음</span>}
                       </button>
                     </li>

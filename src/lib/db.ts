@@ -166,7 +166,7 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
 
 export async function createTodo(
   userId: string,
-  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean }
+  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; end_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean }
 ): Promise<DbTodo> {
   const { data, error } = await supabase
     .from('todos')
@@ -179,7 +179,7 @@ export async function createTodo(
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'notes' | 'sort_order' | 'is_dday'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'end_time' | 'notes' | 'sort_order' | 'is_dday'>>
 ): Promise<void> {
   const { error } = await supabase.from('todos').update(updates).eq('id', id);
   if (error) throw error;
@@ -225,7 +225,7 @@ export async function createTodos(userId: string, rows: Parameters<typeof create
 
 export async function updateTodoSeries(
   seriesId: string, fromDate: string | null,
-  updates: Partial<Pick<DbTodo, 'title' | 'category_id' | 'subcategory_id' | 'start_time' | 'notes'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'category_id' | 'subcategory_id' | 'start_time' | 'end_time' | 'notes'>>
 ): Promise<void> {
   const { error } = await seriesQuery(supabase.from('todos').update(updates), seriesId, fromDate);
   if (error) throw error;
@@ -406,7 +406,7 @@ export async function fetchSchedules(userId: string): Promise<DbSchedule[]> {
 
 export async function createSchedule(
   userId: string,
-  fields: { title: string; date: string; start_time?: string | null; notes?: string | null }
+  fields: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null }
 ): Promise<DbSchedule> {
   const { data, error } = await supabase
     .from('schedules')
@@ -417,7 +417,7 @@ export async function createSchedule(
   return data;
 }
 
-export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'notes'>>): Promise<void> {
+export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'end_time' | 'end_date' | 'notes'>>): Promise<void> {
   const { error } = await supabase.from('schedules').update(updates).eq('id', id);
   if (error) throw error;
 }
@@ -429,7 +429,7 @@ export async function deleteSchedule(id: string): Promise<void> {
 
 export async function createSchedules(
   userId: string,
-  rows: { title: string; date: string; start_time?: string | null; notes?: string | null }[],
+  rows: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null }[],
   seriesId: string
 ): Promise<DbSchedule[]> {
   return insertMany<DbSchedule>('schedules', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
@@ -437,7 +437,7 @@ export async function createSchedules(
 
 export async function updateScheduleSeries(
   seriesId: string, fromDate: string | null,
-  updates: Partial<Pick<DbSchedule, 'title' | 'start_time' | 'notes'>>
+  updates: Partial<Pick<DbSchedule, 'title' | 'start_time' | 'end_time' | 'notes'>>
 ): Promise<void> {
   const { error } = await seriesQuery(supabase.from('schedules').update(updates), seriesId, fromDate);
   if (error) throw error;

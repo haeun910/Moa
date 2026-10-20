@@ -25,6 +25,8 @@ import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
 import { todoDdays } from '../lib/agenda';
+import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
+import { timeRangeLabel } from '../lib/timeRange';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -129,7 +131,7 @@ export default function TodayPage() {
   const currentMonth = format(viewMonth, 'yyyy-MM');
   const monthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const completedGoals = monthGoals.filter(g => g.completed).length;
-  const monthSchedules = schedules.filter(s => s.date.startsWith(currentMonth));
+  const monthSchedules = schedules.filter(s => scheduleOverlaps(s, `${currentMonth}-01`, `${currentMonth}-31`));
 
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
@@ -178,7 +180,7 @@ export default function TodayPage() {
   const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
   const selectedDoneCount = selectedTodos.filter(t => t.completed).length;
 
-  const selectedSchedules = schedules.filter(s => s.date === selectedDate);
+  const selectedSchedules = schedules.filter(s => scheduleOnDate(s, selectedDate));
   // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
   const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
 
@@ -323,8 +325,14 @@ export default function TodayPage() {
                   className="flex items-center gap-3 px-3 py-2.5 cursor-pointer group first:rounded-t-xl last:rounded-b-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
                   <span className="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="flex-shrink-0 w-11 text-xs font-semibold tabular-nums text-blue-600 dark:text-blue-300">{s.startTime ?? '종일'}</span>
+                  <span className="flex-shrink-0 w-11 text-xs font-semibold leading-tight tabular-nums text-blue-600 dark:text-blue-300">
+                    {isMultiDay(s) ? '기간' : s.startTime ?? '종일'}
+                    {!isMultiDay(s) && s.endTime && timeRangeLabel(s.startTime, s.endTime).includes('~') && (
+                      <span className="block text-[10.5px] font-normal text-blue-400">~{s.endTime}</span>
+                    )}
+                  </span>
                   <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate">{s.title}</span>
+                  {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{format(parseISO(s.date), 'M/d')}~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
                   {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                   <ScheduleDeleteButton schedule={s}
                     className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -557,12 +565,12 @@ export default function TodayPage() {
               {monthSchedules.map(s => (
                 <div key={s.id} className="flex items-center gap-2.5 group cursor-pointer py-0.5" onClick={() => setScheduleModalState({ schedule: s })}>
                   <span className="flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                    {format(parseISO(s.date), 'M/d')}
+                    {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
                   </span>
                   <span className="flex-1 min-w-0 text-[13px] text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
                   {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                   {s.startTime && (
-                    <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{s.startTime}</span>
+                    <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
                   )}
                   <ScheduleDeleteButton schedule={s} size={12}
                     className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -591,7 +599,8 @@ export default function TodayPage() {
                   const inMonth = isSameMonth(day, viewMonth);
                   const dayTodos = todos.filter(t => t.date === dateStr);
                   const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
-                  const daySchedules = schedules.filter(s => s.date === dateStr);
+                  const daySchedules = schedules.filter(s => scheduleOnDate(s, dateStr))
+                    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
                   const dow = day.getDay();
                   const isLastRow = idx >= days.length - 7;
                   const holiday = holidayLabel(holidays, dateStr);
@@ -725,9 +734,9 @@ export default function TodayPage() {
                               <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
                             </p>
                           ))}
-                          {schedules.filter(sc => sc.date === dateStr).sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
+                          {schedules.filter(sc => scheduleOnDate(sc, dateStr)).sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
                             <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-[10.5px] font-medium text-blue-700 dark:text-blue-300 truncate">
-                              {sc.startTime && <span className="flex-shrink-0 tabular-nums">{sc.startTime}</span>}
+                              {sc.startTime && !isMultiDay(sc) && <span className="flex-shrink-0 tabular-nums">{timeRangeLabel(sc.startTime, sc.endTime)}</span>}
                               <span className="truncate">{sc.title}</span>
                             </p>
                           ))}

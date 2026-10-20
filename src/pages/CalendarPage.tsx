@@ -1,3 +1,5 @@
+import { isMultiDay, scheduleOnDate } from '../lib/scheduleDates';
+import { timeRangeLabel } from '../lib/timeRange';
 import { useState } from 'react';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Flag, Plus, Clock } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
@@ -33,13 +35,14 @@ export default function CalendarPage() {
   const timedTodos = filtered.filter(t => t.startTime).sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
 
   // 할 일뿐 아니라 그 날의 일정·D-Day도 같이 (카테고리 필터를 고르면 할 일만)
-  const daySchedules = activeCatId ? [] : schedules.filter(sc => sc.date === selectedDate)
+  const daySchedules = activeCatId ? [] : schedules.filter(sc => scheduleOnDate(sc, selectedDate))
     .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
   const dayDdays = activeCatId ? [] : [...ddays, ...todoDdays(todos, todayStr)].filter(d => d.targetDate === selectedDate);
-  const allDaySchedules = daySchedules.filter(sc => !sc.startTime);
+  // 여러 날에 걸친 일정은 하루 종일 칸에
+  const allDaySchedules = daySchedules.filter(sc => !sc.startTime || isMultiDay(sc));
   const schedulesByHour: Record<number, ScheduleItem[]> = {};
   for (const sc of daySchedules) {
-    if (!sc.startTime) continue;
+    if (!sc.startTime || isMultiDay(sc)) continue;
     const h = parseInt(sc.startTime.split(':')[0], 10);
     (schedulesByHour[h] ??= []).push(sc);
   }
@@ -267,7 +270,7 @@ function TimeSlotTodo({ todo, onEdit }: { todo: Todo; onEdit: (e: React.MouseEve
         {todo.startTime && (
           <p className="flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
             <Clock size={9} />
-            {todo.startTime}
+            {timeRangeLabel(todo.startTime, todo.endTime)}
           </p>
         )}
       </div>
@@ -281,7 +284,7 @@ function ScheduleChip({ schedule, onOpen }: { schedule: ScheduleItem; onOpen: (s
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-blue-50 dark:bg-blue-900/25 border-l-[3px] border-blue-500">
       <CalendarDays size={13} className="flex-shrink-0 text-blue-600 dark:text-blue-300" />
       <span className="text-xs font-medium flex-1 truncate text-gray-800 dark:text-gray-100">{schedule.title}</span>
-      {schedule.startTime && <span className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{schedule.startTime}</span>}
+      {schedule.startTime && !isMultiDay(schedule) && <span className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{timeRangeLabel(schedule.startTime, schedule.endTime)}</span>}
     </button>
   );
 }

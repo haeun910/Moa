@@ -178,7 +178,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
           title: effectiveTitle, completed: block?.completed ?? false,
           categoryId: listCategoryId,
           subcategoryId: listSubcats.some(sc => sc.id === listSubcategoryId) ? listSubcategoryId : null,
-          date: dateKey, startTime: formatMinutes(startMin), notes: '',
+          date: dateKey, startTime: formatMinutes(startMin), endTime: endMin < DAY_MINUTES ? formatMinutes(endMin) : null, notes: '',
         });
         linkedId = created?.id ?? null;
       }

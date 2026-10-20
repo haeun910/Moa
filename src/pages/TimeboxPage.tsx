@@ -20,6 +20,7 @@ import {
   getBlockSpan, layoutOverlaps, minutesNow, parseMinutes, snapMinutes, spanToRange,
 } from '../lib/timebox';
 import type { BlockSpan } from '../lib/timebox';
+import { timeRangeEnd } from '../lib/timeRange';
 import type { DDay, ScheduleItem, TimeBlock, Todo } from '../types';
 
 const HOUR_PX = 52;
@@ -313,7 +314,7 @@ export default function TimeboxPage() {
     const ownStart = todo.date && days.includes(todo.date) && todo.startTime ? parseMinutes(todo.startTime) : null;
     if (todo.date && ownStart !== null && ownStart < DAY_MINUTES) {
       setSheetOpen(false);
-      setModal({ draft: { dateKey: todo.date, startMin: ownStart, endMin: Math.min(DAY_MINUTES, ownStart + DEFAULT_BLOCK_MINUTES), todoId: todo.id } });
+      setModal({ draft: { dateKey: todo.date, startMin: ownStart, endMin: timeRangeEnd(todo.startTime, todo.endTime) ?? Math.min(DAY_MINUTES, ownStart + DEFAULT_BLOCK_MINUTES), todoId: todo.id } });
       return;
     }
     const dateKey = isWide ? (days.includes(todayKey) ? todayKey : days[0]) : focusDay;

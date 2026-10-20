@@ -8,6 +8,7 @@ export interface Todo {
   dueDate?: string | null; // 마감일(작업할 날짜 date와는 별개) YYYY-MM-DD or null
   isDday?: boolean; // 체크하면 홈 화면 D-Day 목록에도 자동으로 나타남 (dueDate 또는 date를 기준일로 사용)
   startTime?: string | null; // HH:MM
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
   createdAt: string;
   notes?: string;
   seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
@@ -82,6 +83,8 @@ export interface ScheduleItem {
   title: string;
   date: string; // YYYY-MM-DD
   startTime?: string | null; // HH:MM
+  endDate?: string | null; // 여러 날에 걸친 일정의 마지막 날 YYYY-MM-DD (없으면 하루짜리)
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
   notes?: string | null;
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
