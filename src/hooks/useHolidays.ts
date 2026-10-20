@@ -14,9 +14,15 @@ function loadYear(year: string): Promise<HolidayMap> {
   if (hit) return Promise.resolve(hit);
   let p = pending.get(year);
   if (!p) {
+    // 데이터가 없는 해(RangeError)만 빈 목록으로 기억하고, 네트워크 오류 같은 일시적 실패는 다음에 다시 시도
     p = getHolidayPreset(year)
-      .then(preset => preset as HolidayMap, () => ({}))
-      .then(map => { cache.set(year, map); pending.delete(year); return map; });
+      .then(preset => { cache.set(year, preset as HolidayMap); return preset as HolidayMap; },
+        (err: unknown) => {
+          const empty: HolidayMap = {};
+          if (err instanceof RangeError) cache.set(year, empty);
+          return empty;
+        })
+      .finally(() => pending.delete(year));
     pending.set(year, p);
   }
   return p;
