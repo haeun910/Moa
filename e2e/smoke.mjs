@@ -4,7 +4,7 @@
 // 1) 로그인 전: 로그인 화면이 오류 없이 뜨는지
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
-// 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정과 D-Day가 타임박스에 보이는지
+// 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정(끝 시간 길이대로), 여러 날 일정, D-Day가 타임박스에 보이는지
 // 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 // 6) 설정: 끈 기능(타임박스)은 메뉴·홈에서 빠지고, 공휴일(한글날)이 홈과 달력에 보이는지
 //
@@ -50,7 +50,11 @@ async function mockSupabase(page, seen, settingsOverride = {}) {
   }));
   const categories = [{ id: 'cat-1', user_id: USER_ID, name: '공부', color: '#4F73A8', description: null, is_default: false, sort_order: 0, created_at: '2026-01-01T00:00:00Z' }];
   const notes = [{ id: 'note-1', user_id: USER_ID, title: '장보기 목록', content: '우유, 계란', folder_id: null, pinned: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' }];
-  const schedules = [{ id: 'sch-1', user_id: USER_ID, title: '치과 예약', date: today, start_time: '14:00', notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' }];
+  const shift = (days) => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+  const schedules = [
+    { id: 'sch-1', user_id: USER_ID, title: '치과 예약', date: today, start_time: '14:00', end_time: '15:30', notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'sch-2', user_id: USER_ID, title: '워크숍', date: shift(-1), end_date: shift(1), start_time: null, notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' },
+  ];
   const ddays = [{ id: 'dd-1', user_id: USER_ID, title: '시험날', target_date: today, created_at: '2026-01-01T00:00:00Z' }];
   const settings = {
     user_id: USER_ID, theme: 'light', default_screen: 'today', notifications: false, list_sort_by: 'manual',
@@ -169,9 +173,13 @@ try {
       await todoItem.first().waitFor({ timeout: 15000 });
       await scheduleItem.first().waitFor({ timeout: 5000 });
       await page.getByRole('button', { name: '시험날' }).first().waitFor({ timeout: 5000 });
-      console.log('✅ 타임박스 연동: 10시 할 일, 14시 일정, 오늘 D-Day가 타임박스에 보임');
-    } catch {
-      fail('시간이 정해진 할 일·일정과 D-Day가 타임박스에 보여야 함');
+      // 끝 시간이 있는 일정(14:00~15:30)은 끝 시간 없는 할 일(1시간)보다 1.5배 길게
+      const ratio = (await scheduleItem.first().boundingBox()).height / (await todoItem.first().boundingBox()).height;
+      if (ratio < 1.3 || ratio > 1.7) throw new Error(`일정 길이 비율 ${ratio.toFixed(2)}`);
+      await page.getByText('워크숍').first().waitFor({ timeout: 5000 }); // 어제~내일 일정이 오늘 하루 종일 칸에
+      console.log('✅ 타임박스 연동: 10시 할 일, 14~15:30 일정(끝 시간대로), 여러 날 일정, 오늘 D-Day가 타임박스에 보임');
+    } catch (e) {
+      fail(`시간이 정해진 할 일·일정과 D-Day가 타임박스에 보여야 함 (${e.message})`);
     }
     if (errors.length) fail(`타임박스 연동 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
@@ -188,6 +196,8 @@ try {
       await page.getByRole('button', { name: /치과 예약/ }).first().waitFor({ timeout: 5000 });
       await page.getByText('오늘 진행률').waitFor({ timeout: 5000 });
       await page.getByText('공부', { exact: true }).first().waitFor({ timeout: 5000 }); // 오늘 할 일이 카테고리별로 묶여 보임
+      await page.getByText('~15:30').first().waitFor({ timeout: 5000 }); // 일정 끝 시간
+      await page.getByRole('button', { name: /기간\s*워크숍/ }).first().waitFor({ timeout: 5000 }); // 어제~내일 일정이 오늘에도
       await page.getByRole('button', { name: '오늘 일정 도움말' }).click();
       await page.getByText('정해진 날짜와 시간에 있는 약속이에요.', { exact: false }).waitFor({ timeout: 5000 }); // 물음표 안내
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/home-desktop.png`, fullPage: true });

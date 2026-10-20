@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.9.0',
+    date: '2026-10-20',
+    changes: [
+      '할 일·일정에 끝나는 시간을 넣을 수 있음 (선택). 타임박스·홈 타임라인에도 그 길이대로 보임 (넣지 않으면 지금처럼 1시간)',
+      '일정에 끝나는 날짜를 넣어 여행처럼 여러 날에 걸친 일정을 만들 수 있음. 달력과 홈에 걸친 날마다 보임',
+    ],
+  },
+  {
     version: '2.8.0',
     date: '2026-10-20',
     changes: [
