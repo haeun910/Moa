@@ -52,9 +52,10 @@ function TodaySummary() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { currentScreen, setCurrentScreen, settings } = useApp();
-  const owner = navOwner(currentScreen);
-  // 설정에서 끈 기능은 메뉴에서 뺌
+  // 설정에서 끈 기능은 메뉴에서 뺌 (저장소를 꺼도 설정에서 여는 프로젝트 로드맵은 설정 아래로 표시)
   const navItems = NAV_ITEMS.filter(({ screen }) => !(settings.hiddenFeatures as Screen[]).includes(screen));
+  const rawOwner = navOwner(currentScreen);
+  const owner = navItems.some(n => n.screen === rawOwner) ? rawOwner : 'settings';
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">

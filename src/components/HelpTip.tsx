@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 
 const BUBBLE_PX = 240; // w-60
@@ -22,6 +22,7 @@ export default function HelpTip({ text, label }: { text: string; label: string }
   // 화면 오른쪽 끝에 가까운 물음표는 말풍선이 잘리지 않게 왼쪽으로 펼침
   const [alignRight, setAlignRight] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
+  const tipId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -51,12 +52,12 @@ export default function HelpTip({ text, label }: { text: string; label: string }
     <span ref={ref} className="relative inline-flex"
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false); }}>
       <button type="button" onClick={e => { e.stopPropagation(); toggle(); }}
-        aria-label={`${label} 도움말`} aria-expanded={open}
+        aria-label={`${label} 도움말`} aria-expanded={open} aria-describedby={open ? tipId : undefined}
         className="w-4 h-4 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors">
         <HelpCircle size={13} />
       </button>
       {open && (
-        <span role="tooltip"
+        <span id={tipId} role="tooltip"
           className={`absolute ${alignRight ? '-right-1' : '-left-1'} top-full mt-1.5 z-30 w-60 px-3 py-2 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-[12px] leading-snug font-normal shadow-lg text-left whitespace-normal`}>
           {text}
         </span>

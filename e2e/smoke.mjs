@@ -40,7 +40,8 @@ async function waitForServer(url, ms = 20000) {
 
 // 가짜 Supabase REST API: todos는 TOTAL_TODOS개, 나머지는 빈 목록
 async function mockSupabase(page, seen, settingsOverride = {}) {
-  const today = new Date().toISOString().slice(0, 10);
+  // 브라우저는 한국 시간으로 띄우므로 오늘 날짜도 한국 시간 기준 (UTC로 하면 오후 3시~자정 사이에 하루 어긋남)
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
   const todos = Array.from({ length: TOTAL_TODOS }, (_, i) => ({
     id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     user_id: USER_ID, title: `할 일 ${i + 1}`, completed: false, category_id: i === TOTAL_TODOS - 1 ? 'cat-1' : null, subcategory_id: null,
