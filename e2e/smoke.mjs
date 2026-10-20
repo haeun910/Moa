@@ -183,7 +183,7 @@ try {
       await page.getByText('오늘 진행률').waitFor({ timeout: 5000 });
       await page.getByText('공부', { exact: true }).first().waitFor({ timeout: 5000 }); // 오늘 할 일이 카테고리별로 묶여 보임
       await page.getByRole('button', { name: '오늘 일정 도움말' }).click();
-      await page.getByText('날짜와 시간, 장소가 정해진 일을 작성해 주세요.').waitFor({ timeout: 5000 }); // 물음표 안내
+      await page.getByText('정해진 날짜와 시간에 있는 약속이에요.', { exact: false }).waitFor({ timeout: 5000 }); // 물음표 안내
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/home-desktop.png`, fullPage: true });
       await page.mouse.click(5, 5);
       if (process.env.SHOT_DIR) {
