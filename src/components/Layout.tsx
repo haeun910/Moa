@@ -51,8 +51,10 @@ function TodaySummary() {
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { currentScreen, setCurrentScreen } = useApp();
+  const { currentScreen, setCurrentScreen, settings } = useApp();
   const owner = navOwner(currentScreen);
+  // 설정에서 끈 기능은 메뉴에서 뺌
+  const navItems = NAV_ITEMS.filter(({ screen }) => !(settings.hiddenFeatures as Screen[]).includes(screen));
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -66,7 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <TodaySummary />
 
         <nav className="flex-1 flex flex-col gap-0.5 px-3" aria-label="주요 메뉴">
-          {NAV_ITEMS.map(({ screen, label, Icon }) => {
+          {navItems.map(({ screen, label, Icon }) => {
             const active = owner === screen;
             return (
               <button
@@ -97,7 +99,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── 모바일/태블릿 하단 탭 ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-gray-950/85 backdrop-blur-xl border-t border-gray-200/70 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]" aria-label="주요 메뉴">
         <div className="flex items-stretch justify-around h-[62px] max-w-lg mx-auto px-2">
-          {NAV_ITEMS.map(({ screen, label, Icon }) => {
+          {navItems.map(({ screen, label, Icon }) => {
             const active = owner === screen;
             return (
               <button

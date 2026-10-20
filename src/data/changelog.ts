@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.8.0',
+    date: '2026-10-20',
+    changes: [
+      '한국 공휴일(빨간 날) 표시: 설날·추석·대체공휴일까지 홈 날짜 옆과 달력에 보임 (설정 > 일반 > 달력 표시에서 끄고 켤 수 있음)',
+      '설정 > 일반 > 사용할 기능에서 타임박스·저장소·메모를 끄고 켤 수 있음 (끈 기능은 메뉴와 홈에서 숨겨지고, 적어 둔 내용은 그대로)',
+    ],
+  },
+  {
     version: '2.7.4',
     date: '2026-10-20',
     changes: [

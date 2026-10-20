@@ -147,6 +147,8 @@ export interface DbSettings {
   hide_completed: boolean;
   hidden_category_ids: string[];
   calendar_text_size: 'small' | 'medium' | 'large';
+  show_holidays?: boolean; // 020 마이그레이션 전에는 컬럼이 없을 수 있음
+  hidden_features?: string[];
   updated_at: string;
 }
 

@@ -97,7 +97,9 @@ create table if not exists public.user_settings (
   list_sort_by        text not null default 'manual',   -- 'manual' | 'date' | 'name'
   hide_completed      boolean not null default false,
   hidden_category_ids uuid[] not null default '{}',
-  calendar_text_size  text not null default 'medium'    -- 'small' | 'medium' | 'large'
+  calendar_text_size  text not null default 'medium',   -- 'small' | 'medium' | 'large'
+  show_holidays       boolean not null default true,    -- 한국 공휴일 표시
+  hidden_features     text[] not null default '{}'      -- 메뉴에서 숨긴 기능 ('timebox' | 'all' | 'notes')
 );
 
 -- 이번 달 목표
@@ -528,6 +530,11 @@ as $$
        and b.notified_at is null
        and not b.completed
        and not coalesce(t.completed, false)
+       -- 설정에서 타임박스를 끈 사람에게는 알림을 보내지 않음
+       and not exists (
+         select 1 from public.user_settings s
+          where s.user_id = b.user_id and 'timebox' = any(s.hidden_features)
+       )
        and b.start_at - make_interval(mins => b.remind_minutes) <= now()
        and b.start_at - make_interval(mins => b.remind_minutes) > now() - interval '10 minutes'
      for update of b skip locked

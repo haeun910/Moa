@@ -14,6 +14,7 @@ import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
 import { LIMITS } from '../lib/limits';
+import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { requestOpenNote } from '../lib/openNote';
 import TodayTimeline from '../components/TodayTimeline';
 import HelpTip from '../components/HelpTip';
@@ -200,6 +201,7 @@ export default function HomePage() {
   const now = useNow(60_000);
   const todayKey = format(now, 'yyyy-MM-dd');
   const monthKey = format(now, 'yyyy-MM');
+  const holidays = useHolidays(todayKey, todayKey);
 
   const [todoModal, setTodoModal] = useState<{ todo?: Todo; categoryId?: string | null; subcategoryId?: string | null; title?: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ schedule?: ScheduleItem } | null>(null);
@@ -244,6 +246,8 @@ export default function HomePage() {
     .sort((a, b) => a.targetDate.localeCompare(b.targetDate))
     .slice(0, 4);
   const goals = monthlyGoals.filter(g => g.month === monthKey);
+  const hidden = new Set(settings.hiddenFeatures);
+  const todayHoliday = holidayLabel(holidays, todayKey);
   const goalsDone = goals.filter(g => g.completed).length;
 
   function openDday(d: DDay) {
@@ -273,7 +277,10 @@ export default function HomePage() {
         <header className="flex items-start justify-between gap-3 mb-5">
           <div>
             <p className="text-[13px] font-medium text-leaf-700 dark:text-leaf-400">{greeting(now.getHours())}</p>
-            <h1 className="page-title mt-0.5">{format(now, 'M월 d일 EEEE', { locale: ko })}</h1>
+            <h1 className="page-title mt-0.5">
+              {format(now, 'M월 d일 EEEE', { locale: ko })}
+              {todayHoliday && <span className="ml-2 align-middle inline-flex items-center h-6 px-2 rounded-full bg-red-50 dark:bg-red-900/30 text-[12px] font-semibold text-red-600 dark:text-red-300">{todayHoliday}</span>}
+            </h1>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
@@ -374,14 +381,14 @@ export default function HomePage() {
 
           <div className="lg:col-span-2 flex flex-col gap-4">
             {/* ── 오늘 타임박스 (오늘 하루만 세로로) ── */}
-            <div>
+            {!hidden.has('timebox') && <div>
               <TodayTimeline />
               {box.planned > 0 && (
                 <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-1.5 px-1">
                   오늘 타임박스 {durationLabel(box.planned)} 중 <span className="font-semibold text-gray-700 dark:text-gray-300">{durationLabel(box.done)}</span> 완료
                 </p>
               )}
-            </div>
+            </div>}
             {/* ── 오늘 일정 ── */}
             <section className="surface rounded-2xl p-4">
               <SectionHeader
@@ -477,7 +484,7 @@ export default function HomePage() {
             </section>
 
             {/* ── 메모 ── */}
-            <MemoSection />
+            {!hidden.has('notes') && <MemoSection />}
 
             <button onClick={() => goCalendar()} className="btn-secondary h-10 text-[13px] justify-center">
               <CalendarDays size={15} />

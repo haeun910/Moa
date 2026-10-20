@@ -6,6 +6,7 @@
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정과 D-Day가 타임박스에 보이는지
 // 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
+// 6) 설정: 끈 기능(타임박스)은 메뉴·홈에서 빠지고, 공휴일(한글날)이 홈과 달력에 보이는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -38,7 +39,7 @@ async function waitForServer(url, ms = 20000) {
 }
 
 // 가짜 Supabase REST API: todos는 TOTAL_TODOS개, 나머지는 빈 목록
-async function mockSupabase(page, seen) {
+async function mockSupabase(page, seen, settingsOverride = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const todos = Array.from({ length: TOTAL_TODOS }, (_, i) => ({
     id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
@@ -53,6 +54,7 @@ async function mockSupabase(page, seen) {
   const settings = {
     user_id: USER_ID, theme: 'light', default_screen: 'today', notifications: false, list_sort_by: 'manual',
     hide_completed: false, hidden_category_ids: [], calendar_text_size: 'medium', updated_at: '2026-01-01T00:00:00Z',
+    ...settingsOverride,
   };
 
   await page.route(`${SUPABASE}/**`, async route => {
@@ -98,8 +100,8 @@ try {
   }
 
   // 로그인한 상태의 새 브라우저 창
-  async function loggedInContext() {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  async function loggedInContext({ settings, fixedTime } = {}) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'Asia/Seoul' });
     const exp = Math.floor(Date.now() / 1000) + 3600;
     const session = {
       access_token: fakeJwt({ sub: USER_ID, role: 'authenticated', exp, aud: 'authenticated' }),
@@ -115,7 +117,8 @@ try {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     const seen = { todoPages: [], timeblockInserts: [] };
-    await mockSupabase(page, seen);
+    if (fixedTime) await page.clock.setFixedTime(fixedTime);
+    await mockSupabase(page, seen, settings);
     return { context, page, errors, seen };
   }
 
@@ -203,6 +206,29 @@ try {
       fail('홈에 오늘 요약이 보이고 달력 메뉴로 월 달력이 열려야 함');
     }
     if (errors.length) fail(`홈 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 6) 기능 끄기 + 공휴일 (2026-10-09 한글날로 시계를 고정)
+  {
+    const { context, page, errors } = await loggedInContext({
+      settings: { hidden_features: ['timebox'], show_holidays: true },
+      fixedTime: new Date('2026-10-09T10:00:00+09:00'),
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByRole('heading', { level: 1 }).getByText('한글날').waitFor({ timeout: 10000 }); // 홈 날짜 옆 공휴일
+      if (await page.getByRole('button', { name: '타임박스', exact: true }).count()) throw new Error('타임박스 메뉴가 남아 있음');
+      if (await page.getByText('오늘 타임박스').count()) throw new Error('홈에 타임박스가 남아 있음');
+      await page.getByRole('button', { name: '달력', exact: true }).first().click();
+      await page.getByRole('button', { name: /10월 3일 토요일 개천절/ }).waitFor({ timeout: 10000 }); // 월 달력 칸에 공휴일
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-holidays.png` });
+      console.log('✅ 설정: 끈 타임박스는 메뉴·홈에서 빠지고, 한글날·개천절이 홈과 달력에 보임');
+    } catch (e) {
+      fail(`끈 기능은 숨겨지고 공휴일이 보여야 함 (${e.message})`);
+    }
+    if (errors.length) fail(`설정 테스트 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

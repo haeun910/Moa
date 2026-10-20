@@ -316,7 +316,7 @@ export async function fetchSettings(userId: string): Promise<DbSettings | null> 
   return data ?? null;
 }
 
-export async function upsertSettings(userId: string, updates: Partial<Pick<DbSettings, 'theme' | 'default_screen' | 'notifications' | 'list_sort_by' | 'hide_completed' | 'hidden_category_ids' | 'calendar_text_size'>>): Promise<void> {
+export async function upsertSettings(userId: string, updates: Partial<Pick<DbSettings, 'theme' | 'default_screen' | 'notifications' | 'list_sort_by' | 'hide_completed' | 'hidden_category_ids' | 'calendar_text_size' | 'show_holidays' | 'hidden_features'>>): Promise<void> {
   const { error } = await supabase
     .from('user_settings')
     .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' });

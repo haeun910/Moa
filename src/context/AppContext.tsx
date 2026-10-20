@@ -10,7 +10,8 @@ import { showSaveError, markSaveErrorHandled } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
 import { DAY_MINUTES, applySeriesUpdate, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
-import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
+import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
+import { OPTIONAL_FEATURES } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -92,6 +93,8 @@ function toSettings(s: DbSettings): Settings {
     hideCompleted: s.hide_completed,
     hiddenCategoryIds: s.hidden_category_ids ?? [],
     calendarTextSize: s.calendar_text_size ?? 'medium',
+    showHolidays: s.show_holidays ?? true,
+    hiddenFeatures: (s.hidden_features ?? []).filter((f): f is OptionalFeature => (OPTIONAL_FEATURES as string[]).includes(f)),
   };
 }
 
@@ -206,6 +209,8 @@ const DEFAULT_SETTINGS: Settings = {
   hideCompleted: false,
   hiddenCategoryIds: [],
   calendarTextSize: 'medium',
+  showHolidays: true,
+  hiddenFeatures: [],
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -227,6 +232,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  // 설정에서 끈 기능 화면에 있으면(시작 화면·알림으로 들어온 경우 포함) 홈으로
+  useEffect(() => {
+    if ((settings.hiddenFeatures as Screen[]).includes(currentScreen)) setCurrentScreen('today');
+  }, [settings.hiddenFeatures, currentScreen]);
   const [dataLoading, setDataLoading] = useState(true);
   // 처음 불러오기가 실패하면(네트워크 등) 빈 화면 대신 "다시 시도" 화면을 보여주기 위함
   const [loadError, setLoadError] = useState(false);
@@ -957,6 +966,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.hideCompleted !== undefined) dbUpdates.hide_completed = updates.hideCompleted;
     if (updates.hiddenCategoryIds !== undefined) dbUpdates.hidden_category_ids = updates.hiddenCategoryIds;
     if (updates.calendarTextSize) dbUpdates.calendar_text_size = updates.calendarTextSize;
+    if (updates.showHolidays !== undefined) dbUpdates.show_holidays = updates.showHolidays;
+    if (updates.hiddenFeatures !== undefined) dbUpdates.hidden_features = updates.hiddenFeatures;
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 

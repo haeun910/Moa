@@ -25,6 +25,7 @@ import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
 import { todoDdays } from '../lib/agenda';
+import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -164,6 +165,13 @@ export default function TodayPage() {
   });
   const weekCount = Math.ceil(days.length / 7);
   const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
+  // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
+  const holidayRange = [
+    format(days[0], 'yyyy-MM-dd'), format(days[days.length - 1], 'yyyy-MM-dd'),
+    format(startOfWeek(weekRef, { weekStartsOn: 0 }), 'yyyy-MM-dd'), format(endOfWeek(weekRef, { weekStartsOn: 0 }), 'yyyy-MM-dd'),
+    selectedDate,
+  ].sort();
+  const holidays = useHolidays(holidayRange[0], holidayRange[holidayRange.length - 1]);
 
   // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
   // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
@@ -340,6 +348,7 @@ export default function TodayPage() {
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               {format(parseISO(selectedDate), 'EEEE', { locale: ko })}
+              {holidayLabel(holidays, selectedDate) && <span className="ml-1.5 text-red-500 dark:text-red-400 font-semibold">{holidayLabel(holidays, selectedDate)}</span>}
               {isTodaySelected && <span className="ml-1.5 text-leaf-600 dark:text-leaf-400 font-semibold">오늘</span>}
             </p>
             <h2 className={`${compact ? 'text-lg' : 'text-[22px]'} font-bold tracking-[-0.03em] text-gray-900 dark:text-white tabular-nums mt-0.5`}>
@@ -585,6 +594,7 @@ export default function TodayPage() {
                   const daySchedules = schedules.filter(s => s.date === dateStr);
                   const dow = day.getDay();
                   const isLastRow = idx >= days.length - 7;
+                  const holiday = holidayLabel(holidays, dateStr);
 
                   // 달력 칸에는 디데이/일정(날짜·시간이 정해진 것)만 제목이 보이는 칩으로 미리 보여주고,
                   // 할 일(날짜만 있고 시간표는 아닌 것)은 예전처럼 카테고리별 색깔 점으로만 표시.
@@ -600,7 +610,7 @@ export default function TodayPage() {
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      aria-label={format(day, 'M월 d일 EEEE', { locale: ko })}
+                      aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
                       aria-pressed={isSelected}
                       className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1.5 text-left transition-colors ${
                         dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
@@ -615,15 +625,21 @@ export default function TodayPage() {
                             : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
                       }`}
                     >
-                      <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums mb-1 ${
-                        isToday
-                          ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
-                          : !inMonth
-                            ? 'text-gray-300 dark:text-gray-600 font-medium'
-                            : `${weekdayTone(dow)} font-semibold`
-                      }`}>
-                        {format(day, 'd')}
-                      </span>
+                      <div className="w-full min-w-0 flex items-center gap-1 mb-1">
+                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums ${
+                          isToday
+                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
+                            : !inMonth
+                              ? 'text-gray-300 dark:text-gray-600 font-medium'
+                              : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
+                        }`}>
+                          {format(day, 'd')}
+                        </span>
+                        {/* 공휴일 이름 (빨간 날) */}
+                        {holiday && (
+                          <span className={`min-w-0 truncate text-[10px] font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
+                        )}
+                      </div>
                       <div className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
                         {visibleChips.map(chip => (
                           <div
@@ -683,6 +699,7 @@ export default function TodayPage() {
                     const completedCount = dayTodos.filter(t => t.completed).length;
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
+                    const holiday = holidayLabel(holidays, dateStr);
                     return (
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
@@ -694,11 +711,12 @@ export default function TodayPage() {
                         <div className="mb-2 flex-shrink-0 px-0.5">
                           <p className={`text-[10px] font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
-                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(dow)}`}>{format(day, 'd')}</p>
+                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
                             {dayTodos.length > 0 && (
                               <p className="text-[10px] tabular-nums text-gray-400">{completedCount}/{dayTodos.length}</p>
                             )}
                           </div>
+                          {holiday && <p className="text-[10px] font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
                         </div>
                         <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
                           {/* 월간 보기처럼 D-Day·일정도 함께 */}

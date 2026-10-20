@@ -51,7 +51,13 @@ export interface Settings {
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
   hiddenCategoryIds: string[]; // 목록에서 숨길 카테고리
   calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
+  showHolidays: boolean; // 달력·홈에 한국 공휴일(빨간 날) 표시
+  hiddenFeatures: OptionalFeature[]; // 메뉴에서 숨긴 기능 (데이터는 그대로)
 }
+
+// 설정에서 끄고 켤 수 있는 기능 (화면 이름과 같음). 홈·달력·설정은 항상 켜져 있음
+export type OptionalFeature = 'timebox' | 'all' | 'notes';
+export const OPTIONAL_FEATURES: OptionalFeature[] = ['timebox', 'all', 'notes'];
 
 export type Screen = 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
 
