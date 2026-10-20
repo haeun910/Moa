@@ -293,6 +293,7 @@ export default function AllTodosPage() {
       subcategoryId: todo.subcategoryId,
       date: null,
       startTime: todo.startTime ?? null,
+      endTime: todo.endTime ?? null,
       notes: todo.notes ?? '',
     });
   }

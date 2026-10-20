@@ -9,8 +9,10 @@ import { newSeriesId } from '../lib/recurrence';
 import { showSaveError, markSaveErrorHandled } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
-import { DAY_MINUTES, applySeriesUpdate, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
-import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice } from '../types';
+import { timeRangeEnd } from '../lib/timeRange';
+import { DAY_MINUTES, applySeriesUpdate, formatMinutes, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
+import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
+import { OPTIONAL_FEATURES } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -24,6 +26,7 @@ function toTodo(t: DbTodo): Todo {
     dueDate: t.due_date,
     isDday: t.is_dday,
     startTime: t.start_time,
+    endTime: t.end_time ?? null,
     notes: t.notes ?? '',
     createdAt: t.created_at,
     seriesId: t.series_id ?? null,
@@ -55,7 +58,7 @@ function toDDay(d: DbDDay): DDay {
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
-  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null };
+  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null };
 }
 
 function toTimeBlock(b: DbTimeBlock): TimeBlock {
@@ -92,6 +95,8 @@ function toSettings(s: DbSettings): Settings {
     hideCompleted: s.hide_completed,
     hiddenCategoryIds: s.hidden_category_ids ?? [],
     calendarTextSize: s.calendar_text_size ?? 'medium',
+    showHolidays: s.show_holidays ?? true,
+    hiddenFeatures: (s.hidden_features ?? []).filter((f): f is OptionalFeature => (OPTIONAL_FEATURES as string[]).includes(f)),
   };
 }
 
@@ -147,11 +152,11 @@ interface AppContextType {
   addDDay: (title: string, targetDate: string) => Promise<void>;
   updateDDay: (id: string, updates: { title?: string; targetDate?: string }) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
-  addSchedule: (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
-  updateSchedule: (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
+  addSchedule: (fields: ScheduleFields & { date: string; endDate?: string | null }) => Promise<void>;
+  updateSchedule: (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
-  addScheduleSeries: (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[], existingId?: string) => Promise<void>;
-  updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: { title?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
+  addScheduleSeries: (fields: ScheduleFields, dates: string[], existingId?: string) => Promise<void>;
+  updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => Promise<void>;
   deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   addTimeBlock: (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => Promise<TimeBlock | null | undefined>;
   updateTimeBlock: (id: string, updates: Partial<TimeBlockFields>) => Promise<void>;
@@ -171,7 +176,14 @@ interface AppContextType {
 // 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
 export type NoteUpdates = Partial<Pick<Note, 'title' | 'content' | 'folderId' | 'pinned'>>;
 
-export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'notes'>>;
+export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes'>>;
+export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null };
+
+// 끝 시간은 있을 때(또는 있던 걸 지울 때)만 DB로 보냄.
+// 021 마이그레이션(end_time 칸)을 실행하기 전 DB에서도 끝 시간을 안 쓰는 저장은 그대로 되게 하기 위함
+function endTimeField(next: string | null | undefined, had: boolean): { end_time?: string | null } {
+  return next || had ? { end_time: next || null } : {};
+}
 
 // fromDate가 있으면 그 날짜(포함) 이후 회차만, 없으면 반복 전체 (DB 쿼리와 같은 기준)
 function inSeries(item: { seriesId?: string | null; date: string | null }, seriesId: string, fromDate: string | null): boolean {
@@ -206,6 +218,8 @@ const DEFAULT_SETTINGS: Settings = {
   hideCompleted: false,
   hiddenCategoryIds: [],
   calendarTextSize: 'medium',
+  showHolidays: true,
+  hiddenFeatures: [],
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -227,6 +241,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  // 설정에서 끈 기능 화면에 있으면(시작 화면·알림으로 들어온 경우 포함) 홈으로
+  useEffect(() => {
+    if ((settings.hiddenFeatures as Screen[]).includes(currentScreen)) setCurrentScreen('today');
+  }, [settings.hiddenFeatures, currentScreen]);
   const [dataLoading, setDataLoading] = useState(true);
   // 처음 불러오기가 실패하면(네트워크 등) 빈 화면 대신 "다시 시도" 화면을 보여주기 위함
   const [loadError, setLoadError] = useState(false);
@@ -282,6 +300,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   monthlyGoalsRef.current = monthlyGoals;
   const timeblocksRef = useRef(timeblocks);
   timeblocksRef.current = timeblocks;
+  const schedulesRef = useRef(schedules);
+  schedulesRef.current = schedules;
   // 새 할 일의 sort_order. 연달아 추가할 때 다음 렌더 전이라 todos.length가 그대로여서 같은 값이 겹쳤음
   // 완료 체크처럼 빠르게 반복되는 저장을 항목별로 순서대로 보냄
   const serialWriteRef = useRef(createSerialWriter());
@@ -440,6 +460,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       due_date: fields.dueDate ?? null,
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
+      ...endTimeField(fields.endTime, false),
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
@@ -471,6 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       due_date: fields.dueDate ?? null,
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
+      ...endTimeField(fields.endTime, false),
       notes: fields.notes,
       sort_order: firstSort + i,
     })), seriesId);
@@ -484,6 +506,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if ('categoryId' in updates) dbUpdates.category_id = updates.categoryId ?? null;
     if ('subcategoryId' in updates) dbUpdates.subcategory_id = updates.subcategoryId ?? null;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.endTime)));
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
     setTodos(prev => prev.map(t => inSeries(t, seriesId, fromDate) ? { ...t, ...updates } : t));
     await db.updateTodoSeries(seriesId, fromDate, dbUpdates);
@@ -514,6 +537,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
     const before = todosRef.current.find(t => t.id === id);
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
     setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     await db.updateTodo(id, dbUpdates);
     if (before && followBlocks) await followTodoWithBlocks(before, updates);
@@ -524,7 +548,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // (날짜만 바뀌면 같은 시각 그대로 새 날짜로, 시간이 바뀌면 길이는 그대로 두고 새 시각으로.
   //  저장소로 보내 날짜가 없어지면 그 날의 블록은 지움)
   async function followTodoWithBlocks(before: Todo, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) {
-    if (!before.date || !('date' in updates || 'startTime' in updates)) return;
+    if (!before.date || !('date' in updates || 'startTime' in updates || 'endTime' in updates)) return;
     const newDate = 'date' in updates ? updates.date ?? null : before.date;
     const newTime = 'startTime' in updates ? updates.startTime ?? null : before.startTime ?? null;
     const timeChanged = 'startTime' in updates && newTime !== (before.startTime ?? null) && newTime !== null;
@@ -537,7 +561,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         continue;
       }
       const span = getBlockSpan(block);
-      const length = span.endMin - span.startMin;
+      // 블록이 하나뿐이고 할 일에 끝 시간이 있으면 블록 길이도 할 일 시간에 맞춤
+      const newEndMin = linked.length === 1 && newTime ? timeRangeEnd(newTime, 'endTime' in updates ? updates.endTime : before.endTime) : null;
+      const endChanged = 'endTime' in updates && (updates.endTime ?? null) !== (before.endTime ?? null);
+      const length = endChanged && newEndMin !== null ? newEndMin - (parseMinutes(newTime ?? '') ?? 0) : span.endMin - span.startMin;
       // 시간이 바뀌면: 원래 시간이 있었으면 그만큼 같이 밀고(여러 번에 나눠 잡은 블록도 간격 유지),
       // 없었으면 블록이 하나일 때만 새 시각으로
       const oldMin = before.startTime ? parseMinutes(before.startTime) : null;
@@ -546,7 +573,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (timeChanged && newMin !== null) {
         if (oldMin !== null) startMin = span.startMin + (newMin - oldMin);
         else if (linked.length === 1) startMin = newMin;
-      }
+      } else if (endChanged && newMin !== null && linked.length === 1) startMin = newMin;
       startMin = Math.max(0, Math.min(startMin, DAY_MINUTES - length));
       const range = spanToRange(newDate, startMin, startMin + length);
       if (range.startAt === block.startAt && range.endAt === block.endAt) continue;
@@ -745,15 +772,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return [...list].sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99:99').localeCompare(b.startTime ?? '99:99'));
   }
 
-  const addSchedule = useCallback(async (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => {
+  const addSchedule = useCallback(async (fields: ScheduleFields & { date: string; endDate?: string | null }) => {
     if (!user) return;
-    const row = await db.createSchedule(user.id, { title: fields.title, date: fields.date, start_time: fields.startTime ?? null, notes: fields.notes ?? null });
+    const row = await db.createSchedule(user.id, {
+      title: fields.title, date: fields.date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false),
+      ...(fields.endDate ? { end_date: fields.endDate } : {}), notes: fields.notes ?? null,
+    });
     setSchedules(prev => sortSchedules([...prev, toSchedule(row)]));
   }, [user]);
 
-  const updateSchedule = useCallback(async (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => {
+  const updateSchedule = useCallback(async (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => {
+    const before = schedulesRef.current.find(s => s.id === id);
     setSchedules(prev => sortSchedules(prev.map(s => s.id === id ? { ...s, ...updates } : s)));
     const dbUpdates: Parameters<typeof db.updateSchedule>[1] = {};
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
+    // 끝 날짜도 끝 시간처럼 있을 때(또는 지울 때)만 보냄 (021 마이그레이션 전 DB 대비)
+    if ('endDate' in updates && (updates.endDate || before?.endDate)) dbUpdates.end_date = updates.endDate || null;
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.date !== undefined) dbUpdates.date = updates.date;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
@@ -767,7 +801,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // 반복 일정: 각 날짜마다 독립된 일정을 한 번에 만들고 같은 seriesId로 묶음
-  const addScheduleSeries = useCallback(async (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[], existingId?: string) => {
+  const addScheduleSeries = useCallback(async (fields: ScheduleFields, dates: string[], existingId?: string) => {
     if (!user) return;
     const seriesId = newSeriesId();
     if (existingId) {
@@ -777,13 +811,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (dates.length === 0) return;
     const rows = await db.createSchedules(user.id, dates.map(date => ({
-      title: fields.title, date, start_time: fields.startTime ?? null, notes: fields.notes ?? null,
+      title: fields.title, date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false), notes: fields.notes ?? null,
     })), seriesId);
     setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
   }, [user]);
 
-  const updateScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: { title?: string; startTime?: string | null; notes?: string | null }) => {
+  const updateScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => {
     const dbUpdates: Parameters<typeof db.updateScheduleSeries>[2] = {};
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, schedulesRef.current.some(s => inSeries(s, seriesId, fromDate) && s.endTime)));
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
@@ -816,7 +851,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updates: Partial<Todo> = {};
     if (todo.date !== dateKey && prevDate === todo.date && !othersOn(prevDate)) updates.date = dateKey;
     const landsOnTodoDay = (updates.date ?? todo.date) === dateKey;
-    if (landsOnTodoDay && todo.startTime && todo.startTime !== time && !othersOn(dateKey)) updates.startTime = time;
+    if (landsOnTodoDay && todo.startTime && todo.startTime !== time && !othersOn(dateKey)) {
+      updates.startTime = time;
+      // 끝 시간이 있으면 같은 길이만큼 같이 옮김
+      const oldStart = parseMinutes(todo.startTime);
+      const oldEnd = todo.endTime ? parseMinutes(todo.endTime) : null;
+      const newStart = parseMinutes(time);
+      if (oldStart !== null && oldEnd !== null && newStart !== null) {
+        updates.endTime = formatMinutes(Math.min(DAY_MINUTES - 1, newStart + (oldEnd - oldStart)));
+      }
+    }
     if (Object.keys(updates).length) await updateTodo(todoId, updates, false);
   }, [updateTodo]);
 
@@ -957,6 +1001,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.hideCompleted !== undefined) dbUpdates.hide_completed = updates.hideCompleted;
     if (updates.hiddenCategoryIds !== undefined) dbUpdates.hidden_category_ids = updates.hiddenCategoryIds;
     if (updates.calendarTextSize) dbUpdates.calendar_text_size = updates.calendarTextSize;
+    if (updates.showHolidays !== undefined) dbUpdates.show_holidays = updates.showHolidays;
+    if (updates.hiddenFeatures !== undefined) dbUpdates.hidden_features = updates.hiddenFeatures;
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 

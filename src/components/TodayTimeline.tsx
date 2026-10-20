@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
 import TimeBlockModal from './TimeBlockModal';
+import HelpTip from './HelpTip';
+import { GUIDES } from '../data/guides';
 import ScheduleModal from './ScheduleModal';
 import { buildAgenda } from '../lib/agenda';
 import type { AgendaTimed } from '../lib/agenda';
@@ -101,6 +103,7 @@ export default function TodayTimeline() {
             className="text-[13px] font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
             오늘 타임박스
           </button>
+          <HelpTip text={GUIDES.timebox} label="오늘 타임박스" />
           {items.length > 0 && <span className="count-pill">{doneCount}/{items.length}</span>}
         </div>
         <div className="order-last basis-full min-w-0">

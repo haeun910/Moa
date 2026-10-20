@@ -164,3 +164,15 @@ begin
   assert ok, '비로그인 사용자가 탈퇴 함수를 부를 수 있으면 안 됨';
 end $$;
 reset role;
+
+-- 10) 설정에서 타임박스를 끈 사람에게는 시작 알림을 보내지 않음 (다시 켜면 보냄)
+insert into public.timeblocks (id, user_id, title, start_at, end_at, remind_minutes) values
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000b', '알림 블록', now() + interval '1 minute', now() + interval '1 hour', 5);
+update public.user_settings set hidden_features = '{timebox}' where user_id = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  assert not exists (select 1 from public.claim_due_timeblock_reminders() where block_id = '00000000-0000-0000-0000-0000000000c1'), '타임박스를 끈 사람에게 알림을 보내면 안 됨';
+end $$;
+update public.user_settings set hidden_features = '{}' where user_id = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  assert exists (select 1 from public.claim_due_timeblock_reminders() where block_id = '00000000-0000-0000-0000-0000000000c1'), '타임박스를 켠 사람에게는 알림을 보내야 함';
+end $$;

@@ -8,6 +8,7 @@ export interface Todo {
   dueDate?: string | null; // 마감일(작업할 날짜 date와는 별개) YYYY-MM-DD or null
   isDday?: boolean; // 체크하면 홈 화면 D-Day 목록에도 자동으로 나타남 (dueDate 또는 date를 기준일로 사용)
   startTime?: string | null; // HH:MM
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
   createdAt: string;
   notes?: string;
   seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
@@ -51,7 +52,13 @@ export interface Settings {
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
   hiddenCategoryIds: string[]; // 목록에서 숨길 카테고리
   calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
+  showHolidays: boolean; // 달력·홈에 한국 공휴일(빨간 날) 표시
+  hiddenFeatures: OptionalFeature[]; // 메뉴에서 숨긴 기능 (데이터는 그대로)
 }
+
+// 설정에서 끄고 켤 수 있는 기능 (화면 이름과 같음). 홈·달력·설정은 항상 켜져 있음
+export type OptionalFeature = 'timebox' | 'all' | 'notes';
+export const OPTIONAL_FEATURES: OptionalFeature[] = ['timebox', 'all', 'notes'];
 
 export type Screen = 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
 
@@ -76,6 +83,8 @@ export interface ScheduleItem {
   title: string;
   date: string; // YYYY-MM-DD
   startTime?: string | null; // HH:MM
+  endDate?: string | null; // 여러 날에 걸친 일정의 마지막 날 YYYY-MM-DD (없으면 하루짜리)
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
   notes?: string | null;
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id

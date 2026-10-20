@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3,
+  CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -13,7 +13,14 @@ import { blockDone, durationLabel } from '../lib/timebox';
 import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
+import { LIMITS } from '../lib/limits';
+import { isMultiDay, scheduleEndDate, scheduleOnDate } from '../lib/scheduleDates';
+import { holidayLabel, useHolidays } from '../hooks/useHolidays';
+import { isValidTimeRange, timeRangeEnd, timeRangeLabel } from '../lib/timeRange';
+import { requestOpenNote } from '../lib/openNote';
 import TodayTimeline from '../components/TodayTimeline';
+import HelpTip from '../components/HelpTip';
+import { GUIDES } from '../data/guides';
 import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
@@ -22,7 +29,7 @@ import DDayModal from '../components/DDayModal';
 import OverdueModal from '../components/OverdueModal';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
-import type { DDay, ScheduleItem, Todo } from '../types';
+import type { DDay, Note, ScheduleItem, Todo } from '../types';
 
 function greeting(hour: number): string {
   if (hour >= 5 && hour < 11) return '좋은 아침이에요';
@@ -78,15 +85,29 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
   );
 }
 
+// 일정 시간 칸: 시작 시간(끝 시간이 있으면 아래 작게), 시간이 없으면 종일, 여러 날이면 기간
+function ScheduleTime({ s }: { s: ScheduleItem }) {
+  const multi = isMultiDay(s);
+  return (
+    <span className="w-11 flex-shrink-0 text-[12px] leading-tight tabular-nums font-medium text-gray-500 dark:text-gray-400">
+      {multi ? '기간' : s.startTime ?? '종일'}
+      {!multi && s.startTime && s.endTime && isValidTimeRange(s.startTime, s.endTime) && (
+        <span className="block text-[10.5px] font-normal text-gray-400">~{s.endTime}</span>
+      )}
+    </span>
+  );
+}
+
 // 카드 묶음 머리글
-function SectionHeader({ icon, title, meta, actionLabel, onAction }: {
-  icon: React.ReactNode; title: string; meta?: React.ReactNode; actionLabel?: string; onAction?: () => void;
+function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
+  icon: React.ReactNode; title: string; help?: string; meta?: React.ReactNode; actionLabel?: string; onAction?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         {icon}
         <h2 className="text-[14px] font-semibold text-gray-900 dark:text-white">{title}</h2>
+        {help && <HelpTip text={help} label={title} />}
         {meta}
       </div>
       {onAction && (
@@ -95,6 +116,97 @@ function SectionHeader({ icon, title, meta, actionLabel, onAction }: {
         </button>
       )}
     </div>
+  );
+}
+
+// 홈의 빠른 메모: 떠오른 생각을 바로 적고, 최근 메모 몇 개를 눌러 이어 쓰기
+function MemoSection() {
+  const { notes, addNote, setCurrentScreen } = useApp();
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const recent = [...notes]
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 3);
+
+  async function save() {
+    const body = text.trim();
+    if (!body || saving) return;
+    // 첫 줄은 제목, 나머지는 본문 (메모 화면과 같은 모양으로 저장).
+    // 첫 줄이 제목 길이 제한보다 길면 잘라 버리지 않고 전체를 본문에 그대로 둠
+    const [first, ...rest] = body.split('\n');
+    const title = first.trim();
+    const fits = title.length <= LIMITS.title;
+    setSaving(true);
+    setError(false);
+    try {
+      await addNote(fits ? title : title.slice(0, LIMITS.title), fits ? rest.join('\n').trim() : body);
+      setText('');
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function open(n: Note) {
+    requestOpenNote(n.id);
+    setCurrentScreen('notes');
+  }
+
+  return (
+    <section className="surface rounded-2xl p-4">
+      <SectionHeader
+        icon={<StickyNote size={15} className="text-amber-500" />}
+        title="메모"
+        help={GUIDES.memo}
+        meta={notes.length > 0 && <span className="count-pill">{notes.length}</span>}
+        actionLabel="전체"
+        onAction={() => setCurrentScreen('notes')}
+      />
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-leaf-400 dark:focus-within:border-leaf-600 transition-colors">
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); save(); } }}
+          maxLength={LIMITS.noteContent}
+          rows={2}
+          placeholder="떠오른 생각을 바로 적어 보세요"
+          aria-label="빠른 메모"
+          className="block w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none"
+        />
+        <div className="flex items-center justify-between gap-2 px-3 pb-2">
+          <span className={`text-[11px] ${error ? 'text-rose-500' : 'text-gray-400'}`}>
+            {error ? '저장하지 못했어요. 다시 눌러 주세요.' : '첫 줄이 제목이 돼요'}
+          </span>
+          <button onClick={save} disabled={!text.trim() || saving}
+            className="h-7 px-3 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 disabled:hover:bg-leaf-600 text-white text-[12px] font-medium transition-colors">
+            {saving ? '저장 중' : '저장'}
+          </button>
+        </div>
+      </div>
+      {recent.length > 0 && (
+        <ul className="mt-2.5 space-y-0.5">
+          {recent.map(n => {
+            const preview = n.content.split('\n').find(l => l.trim()) ?? '';
+            return (
+              <li key={n.id}>
+                <button onClick={() => open(n)} className="w-full flex items-center gap-2 text-left py-1 group">
+                  {n.pinned
+                    ? <Pin size={12} className="flex-shrink-0 text-amber-500" />
+                    : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
+                  <span className="min-w-0 flex-1 truncate text-[13px]">
+                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-leaf-700 dark:group-hover:text-leaf-300">{n.title.trim() || '새 메모'}</span>
+                    {preview && <span className="ml-1.5 text-gray-400 dark:text-gray-500">{preview}</span>}
+                  </span>
+                  <span className="flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -108,6 +220,7 @@ export default function HomePage() {
   const now = useNow(60_000);
   const todayKey = format(now, 'yyyy-MM-dd');
   const monthKey = format(now, 'yyyy-MM');
+  const holidays = useHolidays(todayKey, todayKey);
 
   const [todoModal, setTodoModal] = useState<{ todo?: Todo; categoryId?: string | null; subcategoryId?: string | null; title?: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ schedule?: ScheduleItem } | null>(null);
@@ -144,14 +257,16 @@ export default function HomePage() {
   // ── 오늘 목록 ──
   const todayTodos = applyListDisplaySettings(todos.filter(t => t.date === todayKey), settings);
   const todaySchedules = schedules
-    .filter(s => s.date === todayKey)
-    .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+    .filter(s => scheduleOnDate(s, todayKey))
+    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
   const upcoming = nextSchedule(schedules, now);
   const upcomingDdays = [...ddays, ...todoDdays(todos, todayKey)]
     .filter(d => d.targetDate >= todayKey)
     .sort((a, b) => a.targetDate.localeCompare(b.targetDate))
     .slice(0, 4);
   const goals = monthlyGoals.filter(g => g.month === monthKey);
+  const hidden = new Set(settings.hiddenFeatures);
+  const todayHoliday = holidayLabel(holidays, todayKey);
   const goalsDone = goals.filter(g => g.completed).length;
 
   function openDday(d: DDay) {
@@ -167,10 +282,11 @@ export default function HomePage() {
   }
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // 끝난 일정은 흐리게 (끝 시간이 없으면 시작부터 1시간, 여러 날 일정은 마지막 날이 아니면 아직 진행 중)
   const isPast = (s: ScheduleItem) => {
-    if (!s.startTime) return false;
-    const [h, m] = s.startTime.split(':').map(Number);
-    return h * 60 + m < nowMinutes;
+    if (!s.startTime || scheduleEndDate(s) !== todayKey || (isMultiDay(s) && !s.endTime)) return false;
+    const end = timeRangeEnd(isMultiDay(s) ? '00:00' : s.startTime, s.endTime);
+    return end !== null && end <= nowMinutes;
   };
 
   return (
@@ -181,7 +297,10 @@ export default function HomePage() {
         <header className="flex items-start justify-between gap-3 mb-5">
           <div>
             <p className="text-[13px] font-medium text-leaf-700 dark:text-leaf-400">{greeting(now.getHours())}</p>
-            <h1 className="page-title mt-0.5">{format(now, 'M월 d일 EEEE', { locale: ko })}</h1>
+            <h1 className="page-title mt-0.5">
+              {format(now, 'M월 d일 EEEE', { locale: ko })}
+              {todayHoliday && <span className="ml-2 align-middle inline-flex items-center h-6 px-2 rounded-full bg-red-50 dark:bg-red-900/30 text-[12px] font-semibold text-red-600 dark:text-red-300">{todayHoliday}</span>}
+            </h1>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
@@ -243,6 +362,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title="오늘 할 일"
+                help={GUIDES.todo}
                 meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
                 actionLabel="달력에서 보기"
                 onAction={() => goCalendar(todayKey)}
@@ -281,19 +401,20 @@ export default function HomePage() {
 
           <div className="lg:col-span-2 flex flex-col gap-4">
             {/* ── 오늘 타임박스 (오늘 하루만 세로로) ── */}
-            <div>
+            {!hidden.has('timebox') && <div>
               <TodayTimeline />
               {box.planned > 0 && (
                 <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-1.5 px-1">
                   오늘 타임박스 {durationLabel(box.planned)} 중 <span className="font-semibold text-gray-700 dark:text-gray-300">{durationLabel(box.done)}</span> 완료
                 </p>
               )}
-            </div>
+            </div>}
             {/* ── 오늘 일정 ── */}
             <section className="surface rounded-2xl p-4">
               <SectionHeader
                 icon={<CalendarClock size={15} className="text-[#4F73A8]" />}
                 title="오늘 일정"
+                help={GUIDES.schedule}
                 meta={todaySchedules.length > 0 && <span className="count-pill">{todaySchedules.length}</span>}
                 actionLabel="추가"
                 onAction={() => setScheduleModal({})}
@@ -301,7 +422,7 @@ export default function HomePage() {
               {todaySchedules.length === 0 ? (
                 <p className="text-[13px] text-gray-400 dark:text-gray-500">
                   오늘은 정해진 일정이 없어요
-                  {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {upcoming.startTime ?? ''} {upcoming.title}</span></>}
+                  {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {timeRangeLabel(upcoming.startTime, upcoming.endTime)} {upcoming.title}</span></>}
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -310,8 +431,9 @@ export default function HomePage() {
                       <button onClick={() => setScheduleModal({ schedule: s })}
                         className={`w-full flex items-center gap-2.5 text-left px-2 py-1.5 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 ${isPast(s) ? 'opacity-50' : ''}`}>
                         <span className="w-1 self-stretch rounded-full bg-[#4F73A8] flex-shrink-0" />
-                        <span className="w-11 flex-shrink-0 text-[12px] tabular-nums font-medium text-gray-500 dark:text-gray-400">{s.startTime ?? '종일'}</span>
+                        <ScheduleTime s={s} />
                         <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
+                        {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
                         {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-[10.5px] font-semibold text-[#4F73A8] flex items-center gap-0.5"><Clock size={10} />다음</span>}
                       </button>
                     </li>
@@ -325,6 +447,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<Flag size={15} className="text-rose-500" />}
                 title="다가오는 D-Day"
+                help={GUIDES.dday}
                 actionLabel="달력"
                 onAction={() => goCalendar()}
               />
@@ -353,6 +476,7 @@ export default function HomePage() {
               <SectionHeader
                 icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title={`${format(now, 'M월')} 목표`}
+                help={GUIDES.goal}
                 meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
                 actionLabel="달력"
                 onAction={() => goCalendar()}
@@ -379,6 +503,9 @@ export default function HomePage() {
                 </>
               )}
             </section>
+
+            {/* ── 메모 ── */}
+            {!hidden.has('notes') && <MemoSection />}
 
             <button onClick={() => goCalendar()} className="btn-secondary h-10 text-[13px] justify-center">
               <CalendarDays size={15} />

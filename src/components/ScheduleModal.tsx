@@ -8,6 +8,9 @@ import SeriesScopePicker from './SeriesScopePicker';
 import type { SeriesScope } from './SeriesScopePicker';
 import type { ScheduleItem } from '../types';
 import { LIMITS } from '../lib/limits';
+import { isValidTimeRange } from '../lib/timeRange';
+import TimeRangeInput from './TimeRangeInput';
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 
 interface Props {
   schedule?: ScheduleItem;
@@ -23,7 +26,12 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
   const isEdit = !!schedule;
   const [title, setTitle] = useState(schedule?.title ?? '');
   const [date, setDate] = useState(schedule?.date ?? defaultDate ?? '');
+  const [endDate, setEndDate] = useState(schedule?.endDate ?? '');
   const [startTime, setStartTime] = useState(schedule?.startTime ?? '');
+  const [endTime, setEndTime] = useState(schedule?.endTime ?? '');
+  // 끝 날짜가 시작 날짜와 같거나 없으면 하루짜리
+  const rangeEnd = endDate && endDate > date ? endDate : null;
+  const dateRangeInvalid = !!endDate && !!date && endDate < date;
   const [notes, setNotes] = useState(schedule?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -34,7 +42,8 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
 
   // 반복 설정 (예: 매주 월·수 수업, 매주 화요일 정기 회의). 새 일정뿐 아니라
   // 아직 반복이 아닌 기존 일정도 반복으로 바꿀 수 있음 (이 일정이 첫 회차가 되고 이후 날짜가 추가됨)
-  const canRepeat = !inSeries;
+  // 여러 날 일정은 반복할 수 없음 (반복 회차마다 기간을 맞추기 어려워서)
+  const canRepeat = !inSeries && !rangeEnd;
   const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
   const repeating = canRepeat && repeat.freq !== 'none';
   const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
@@ -44,13 +53,23 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
   const followingCount = schedule ? seriesItems.filter(s => s.date >= schedule.date).length : 0;
   const scopeFromDate = scope === 'following' && schedule ? schedule.date : null;
 
-  const canSave = !!title.trim() && !!date && !saving && (!repeating || repeatDates.length > 0);
+  const canSave = !!title.trim() && !!date && !saving && (!repeating || repeatDates.length > 0)
+    && !dateRangeInvalid && isValidTimeRange(startTime, endTime);
+
+  // 시작 날짜를 바꾸면 끝 날짜도 같은 기간만큼 같이 옮김
+  function changeDate(next: string) {
+    if (rangeEnd && date && next) {
+      const span = differenceInCalendarDays(parseISO(rangeEnd), parseISO(date));
+      setEndDate(format(addDays(parseISO(next), span), 'yyyy-MM-dd'));
+    }
+    setDate(next);
+  }
 
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
     try {
-      const fields = { title: title.trim(), startTime: startTime || null, notes: notes.trim() || null };
+      const fields = { title: title.trim(), startTime: startTime || null, endTime: (startTime && endTime) || null, notes: notes.trim() || null };
       if (isEdit && repeating && newRepeatCount > 0) {
         // 기존 일정을 반복으로 바꾸기: 이 일정은 내용/날짜만 저장하고 반복 묶음의 첫 회차로 사용
         await updateSchedule(schedule.id, { ...fields, date });
@@ -59,14 +78,14 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
         if (inSeries && scope !== 'one' && seriesId) {
           await updateScheduleSeries(seriesId, scopeFromDate, fields);
           // 날짜 변경은 이 일정에만 적용
-          if (date !== schedule.date) await updateSchedule(schedule.id, { date });
+          if (date !== schedule.date || rangeEnd !== (schedule.endDate ?? null)) await updateSchedule(schedule.id, { date, endDate: rangeEnd });
         } else {
-          await updateSchedule(schedule.id, { ...fields, date });
+          await updateSchedule(schedule.id, { ...fields, date, endDate: rangeEnd });
         }
       } else if (repeating) {
         await addScheduleSeries(fields, repeatDates);
       } else {
-        await addSchedule({ ...fields, date });
+        await addSchedule({ ...fields, date, endDate: rangeEnd });
       }
       onClose();
     } finally {
@@ -114,19 +133,19 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
           />
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
-            />
-            <input
-              type="time"
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
-            />
+          <div>
+            <p className="text-[12px] font-medium text-gray-500 dark:text-gray-400 mb-1">날짜 <span className="font-normal text-gray-400">(여러 날이면 끝 날짜도)</span></p>
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={date} onChange={e => changeDate(e.target.value)} aria-label="시작 날짜" className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
+              <span className="flex-shrink-0 text-gray-400 text-sm">~</span>
+              <input type="date" value={endDate} min={date || undefined} onChange={e => setEndDate(e.target.value)} aria-label="끝 날짜" aria-invalid={dateRangeInvalid} className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
+            </div>
+            {dateRangeInvalid && <p className="mt-1 text-[11.5px] text-rose-500">끝 날짜는 시작 날짜와 같거나 늦어야 해요</p>}
+          </div>
+          <div>
+            <p className="text-[12px] font-medium text-gray-500 dark:text-gray-400 mb-1">시간 <span className="font-normal text-gray-400">(비우면 하루 종일, 끝 시간은 선택)</span></p>
+            <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
+              inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
           </div>
           <textarea maxLength={LIMITS.longText}
             value={notes}

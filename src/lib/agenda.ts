@@ -1,4 +1,6 @@
 import { DAY_MINUTES, DEFAULT_BLOCK_MINUTES, DEFAULT_BLOCK_COLOR, getBlockSpan, parseMinutes } from './timebox';
+import { timeRangeEnd } from './timeRange';
+import { isMultiDay, scheduleOnDate } from './scheduleDates';
 import type { Category, DDay, ScheduleItem, TimeBlock, Todo } from '../types';
 
 // 타임박스·홈 타임라인에 블록과 함께 보여줄 "다른 기능의 시간 정보"
@@ -8,7 +10,7 @@ import type { Category, DDay, ScheduleItem, TimeBlock, Todo } from '../types';
 // 따로 저장하지 않고 원래 데이터에서 그때그때 계산해서, 할 일·일정을 고치면 바로 따라 바뀜
 
 export const SCHEDULE_COLOR = '#4F73A8';
-// 할 일·일정은 끝 시간이 없어서 1시간짜리로 보여줌
+// 끝 시간이 없는 할 일·일정은 1시간짜리로 보여줌
 export const AGENDA_MINUTES = DEFAULT_BLOCK_MINUTES;
 
 export type AgendaTimed =
@@ -60,15 +62,15 @@ export function buildAgenda(
     if (b.todoId) linked.add(`${b.todoId}|${getBlockSpan(b).dateKey}`);
   }
 
-  const timedRange = (hhmm: string | null | undefined) => {
+  const timedRange = (hhmm: string | null | undefined, endHhmm: string | null | undefined) => {
     const start = hhmm ? parseMinutes(hhmm) : null;
     if (start === null || start >= DAY_MINUTES) return null;
-    return { startMin: start, endMin: Math.min(DAY_MINUTES, start + AGENDA_MINUTES) };
+    return { startMin: start, endMin: timeRangeEnd(hhmm, endHhmm) ?? Math.min(DAY_MINUTES, start + AGENDA_MINUTES) };
   };
 
   for (const todo of data.todos) {
     if (!todo.date || !days.has(todo.date) || linked.has(`${todo.id}|${todo.date}`)) continue;
-    const range = timedRange(todo.startTime);
+    const range = timedRange(todo.startTime, todo.endTime);
     if (!range) continue;
     result.get(todo.date)!.timed.push({
       key: `todo-${todo.id}`, kind: 'todo', ...range, title: todo.title,
@@ -78,9 +80,16 @@ export function buildAgenda(
   }
 
   for (const schedule of data.schedules) {
+    // 여러 날에 걸친 일정은 걸친 날마다 하루 종일 칸에
+    if (isMultiDay(schedule)) {
+      for (const dateKey of dateKeys) {
+        if (scheduleOnDate(schedule, dateKey)) result.get(dateKey)!.allDay.push({ key: `schedule-${schedule.id}`, kind: 'schedule', title: schedule.title, schedule });
+      }
+      continue;
+    }
     if (!days.has(schedule.date)) continue;
     const day = result.get(schedule.date)!;
-    const range = timedRange(schedule.startTime);
+    const range = timedRange(schedule.startTime, schedule.endTime);
     if (range) day.timed.push({ key: `schedule-${schedule.id}`, kind: 'schedule', ...range, title: schedule.title, color: SCHEDULE_COLOR, done: false, schedule });
     else day.allDay.push({ key: `schedule-${schedule.id}`, kind: 'schedule', title: schedule.title, schedule });
   }

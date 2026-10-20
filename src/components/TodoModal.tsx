@@ -7,6 +7,8 @@ import type { RepeatRule } from '../lib/recurrence';
 import RepeatPicker from './RepeatPicker';
 import SeriesScopePicker from './SeriesScopePicker';
 import type { SeriesScope } from './SeriesScopePicker';
+import TimeRangeInput from './TimeRangeInput';
+import { isValidTimeRange } from '../lib/timeRange';
 import { LIMITS } from '../lib/limits';
 
 interface Props {
@@ -30,6 +32,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   const [dueDate, setDueDate] = useState(todo?.dueDate ?? '');
   const [isDday, setIsDday] = useState(todo?.isDday ?? false);
   const [startTime, setStartTime] = useState(todo?.startTime ?? defaultTime ?? '');
+  const [endTime, setEndTime] = useState(todo?.endTime ?? '');
   const [categoryId, setCategoryId] = useState<string | null>(todo?.categoryId ?? defaultCategoryId ?? null);
   const [subcategoryId, setSubcategoryId] = useState<string | null>(todo?.subcategoryId ?? defaultSubcategoryId ?? null);
   const [addingSubcat, setAddingSubcat] = useState(false);
@@ -55,7 +58,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   // "이후 모두"의 기준 날짜: 이 할 일의 원래 날짜 (저장소로 옮겨 날짜가 없으면 전체와 같게 취급)
   const scopeFromDate = scope === 'following' ? (todo?.date ?? null) : null;
   const followingCount = todo?.date ? seriesItems.filter(t => t.date && t.date >= todo.date!).length : seriesItems.length;
-  const canSave = !!title.trim() && !saving && (!repeating || repeatDates.length > 0);
+  const canSave = !!title.trim() && !saving && (!repeating || repeatDates.length > 0) && isValidTimeRange(startTime, endTime);
   const categorySubcats = categoryId ? subcategories.filter(s => s.categoryId === categoryId) : [];
 
   function selectCategory(id: string | null) {
@@ -84,6 +87,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
       dueDate: dueDate || null,
       isDday: Boolean((date || dueDate) && isDday),
       startTime: startTime || null,
+      endTime: (startTime && endTime) || null,
       notes,
     };
     setSaving(true);
@@ -96,7 +100,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
         if (inSeriesMode && scope !== 'one' && seriesId) {
           // 제목/카테고리/시간/메모는 선택한 범위 전체에, 날짜·마감일·D-Day는 이 할 일에만 적용
           await updateTodoSeries(seriesId, scopeFromDate, {
-            title: payload.title, categoryId, subcategoryId, startTime: payload.startTime, notes,
+            title: payload.title, categoryId, subcategoryId, startTime: payload.startTime, endTime: payload.endTime, notes,
           });
           await updateTodo(todo.id, { date: payload.date, dueDate: payload.dueDate, isDday: payload.isDday });
         } else {
@@ -162,7 +166,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           </div>
 
           {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
             <div>
               <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">날짜</label>
               <input
@@ -176,13 +180,10 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 <Clock size={11} />
                 시간
+                <span className="font-normal text-gray-400">(끝 시간은 선택)</span>
               </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={e => setStartTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
-              />
+              <TimeRangeInput start={startTime} end={endTime} onChange={(s, e) => { setStartTime(s); setEndTime(e); }}
+                inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm" />
             </div>
           </div>
 

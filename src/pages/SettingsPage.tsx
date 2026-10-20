@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import {
   ChevronRight, ChevronLeft, LogOut, Moon, Sun, Monitor, Bell, BellRing, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX,
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
-  UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays,
+  UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,7 @@ import { APP_VERSION } from '../data/changelog';
 import { exportAllUserData } from '../lib/db';
 import { showToast } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
-import type { Settings } from '../types';
+import type { OptionalFeature, Settings } from '../types';
 
 // ── 설정 화면 구성 ─────────────────────────────────────────
 // 휴대폰: 분류별로 묶인 한 줄 목록 (아이폰 설정처럼). "일반"은 현재 값만 보여주고 누르면 상세 화면으로
@@ -59,6 +59,12 @@ const CAL_SIZE_OPTS: { value: Settings['calendarTextSize']; label: string }[] = 
   { value: 'small', label: '작게' },
   { value: 'medium', label: '보통' },
   { value: 'large', label: '크게' },
+];
+// 설정에서 끄고 켤 수 있는 기능
+const FEATURE_OPTS: { value: OptionalFeature; label: string; desc: string; Icon: typeof Info }[] = [
+  { value: 'timebox', label: '타임박스', desc: '할 일을 시간표에 배치해 하루를 계획해요', Icon: Timer },
+  { value: 'all', label: '저장소', desc: '날짜를 정하지 않은 할 일을 카테고리별로 모아 둬요', Icon: Archive },
+  { value: 'notes', label: '메모', desc: '자유롭게 적고 폴더로 정리하는 메모장이에요', Icon: NotebookPen },
 ];
 const labelOf = <T,>(opts: { value: T; label: string }[], v: T) => opts.find(o => o.value === v)?.label ?? '';
 
@@ -231,6 +237,17 @@ export default function SettingsPage() {
   const displayName = user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? '';
   const initials = displayName.slice(0, 2).toUpperCase();
   const visibleSections = SECTIONS.filter(s => !s.adminOnly || isAdmin);
+  // 끈 기능은 시작 화면으로 고를 수 없음
+  const screenOpts = SCREEN_OPTS.filter(o => !(settings.hiddenFeatures as string[]).includes(o.value));
+
+  function toggleFeature(f: OptionalFeature) {
+    const off = settings.hiddenFeatures.includes(f);
+    updateSettings({
+      hiddenFeatures: off ? settings.hiddenFeatures.filter(x => x !== f) : [...settings.hiddenFeatures, f],
+      // 시작 화면으로 쓰던 기능을 끄면 시작 화면은 홈으로
+      ...(!off && settings.defaultScreen === f ? { defaultScreen: 'today' as const } : {}),
+    });
+  }
 
   const avatar = (size: 'sm' | 'lg') => (
     <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-leaf-50 dark:ring-leaf-900/30' : 'w-9 h-9 text-xs'} rounded-full bg-leaf-600 dark:bg-leaf-500 text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
@@ -247,7 +264,7 @@ export default function SettingsPage() {
         <Segmented options={THEME_OPTS} value={settings.theme} onChange={v => updateSettings({ theme: v })} />
       </Group>
       <Group title="시작 화면" footer="앱을 열었을 때 처음 보이는 화면이에요.">
-        <Segmented options={SCREEN_OPTS} value={settings.defaultScreen} onChange={v => updateSettings({ defaultScreen: v })} />
+        <Segmented options={screenOpts} value={settings.defaultScreen} onChange={v => updateSettings({ defaultScreen: v })} />
       </Group>
       <Group title="목록 표시">
         <div>
@@ -284,8 +301,19 @@ export default function SettingsPage() {
           </div>
         )}
       </Group>
-      <Group title="홈 달력 글자 크기" footer="홈 화면 월 달력 칸에 보이는 일정·D-Day 글자 크기예요.">
-        <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
+      <Group title="달력 표시" footer="글자 크기는 월 달력 칸에 보이는 일정·D-Day 글자 크기예요.">
+        <Row Icon={CalendarHeart} label="공휴일 표시" desc="설날·추석 같은 빨간 날을 달력과 홈에 보여줘요"
+          right={<Toggle checked={settings.showHolidays} onChange={() => updateSettings({ showHolidays: !settings.showHolidays })} label="공휴일 표시" />} />
+        <div>
+          <p className="px-4 pt-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">글자 크기</p>
+          <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
+        </div>
+      </Group>
+      <Group title="사용할 기능" footer="끈 기능은 메뉴와 홈에서 숨겨져요. 적어 둔 내용은 지워지지 않고, 다시 켜면 그대로 보여요. 타임박스를 끄면 타임박스 알림도 오지 않아요.">
+        {FEATURE_OPTS.map(({ value, label, desc, Icon }) => (
+          <Row key={value} Icon={Icon} label={label} desc={desc}
+            right={<Toggle checked={!settings.hiddenFeatures.includes(value)} onChange={() => toggleFeature(value)} label={`${label} 사용`} />} />
+        ))}
       </Group>
     </div>
   );
@@ -391,8 +419,9 @@ export default function SettingsPage() {
               <Group title="일반">
                 <Row Icon={Palette} label="테마" value={labelOf(THEME_OPTS, settings.theme)} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={House} label="시작 화면" value={labelOf(SCREEN_OPTS, settings.defaultScreen)} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={LayoutGrid} label="사용할 기능" value={`${FEATURE_OPTS.length - settings.hiddenFeatures.length}/${FEATURE_OPTS.length}개 켬`} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={ListFilter} label="목록 표시" value={labelOf(SORT_OPTS, settings.listSortBy)} onClick={() => setMobileGeneralOpen(true)} />
-                <Row Icon={CalendarDays} label="홈 달력 글자 크기" value={labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={CalendarDays} label="달력 표시" value={`공휴일 ${settings.showHolidays ? '켬' : '끔'} · ${labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)}`} onClick={() => setMobileGeneralOpen(true)} />
               </Group>
               <Group title="할 일 정리">{organizeRows}</Group>
               <Group title="계정 · 데이터">{accountRows}</Group>

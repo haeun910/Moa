@@ -9,6 +9,8 @@ import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
 import ScheduleDeleteButton from '../components/ScheduleDeleteButton';
 import OverdueModal from '../components/OverdueModal';
+import HelpTip from '../components/HelpTip';
+import { GUIDES } from '../data/guides';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -23,6 +25,9 @@ import DayTodoComposer from '../components/DayTodoComposer';
 import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
 import { todoDdays } from '../lib/agenda';
+import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
+import { timeRangeLabel } from '../lib/timeRange';
+import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -66,10 +71,11 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 // 상단 요약 띠의 한 칸 (목표 / D-Day / 일정)
 function OverviewColumn({
-  icon, title, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children,
+  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children,
 }: {
   icon: React.ReactNode;
   title: string;
+  help?: string;
   onTitleClick?: () => void;
   titleHint?: string;
   meta?: React.ReactNode;
@@ -92,6 +98,7 @@ function OverviewColumn({
           ) : (
             <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{title}</span>
           )}
+          {help && <HelpTip text={help} label={title} />}
           {meta}
         </div>
         <button onClick={onAdd} aria-label={addLabel} title={addLabel} className="btn-icon w-7 h-7 -mr-1.5">
@@ -124,7 +131,7 @@ export default function TodayPage() {
   const currentMonth = format(viewMonth, 'yyyy-MM');
   const monthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const completedGoals = monthGoals.filter(g => g.completed).length;
-  const monthSchedules = schedules.filter(s => s.date.startsWith(currentMonth));
+  const monthSchedules = schedules.filter(s => scheduleOverlaps(s, `${currentMonth}-01`, `${currentMonth}-31`));
 
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
@@ -160,13 +167,20 @@ export default function TodayPage() {
   });
   const weekCount = Math.ceil(days.length / 7);
   const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
+  // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
+  const holidayRange = [
+    format(days[0], 'yyyy-MM-dd'), format(days[days.length - 1], 'yyyy-MM-dd'),
+    format(startOfWeek(weekRef, { weekStartsOn: 0 }), 'yyyy-MM-dd'), format(endOfWeek(weekRef, { weekStartsOn: 0 }), 'yyyy-MM-dd'),
+    selectedDate,
+  ].sort();
+  const holidays = useHolidays(holidayRange[0], holidayRange[holidayRange.length - 1]);
 
   // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
   // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
   const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
   const selectedDoneCount = selectedTodos.filter(t => t.completed).length;
 
-  const selectedSchedules = schedules.filter(s => s.date === selectedDate);
+  const selectedSchedules = schedules.filter(s => scheduleOnDate(s, selectedDate));
   // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
   const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
 
@@ -311,8 +325,14 @@ export default function TodayPage() {
                   className="flex items-center gap-3 px-3 py-2.5 cursor-pointer group first:rounded-t-xl last:rounded-b-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
                   <span className="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="flex-shrink-0 w-11 text-xs font-semibold tabular-nums text-blue-600 dark:text-blue-300">{s.startTime ?? '종일'}</span>
+                  <span className="flex-shrink-0 w-11 text-xs font-semibold leading-tight tabular-nums text-blue-600 dark:text-blue-300">
+                    {isMultiDay(s) ? '기간' : s.startTime ?? '종일'}
+                    {!isMultiDay(s) && s.endTime && timeRangeLabel(s.startTime, s.endTime).includes('~') && (
+                      <span className="block text-[10.5px] font-normal text-blue-400">~{s.endTime}</span>
+                    )}
+                  </span>
                   <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate">{s.title}</span>
+                  {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{format(parseISO(s.date), 'M/d')}~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
                   {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                   <ScheduleDeleteButton schedule={s}
                     className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -336,6 +356,7 @@ export default function TodayPage() {
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               {format(parseISO(selectedDate), 'EEEE', { locale: ko })}
+              {holidayLabel(holidays, selectedDate) && <span className="ml-1.5 text-red-500 dark:text-red-400 font-semibold">{holidayLabel(holidays, selectedDate)}</span>}
               {isTodaySelected && <span className="ml-1.5 text-leaf-600 dark:text-leaf-400 font-semibold">오늘</span>}
             </p>
             <h2 className={`${compact ? 'text-lg' : 'text-[22px]'} font-bold tracking-[-0.03em] text-gray-900 dark:text-white tabular-nums mt-0.5`}>
@@ -463,6 +484,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
               title={`${format(viewMonth, 'M월')} 목표`}
+              help={GUIDES.goal}
               meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
               onAdd={() => setGoalModalState({})}
               addLabel="목표 추가"
@@ -497,6 +519,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<Flag size={14} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
               title="D-Day"
+              help={GUIDES.dday}
               onTitleClick={() => setShowDdayListModal(true)}
               titleHint="지난 D-Day까지 전체 보기"
               onAdd={() => setDdayModalState({})}
@@ -532,6 +555,7 @@ export default function TodayPage() {
             <OverviewColumn
               icon={<CalendarClock size={14} className="text-blue-500 flex-shrink-0" />}
               title={`${format(viewMonth, 'M월')} 일정`}
+              help={GUIDES.schedule}
               meta={monthSchedules.length > 0 && <span className="count-pill">{monthSchedules.length}</span>}
               onAdd={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })}
               addLabel="일정 추가"
@@ -541,12 +565,12 @@ export default function TodayPage() {
               {monthSchedules.map(s => (
                 <div key={s.id} className="flex items-center gap-2.5 group cursor-pointer py-0.5" onClick={() => setScheduleModalState({ schedule: s })}>
                   <span className="flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                    {format(parseISO(s.date), 'M/d')}
+                    {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
                   </span>
                   <span className="flex-1 min-w-0 text-[13px] text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
                   {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                   {s.startTime && (
-                    <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{s.startTime}</span>
+                    <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
                   )}
                   <ScheduleDeleteButton schedule={s} size={12}
                     className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -575,9 +599,11 @@ export default function TodayPage() {
                   const inMonth = isSameMonth(day, viewMonth);
                   const dayTodos = todos.filter(t => t.date === dateStr);
                   const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
-                  const daySchedules = schedules.filter(s => s.date === dateStr);
+                  const daySchedules = schedules.filter(s => scheduleOnDate(s, dateStr))
+                    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
                   const dow = day.getDay();
                   const isLastRow = idx >= days.length - 7;
+                  const holiday = holidayLabel(holidays, dateStr);
 
                   // 달력 칸에는 디데이/일정(날짜·시간이 정해진 것)만 제목이 보이는 칩으로 미리 보여주고,
                   // 할 일(날짜만 있고 시간표는 아닌 것)은 예전처럼 카테고리별 색깔 점으로만 표시.
@@ -593,7 +619,7 @@ export default function TodayPage() {
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      aria-label={format(day, 'M월 d일 EEEE', { locale: ko })}
+                      aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
                       aria-pressed={isSelected}
                       className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1.5 text-left transition-colors ${
                         dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
@@ -608,15 +634,21 @@ export default function TodayPage() {
                             : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
                       }`}
                     >
-                      <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums mb-1 ${
-                        isToday
-                          ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
-                          : !inMonth
-                            ? 'text-gray-300 dark:text-gray-600 font-medium'
-                            : `${weekdayTone(dow)} font-semibold`
-                      }`}>
-                        {format(day, 'd')}
-                      </span>
+                      <div className="w-full min-w-0 flex items-center gap-1 mb-1">
+                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums ${
+                          isToday
+                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
+                            : !inMonth
+                              ? 'text-gray-300 dark:text-gray-600 font-medium'
+                              : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
+                        }`}>
+                          {format(day, 'd')}
+                        </span>
+                        {/* 공휴일 이름 (빨간 날) */}
+                        {holiday && (
+                          <span className={`min-w-0 truncate text-[10px] font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
+                        )}
+                      </div>
                       <div className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
                         {visibleChips.map(chip => (
                           <div
@@ -676,6 +708,7 @@ export default function TodayPage() {
                     const completedCount = dayTodos.filter(t => t.completed).length;
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
+                    const holiday = holidayLabel(holidays, dateStr);
                     return (
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
@@ -687,11 +720,12 @@ export default function TodayPage() {
                         <div className="mb-2 flex-shrink-0 px-0.5">
                           <p className={`text-[10px] font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
-                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(dow)}`}>{format(day, 'd')}</p>
+                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
                             {dayTodos.length > 0 && (
                               <p className="text-[10px] tabular-nums text-gray-400">{completedCount}/{dayTodos.length}</p>
                             )}
                           </div>
+                          {holiday && <p className="text-[10px] font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
                         </div>
                         <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
                           {/* 월간 보기처럼 D-Day·일정도 함께 */}
@@ -700,9 +734,9 @@ export default function TodayPage() {
                               <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
                             </p>
                           ))}
-                          {schedules.filter(sc => sc.date === dateStr).sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
+                          {schedules.filter(sc => scheduleOnDate(sc, dateStr)).sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
                             <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-[10.5px] font-medium text-blue-700 dark:text-blue-300 truncate">
-                              {sc.startTime && <span className="flex-shrink-0 tabular-nums">{sc.startTime}</span>}
+                              {sc.startTime && !isMultiDay(sc) && <span className="flex-shrink-0 tabular-nums">{timeRangeLabel(sc.startTime, sc.endTime)}</span>}
                               <span className="truncate">{sc.title}</span>
                             </p>
                           ))}

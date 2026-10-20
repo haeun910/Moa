@@ -60,6 +60,7 @@ create table if not exists public.todos (
   is_dday        boolean not null default false, -- 체크하면 홈 화면 D-Day 목록에도 자동 노출
   subcategory_id uuid references public.subcategories(id) on delete set null,
   series_id      uuid,                       -- 같은 반복으로 만들어진 할 일 묶음
+  end_time       text,                       -- 끝나는 시간 (없으면 시작부터 1시간)
   constraint todos_title_length check (char_length(title) <= 500),
   constraint todos_notes_length check (char_length(notes) <= 20000)
 );
@@ -97,7 +98,9 @@ create table if not exists public.user_settings (
   list_sort_by        text not null default 'manual',   -- 'manual' | 'date' | 'name'
   hide_completed      boolean not null default false,
   hidden_category_ids uuid[] not null default '{}',
-  calendar_text_size  text not null default 'medium'    -- 'small' | 'medium' | 'large'
+  calendar_text_size  text not null default 'medium',   -- 'small' | 'medium' | 'large'
+  show_holidays       boolean not null default true,    -- 한국 공휴일 표시
+  hidden_features     text[] not null default '{}'      -- 메뉴에서 숨긴 기능 ('timebox' | 'all' | 'notes')
 );
 
 -- 이번 달 목표
@@ -132,7 +135,10 @@ create table if not exists public.schedules (
   notes       text,
   created_at  timestamptz not null default now(),
   series_id   uuid,                          -- 같은 반복으로 만들어진 일정 묶음
+  end_time    text,                          -- 끝나는 시간 (없으면 시작부터 1시간)
+  end_date    date,                          -- 여러 날에 걸친 일정의 마지막 날 (없으면 하루짜리)
   constraint schedules_title_length check (char_length(title) <= 500),
+  constraint schedules_end_date_order check (end_date is null or end_date >= date),
   constraint schedules_notes_length check (char_length(notes) <= 20000)
 );
 
@@ -528,6 +534,11 @@ as $$
        and b.notified_at is null
        and not b.completed
        and not coalesce(t.completed, false)
+       -- 설정에서 타임박스를 끈 사람에게는 알림을 보내지 않음
+       and not exists (
+         select 1 from public.user_settings s
+          where s.user_id = b.user_id and 'timebox' = any(s.hidden_features)
+       )
        and b.start_at - make_interval(mins => b.remind_minutes) <= now()
        and b.start_at - make_interval(mins => b.remind_minutes) > now() - interval '10 minutes'
      for update of b skip locked

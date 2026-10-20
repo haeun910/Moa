@@ -57,6 +57,7 @@ export interface DbTodo {
   due_date: string | null;
   is_dday: boolean;
   start_time: string | null;
+  end_time?: string | null; // 021 마이그레이션 전에는 컬럼이 없을 수 있음
   notes: string | null;
   sort_order: number;
   series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
@@ -109,6 +110,8 @@ export interface DbSchedule {
   title: string;
   date: string;
   start_time: string | null;
+  end_time?: string | null; // 021 마이그레이션 전에는 컬럼이 없을 수 있음
+  end_date?: string | null;
   notes: string | null;
   series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
   created_at: string;
@@ -147,6 +150,8 @@ export interface DbSettings {
   hide_completed: boolean;
   hidden_category_ids: string[];
   calendar_text_size: 'small' | 'medium' | 'large';
+  show_holidays?: boolean; // 020 마이그레이션 전에는 컬럼이 없을 수 있음
+  hidden_features?: string[];
   updated_at: string;
 }
 

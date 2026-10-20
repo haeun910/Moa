@@ -1,3 +1,4 @@
+import { timeRangeLabel } from '../lib/timeRange';
 import { useState, useRef, useEffect } from 'react';
 import { Check, Trash2, Clock, Flag, StickyNote, Repeat } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -123,7 +124,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               {todo.startTime && (
                 <span className="flex items-center gap-1 text-[11px] text-leaf-600 dark:text-leaf-400 font-semibold">
                   <Clock size={10} />
-                  {todo.startTime}
+                  {timeRangeLabel(todo.startTime, todo.endTime)}
                 </span>
               )}
               {todo.dueDate && (
