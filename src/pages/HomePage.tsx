@@ -3,7 +3,7 @@ import type React from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3,
+  CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -13,6 +13,8 @@ import { blockDone, durationLabel } from '../lib/timebox';
 import {
   completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
+import { LIMITS } from '../lib/limits';
+import { requestOpenNote } from '../lib/openNote';
 import TodayTimeline from '../components/TodayTimeline';
 import HelpTip from '../components/HelpTip';
 import { GUIDES } from '../data/guides';
@@ -24,7 +26,7 @@ import DDayModal from '../components/DDayModal';
 import OverdueModal from '../components/OverdueModal';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
-import type { DDay, ScheduleItem, Todo } from '../types';
+import type { DDay, Note, ScheduleItem, Todo } from '../types';
 
 function greeting(hour: number): string {
   if (hour >= 5 && hour < 11) return '좋은 아침이에요';
@@ -98,6 +100,93 @@ function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
         </button>
       )}
     </div>
+  );
+}
+
+// 홈의 빠른 메모: 떠오른 생각을 바로 적고, 최근 메모 몇 개를 눌러 이어 쓰기
+function MemoSection() {
+  const { notes, addNote, setCurrentScreen } = useApp();
+  const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const recent = [...notes]
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 3);
+
+  async function save() {
+    const body = text.trim();
+    if (!body || saving) return;
+    // 첫 줄은 제목, 나머지는 본문 (메모 화면과 같은 모양으로 저장)
+    const [first, ...rest] = body.split('\n');
+    setSaving(true);
+    setError(false);
+    try {
+      await addNote(first.trim().slice(0, LIMITS.title), rest.join('\n').trim().slice(0, LIMITS.noteContent));
+      setText('');
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function open(n: Note) {
+    requestOpenNote(n.id);
+    setCurrentScreen('notes');
+  }
+
+  return (
+    <section className="surface rounded-2xl p-4">
+      <SectionHeader
+        icon={<StickyNote size={15} className="text-amber-500" />}
+        title="메모"
+        help={GUIDES.memo}
+        meta={notes.length > 0 && <span className="count-pill">{notes.length}</span>}
+        actionLabel="전체"
+        onAction={() => setCurrentScreen('notes')}
+      />
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-leaf-400 dark:focus-within:border-leaf-600 transition-colors">
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } }}
+          rows={2}
+          placeholder="떠오른 생각을 바로 적어 보세요"
+          aria-label="빠른 메모"
+          className="block w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none"
+        />
+        <div className="flex items-center justify-between gap-2 px-3 pb-2">
+          <span className={`text-[11px] ${error ? 'text-rose-500' : 'text-gray-400'}`}>
+            {error ? '저장하지 못했어요. 다시 눌러 주세요.' : '첫 줄이 제목이 돼요'}
+          </span>
+          <button onClick={save} disabled={!text.trim() || saving}
+            className="h-7 px-3 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 disabled:hover:bg-leaf-600 text-white text-[12px] font-medium transition-colors">
+            {saving ? '저장 중' : '저장'}
+          </button>
+        </div>
+      </div>
+      {recent.length > 0 && (
+        <ul className="mt-2.5 space-y-0.5">
+          {recent.map(n => {
+            const preview = n.content.split('\n').find(l => l.trim()) ?? '';
+            return (
+              <li key={n.id}>
+                <button onClick={() => open(n)} className="w-full flex items-center gap-2 text-left py-1 group">
+                  {n.pinned
+                    ? <Pin size={12} className="flex-shrink-0 text-amber-500" />
+                    : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
+                  <span className="min-w-0 flex-1 truncate text-[13px]">
+                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-leaf-700 dark:group-hover:text-leaf-300">{n.title.trim() || '새 메모'}</span>
+                    {preview && <span className="ml-1.5 text-gray-400 dark:text-gray-500">{preview}</span>}
+                  </span>
+                  <span className="flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -386,6 +475,9 @@ export default function HomePage() {
                 </>
               )}
             </section>
+
+            {/* ── 메모 ── */}
+            <MemoSection />
 
             <button onClick={() => goCalendar()} className="btn-secondary h-10 text-[13px] justify-center">
               <CalendarDays size={15} />

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, FileText, Search, Folder, FolderOpen, Inbox, Pin, Settings2, X } from 'lucide-react';
 import { format, isToday, isThisYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { clearRequestedNote, peekRequestedNote } from '../lib/openNote';
 import { useApp } from '../context/AppContext';
 import NoteEditor from '../components/NoteEditor';
 import NoteFolderModal from '../components/NoteFolderModal';
@@ -43,9 +44,11 @@ export default function NotesPage() {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [folder, setFolder] = useState<FolderFilter>('all');
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 홈에서 메모를 눌러 들어왔으면 그 메모를 바로 열어 둠
+  const [selectedId, setSelectedId] = useState<string | null>(peekRequestedNote);
   // 편집기를 다시 만들지 결정하는 키 (새 메모가 저장돼 id가 생겨도 편집기가 새로 뜨지 않게 따로 관리)
-  const [editorKey, setEditorKey] = useState<string | null>(null);
+  const [editorKey, setEditorKey] = useState<string | null>(peekRequestedNote);
+  useEffect(() => { clearRequestedNote(); }, []);
   const [newCount, setNewCount] = useState(0);
   const [showFolderModal, setShowFolderModal] = useState(false);
 

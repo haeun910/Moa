@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.7.4',
+    date: '2026-10-20',
+    changes: [
+      '홈 화면 목표 아래에 메모 칸 추가: 떠오른 생각을 바로 적고, 최근 메모를 누르면 메모 화면에서 이어 쓸 수 있음',
+    ],
+  },
+  {
     version: '2.7.3',
     date: '2026-10-19',
     changes: [

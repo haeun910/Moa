@@ -47,6 +47,7 @@ async function mockSupabase(page, seen) {
     sort_order: i, series_id: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   }));
   const categories = [{ id: 'cat-1', user_id: USER_ID, name: '공부', color: '#4F73A8', description: null, is_default: false, sort_order: 0, created_at: '2026-01-01T00:00:00Z' }];
+  const notes = [{ id: 'note-1', user_id: USER_ID, title: '장보기 목록', content: '우유, 계란', folder_id: null, pinned: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' }];
   const schedules = [{ id: 'sch-1', user_id: USER_ID, title: '치과 예약', date: today, start_time: '14:00', notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z' }];
   const ddays = [{ id: 'dd-1', user_id: USER_ID, title: '시험날', target_date: today, created_at: '2026-01-01T00:00:00Z' }];
   const settings = {
@@ -69,6 +70,7 @@ async function mockSupabase(page, seen) {
       return route.fulfill({ json: [] });
     }
     if (table === 'categories' && route.request().method() === 'GET') return route.fulfill({ json: categories });
+    if (table === 'notes' && route.request().method() === 'GET') return route.fulfill({ json: notes });
     if (table === 'schedules' && route.request().method() === 'GET') return route.fulfill({ json: schedules });
     if (table === 'ddays' && route.request().method() === 'GET') return route.fulfill({ json: ddays });
     if (table === 'user_settings') return route.fulfill({ json: wantsObject ? settings : [settings] });
@@ -191,9 +193,12 @@ try {
         await page.screenshot({ path: `${process.env.SHOT_DIR}/home-mobile.png` });
         await page.setViewportSize({ width: 1280, height: 900 });
       }
+      await page.getByRole('textbox', { name: '빠른 메모' }).waitFor({ timeout: 5000 });
+      await page.getByRole('button', { name: /장보기 목록/ }).click(); // 홈 메모를 누르면 메모 화면에서 그 메모가 열림
+      await page.waitForFunction(() => [...document.querySelectorAll('input')].some(i => i.value === '장보기 목록'), null, { timeout: 10000 });
       await page.getByRole('button', { name: '달력', exact: true }).first().click();
       await page.getByRole('tablist', { name: '달력 보기' }).waitFor({ timeout: 10000 });
-      console.log('✅ 홈: 오늘 요약이 보이고, 달력 메뉴로 월 달력이 열림');
+      console.log('✅ 홈: 오늘 요약·메모가 보이고, 메모를 누르면 메모 화면에서 열리고, 달력 메뉴로 월 달력이 열림');
     } catch {
       fail('홈에 오늘 요약이 보이고 달력 메뉴로 월 달력이 열려야 함');
     }
