@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.10.0',
+    date: '2026-11-02',
+    changes: [
+      'Google 계정으로 로그인 (설정에 구글 이름과 프로필 사진 표시, 같은 이메일로 가입한 계정이면 그 계정으로 로그인)',
+      '로그인 전에도 이용약관·개인정보처리방침을 볼 수 있음',
+      '가입 없이 둘러보기: 로그인 화면에서 바로 체험하고, 마음에 들면 설정에서 계정을 만들어 적은 내용을 그대로 옮기기',
+    ],
+  },
+  {
     version: '2.9.0',
     date: '2026-10-20',
     changes: [

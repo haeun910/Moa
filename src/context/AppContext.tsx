@@ -75,7 +75,8 @@ function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
 // 알림을 누르고 들어오면 ?screen=timebox 로 열림 → 그 화면부터 보여줌
 function screenFromUrl(): Screen | null {
   const screen = new URLSearchParams(window.location.search).get('screen');
-  return screen === 'timebox' ? 'timebox' : null;
+  // 약관·개인정보처리방침 주소(Google 동의 화면 링크 등)는 로그인한 상태에서도 그 화면으로
+  return screen === 'timebox' || screen === 'terms' || screen === 'privacy' ? screen : null;
 }
 
 export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
@@ -1089,4 +1090,9 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
   return ctx;
+}
+
+// 로그인 전 화면(약관·개인정보처리방침)처럼 AppProvider 밖에서도 쓰일 수 있는 곳용
+export function useOptionalApp() {
+  return useContext(AppContext);
 }

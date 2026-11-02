@@ -13,6 +13,8 @@ import HomePage from './pages/HomePage';
 import { useApp } from './context/AppContext';
 import { hasSeenOnboarding, markOnboardingSeen } from './lib/onboarding';
 import { AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
+import { readOAuthError } from './lib/oauthError';
+import { showToast } from './lib/toast';
 
 // 첫 화면(홈)을 빼고는 필요할 때 불러와서 처음 여는 속도를 줄임
 // 예전 홈(월 달력). 지금은 "달력" 메뉴
@@ -116,6 +118,12 @@ function AppContent() {
     // 불러오기가 끝난 직후 한 번만 판단
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, dataLoading, loadError]);
+
+  // 게스트 계정에 구글을 연결하다 실패하고 돌아온 경우 (로그인은 된 상태라 로그인 화면이 안 보이므로 여기서 알림)
+  useEffect(() => {
+    const message = readOAuthError();
+    if (message) showToast(message, 'error', 8000);
+  }, []);
 
   function closeOnboarding() {
     if (user) markOnboardingSeen(user.id);

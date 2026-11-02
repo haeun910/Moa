@@ -1,21 +1,43 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Check } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
+import { readOAuthError } from '../lib/oauthError';
 
 type Mode = 'login' | 'signup' | 'forgot';
+type Legal = 'terms' | 'privacy';
+
+const TermsPage = lazy(() => import('./TermsPage'));
+const PrivacyPage = lazy(() => import('./PrivacyPage'));
+
+// 로그인하지 않아도 약관·개인정보처리방침을 볼 수 있게 (?screen=privacy / ?screen=terms)
+// Google 로그인 동의 화면에 넣는 개인정보처리방침 주소도 이걸 씀
+function readLegalScreen(): Legal | null {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  return screen === 'terms' || screen === 'privacy' ? screen : null;
+}
 
 export default function AuthPage() {
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInAsGuest, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(readOAuthError);
+  const [legal, setLegal] = useState<Legal | null>(readLegalScreen);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
+
+  // 구글 화면에서 브라우저 뒤로 가기로 돌아오면 페이지가 그대로 복원돼서 "이동 중" 상태로 버튼이 막혀 있음 → 풀어 줌
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) { setGoogleLoading(false); setGuestLoading(false); } };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -51,8 +73,39 @@ export default function AuthPage() {
 
   async function handleGoogle() {
     reset();
+    setGoogleLoading(true);
+    // 성공하면 구글 화면으로 넘어가므로 로딩 표시는 그대로 둠 (두 번 눌리지 않게)
     const { error } = await signInWithGoogle();
-    if (error) setError(error);
+    if (error) {
+      setError('Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.');
+      setGoogleLoading(false);
+    }
+  }
+
+  async function handleGuest() {
+    reset();
+    setGuestLoading(true);
+    const { error } = await signInAsGuest();
+    // 성공하면 로그인된 상태로 바뀌어 이 화면이 사라짐
+    if (error) {
+      setError('체험을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      setGuestLoading(false);
+    }
+  }
+
+  function closeLegal() {
+    setLegal(null);
+    if (readLegalScreen()) window.history.replaceState(null, '', window.location.pathname);
+  }
+
+  if (legal) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Suspense fallback={null}>
+          {legal === 'terms' ? <TermsPage onBack={closeLegal} /> : <PrivacyPage onBack={closeLegal} />}
+        </Suspense>
+      </div>
+    );
   }
 
   const inputClass = "w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all";
@@ -184,7 +237,8 @@ export default function AuthPage() {
 
               <button
                 onClick={handleGoogle}
-                className="btn-secondary w-full h-11 gap-2.5 shadow-sm"
+                disabled={googleLoading}
+                className="btn-secondary w-full h-11 gap-2.5 shadow-sm disabled:opacity-60"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18">
                   <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
@@ -192,14 +246,30 @@ export default function AuthPage() {
                   <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
                   <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
                 </svg>
-                Google로 계속하기
+                {googleLoading ? 'Google로 이동 중…' : 'Google로 계속하기'}
               </button>
+
+              {/* 가입 없이 바로 써 보기 (익명 계정). 마음에 들면 설정에서 이메일·구글 계정으로 옮김 */}
+              <button
+                onClick={handleGuest}
+                disabled={guestLoading}
+                className="w-full h-10 mt-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors disabled:opacity-60"
+              >
+                {guestLoading ? '체험 준비 중…' : '가입 없이 둘러보기'}
+              </button>
+              <p className="text-[11.5px] text-center text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
+                이 기기에서만 쓰는 체험 계정이에요. 나중에 가입하면 적어 둔 내용이 그대로 옮겨져요.
+              </p>
             </>
           )}
         </div>
 
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 leading-relaxed">
-          계속하면 이용약관 및 개인정보처리방침에 동의하는 것으로 간주합니다.
+          계속하면{' '}
+          <button type="button" onClick={() => setLegal('terms')} className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300">이용약관</button>
+          {' '}및{' '}
+          <button type="button" onClick={() => setLegal('privacy')} className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300">개인정보처리방침</button>
+          에 동의하는 것으로 간주합니다.
         </p>
       </div>
       </div>

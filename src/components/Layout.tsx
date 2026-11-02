@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Screen } from '../types';
 import Logo from './Logo';
+import GuestBanner from './GuestBanner';
 
 const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }> }[] = [
   { screen: 'today', label: '홈', Icon: Home },
@@ -96,6 +97,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 min-w-0 overflow-hidden">
         {children}
       </main>
+
+      <GuestBanner />
 
       {/* ── 모바일/태블릿 하단 탭 ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-gray-950/85 backdrop-blur-xl border-t border-gray-200/70 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]" aria-label="주요 메뉴">

@@ -1,15 +1,17 @@
 import { ChevronLeft } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useOptionalApp } from '../context/AppContext';
 import { PRIVACY_OFFICER, PRIVACY_UPDATED_AT, SUPABASE_REGION } from '../data/legal';
 
 // 표준 템플릿입니다. 실제 서비스로 정식 운영하기 전에 변호사 등 전문가 검토를 받으세요.
-export default function PrivacyPage() {
-  const { setCurrentScreen } = useApp();
+// onBack: 로그인 전 화면에서 열 때 (앱 안에서는 설정으로 돌아감)
+export default function PrivacyPage({ onBack }: { onBack?: () => void }) {
+  const app = useOptionalApp();
+  const goBack = onBack ?? (() => app?.setCurrentScreen('settings'));
 
   return (
     <div className="min-h-screen pb-24 lg:pb-12">
       <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 lg:px-8 pt-8 sm:pt-10 pb-5">
-        <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
+        <button onClick={goBack} aria-label={onBack ? '돌아가기' : '설정으로 돌아가기'}
           className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
@@ -21,7 +23,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-gray-900 dark:text-gray-100 mb-1.5">1. 수집하는 개인정보 항목</h2>
-          <p>회원가입 시 이메일 주소, 이름(선택)을 수집합니다. 구글 계정으로 가입할 경우 구글이 제공하는 이메일, 이름, 프로필 사진을 수집할 수 있습니다.</p>
+          <p>회원가입 시 이메일 주소, 이름(선택)을 수집합니다. 구글 계정으로 가입할 경우 구글이 제공하는 이메일, 이름, 프로필 사진을 수집할 수 있습니다. 가입 없이 둘러보기(체험)를 쓰면 이메일 없이 임시 계정이 만들어지고, 체험 중에 입력한 내용만 저장됩니다.</p>
           <p className="mt-1.5">서비스 이용 과정에서 이용자가 직접 입력한 할 일, 일정, 목표, D-Day, 메모, 타임박스, 설정 정보가 저장됩니다. "의견 보내기"를 이용하는 경우 작성한 의견 내용과 앱 버전이 저장됩니다.</p>
           <p className="mt-1.5">타임박스 알림을 켠 경우, 알림을 보내기 위해 해당 기기의 알림 수신 주소(웹 푸시 구독 정보), 기기 시간대, 브라우저 종류 정보(User-Agent)가 저장됩니다. 알림을 끄면 해당 기기의 정보는 삭제됩니다.</p>
           <p className="mt-1.5">앱 오류가 발생하면 문제 해결을 위해 오류 내용, 앱 버전, 브라우저 종류, 이용자 식별번호(무작위로 만든 계정 ID)가 오류 수집 서비스로 전송될 수 있습니다. 이메일 주소와 이용자가 입력한 내용은 전송하지 않습니다.</p>
@@ -35,7 +37,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-gray-900 dark:text-gray-100 mb-1.5">3. 개인정보의 보유 및 이용 기간</h2>
-          <p>회원 탈퇴 시 로그인 계정 정보와 이용자가 입력한 모든 데이터(보낸 의견, 알림 수신 정보 포함)를 지체 없이 파기합니다. 오류 수집 서비스에 전송된 오류 기록은 최대 90일 보관 후 자동 삭제됩니다. 단, 관계 법령에 따라 보존할 의무가 있는 경우 해당 기간 동안 보관합니다.</p>
+          <p>회원 탈퇴 시 로그인 계정 정보와 이용자가 입력한 모든 데이터(보낸 의견, 알림 수신 정보 포함)를 지체 없이 파기합니다. 체험 계정은 체험을 끝내면 즉시 파기하며, 오랫동안 쓰지 않은 체험 계정은 정리될 수 있습니다. 오류 수집 서비스에 전송된 오류 기록은 최대 90일 보관 후 자동 삭제됩니다. 단, 관계 법령에 따라 보존할 의무가 있는 경우 해당 기간 동안 보관합니다.</p>
         </section>
 
         <section>

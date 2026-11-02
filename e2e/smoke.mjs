@@ -101,7 +101,63 @@ try {
     await page.getByRole('button', { name: '로그인', exact: true }).first().waitFor({ timeout: 10000 });
     if (errors.length) fail(`로그인 화면에서 오류: ${errors.join(' / ')}`);
     else console.log('✅ 로그인 화면이 오류 없이 뜸');
+
+    // Google 동의 화면에 넣는 개인정보처리방침 주소는 로그인 없이 열려야 함
+    await page.goto(`${BASE}/?screen=privacy`);
+    try {
+      await page.getByRole('heading', { name: '개인정보처리방침' }).waitFor({ timeout: 10000 });
+      console.log('✅ 로그인하지 않아도 개인정보처리방침이 열림 (?screen=privacy)');
+    } catch {
+      fail('로그인 전에 ?screen=privacy로 개인정보처리방침이 보여야 함');
+    }
+    // 구글 로그인을 취소하고 돌아오면 안내 문구가 보여야 함
+    await page.goto(`${BASE}/?error=access_denied&error_description=cancelled`);
+    try {
+      await page.getByText('Google 로그인이 취소되었습니다.').waitFor({ timeout: 10000 });
+      console.log('✅ 구글 로그인 취소 후 돌아오면 안내가 보임');
+    } catch {
+      fail('구글 로그인 취소 안내가 보여야 함');
+    }
     await page.close();
+  }
+
+  // 1-2) 가입 없이 둘러보기: 익명 계정이 만들어지고 앱이 열리며 "체험 중" 안내가 보임
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'Asia/Seoul' });
+    await context.addInitScript(() => localStorage.setItem('onboarding-done-00000000-0000-0000-0000-0000000000aa', '1'));
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await mockSupabase(page, { todoPages: [], timeblockInserts: [] });
+    let anonymousSignup = false;
+    await page.route(`${SUPABASE}/auth/v1/signup`, async route => {
+      anonymousSignup = !JSON.parse(route.request().postData() ?? '{}').email;
+      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const user = { id: USER_ID, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: { providers: [] }, user_metadata: { display_name: '게스트' } };
+      return route.fulfill({ json: {
+        access_token: fakeJwt({ sub: USER_ID, role: 'authenticated', exp, aud: 'authenticated', is_anonymous: true }),
+        refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, expires_at: exp, user,
+      } });
+    });
+    await page.goto(BASE);
+    await page.getByRole('button', { name: '가입 없이 둘러보기' }).click({ timeout: 10000 });
+    try {
+      await page.getByText('체험 중이에요. 계정을 만들면', { exact: false }).waitFor({ timeout: 15000 });
+      if (!anonymousSignup) fail('둘러보기는 이메일 없는 익명 계정으로 시작해야 함');
+      else console.log('✅ 가입 없이 둘러보기: 체험 계정으로 앱이 열리고 계정 만들기 안내가 보임');
+    } catch {
+      fail('가입 없이 둘러보기를 누르면 앱이 열리고 체험 안내가 보여야 함');
+    }
+    // 로그인(체험)한 상태에서도 개인정보처리방침 주소는 그 화면으로 열려야 함 (Google 동의 화면 링크)
+    await page.goto(`${BASE}/?screen=privacy`);
+    try {
+      await page.getByRole('heading', { name: '개인정보처리방침' }).waitFor({ timeout: 10000 });
+      console.log('✅ 로그인한 상태에서도 ?screen=privacy로 개인정보처리방침이 열림');
+    } catch {
+      fail('로그인한 상태에서 ?screen=privacy로 개인정보처리방침이 보여야 함');
+    }
+    if (errors.length) fail(`둘러보기 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
   }
 
   // 로그인한 상태의 새 브라우저 창
