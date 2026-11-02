@@ -148,6 +148,14 @@ try {
     } catch {
       fail('가입 없이 둘러보기를 누르면 앱이 열리고 체험 안내가 보여야 함');
     }
+    // 로그인(체험)한 상태에서도 개인정보처리방침 주소는 그 화면으로 열려야 함 (Google 동의 화면 링크)
+    await page.goto(`${BASE}/?screen=privacy`);
+    try {
+      await page.getByRole('heading', { name: '개인정보처리방침' }).waitFor({ timeout: 10000 });
+      console.log('✅ 로그인한 상태에서도 ?screen=privacy로 개인정보처리방침이 열림');
+    } catch {
+      fail('로그인한 상태에서 ?screen=privacy로 개인정보처리방침이 보여야 함');
+    }
     if (errors.length) fail(`둘러보기 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }

@@ -75,7 +75,8 @@ function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
 // 알림을 누르고 들어오면 ?screen=timebox 로 열림 → 그 화면부터 보여줌
 function screenFromUrl(): Screen | null {
   const screen = new URLSearchParams(window.location.search).get('screen');
-  return screen === 'timebox' ? 'timebox' : null;
+  // 약관·개인정보처리방침 주소(Google 동의 화면 링크 등)는 로그인한 상태에서도 그 화면으로
+  return screen === 'timebox' || screen === 'terms' || screen === 'privacy' ? screen : null;
 }
 
 export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
