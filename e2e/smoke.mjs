@@ -119,6 +119,16 @@ try {
     if (errors.length) fail(`로그인 전 화면에서 오류: ${errors.join(' / ')}`);
     else console.log('✅ 로그인 전 화면이 오류 없이 뜸');
 
+    // 알림 링크(?screen=timebox)로 로그아웃 상태에서 들어오면 소개 없이 로그인 화면, 주소는 그대로 (로그인 뒤 그 화면을 열려고)
+    await page.goto(`${BASE}/?screen=timebox`);
+    try {
+      await page.getByRole('heading', { name: '다시 만나서 반가워요' }).waitFor({ timeout: 10000 });
+      if (!page.url().includes('screen=timebox')) throw new Error('url changed');
+      console.log('✅ 로그아웃 상태로 앱 화면 주소를 열면 로그인 화면이 뜨고 주소가 유지됨');
+    } catch {
+      fail('?screen=timebox로 들어오면 소개 대신 로그인 화면이 뜨고 주소가 남아 있어야 함');
+    }
+
     // Google 동의 화면에 넣는 개인정보처리방침 주소는 로그인 없이 열려야 함
     await page.goto(`${BASE}/?screen=privacy`);
     try {

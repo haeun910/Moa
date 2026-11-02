@@ -32,13 +32,14 @@ const AuthPage = lazy(() => import('./pages/AuthPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 // 로그인 전에 처음 보여 줄 화면: 소개(랜딩) 또는 로그인 화면
-// - 주소에 ?screen=login / terms / privacy가 있거나, 구글 로그인 오류로 돌아온 경우 → 로그인 화면(오류 안내·약관을 거기서 보여 줌)
+// - 주소에 ?screen=...(login / terms / privacy / 앱 화면)이 있거나, 구글 로그인 오류로 돌아온 경우 → 로그인 화면(오류 안내·약관을 거기서 보여 줌)
 // - 홈 화면에 설치한 앱으로 연 경우 → 이미 아는 사람이므로 소개 없이 바로 로그인 화면
 function readLoggedOutView(): 'landing' | 'auth' {
   const params = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const screen = params.get('screen');
-  if (screen === 'login' || screen === 'terms' || screen === 'privacy') return 'auth';
+  // ?screen=timebox 같은 앱 화면 주소(알림 링크 등)도 이미 쓰는 사람이므로 로그인 화면으로.
+  // 이때 주소를 그대로 둬야 로그인 뒤에 그 화면이 열림
+  if (params.get('screen')) return 'auth';
   if (params.get('error') || hash.get('error')) return 'auth';
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches
     || (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -52,7 +53,11 @@ function LoggedOut() {
   useEffect(() => {
     const onPop = () => setView(readLoggedOutView());
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // 로그인하면 이 화면이 사라짐: 주소에 남은 ?screen=login만 정리 (앱 화면 주소는 앱이 읽고 정리함)
+      if (new URLSearchParams(window.location.search).get('screen') === 'login') window.history.replaceState(null, '', window.location.pathname);
+    };
   }, []);
 
   function open(screen: 'login' | 'terms' | 'privacy') {
