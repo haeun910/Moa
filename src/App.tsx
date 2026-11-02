@@ -29,6 +29,52 @@ const ProjectPage = lazy(() => import('./pages/ProjectPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+
+// 로그인 전에 처음 보여 줄 화면: 소개(랜딩) 또는 로그인 화면
+// - 주소에 ?screen=login / terms / privacy가 있거나, 구글 로그인 오류로 돌아온 경우 → 로그인 화면(오류 안내·약관을 거기서 보여 줌)
+// - 홈 화면에 설치한 앱으로 연 경우 → 이미 아는 사람이므로 소개 없이 바로 로그인 화면
+function readLoggedOutView(): 'landing' | 'auth' {
+  const params = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const screen = params.get('screen');
+  if (screen === 'login' || screen === 'terms' || screen === 'privacy') return 'auth';
+  if (params.get('error') || hash.get('error')) return 'auth';
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches
+    || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return standalone ? 'auth' : 'landing';
+}
+
+function LoggedOut() {
+  const [view, setView] = useState(readLoggedOutView);
+
+  // 브라우저 뒤로/앞으로 가기로 소개 ↔ 로그인 화면을 오감
+  useEffect(() => {
+    const onPop = () => setView(readLoggedOutView());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  function open(screen: 'login' | 'terms' | 'privacy') {
+    window.history.pushState(null, '', `/?screen=${screen}`);
+    setView('auth');
+    window.scrollTo(0, 0);
+  }
+
+  function backToLanding() {
+    window.history.replaceState(null, '', '/');
+    setView('landing');
+    window.scrollTo(0, 0);
+  }
+
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      {view === 'landing'
+        ? <LandingPage onLogin={() => open('login')} onLegal={open} />
+        : <AuthPage onBackToLanding={backToLanding} />}
+    </Suspense>
+  );
+}
 
 function SetupNeededScreen() {
   return (
@@ -158,7 +204,7 @@ function Root() {
   const { user, loading, passwordRecovery, endPasswordRecovery } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  if (!user) return <Suspense fallback={<LoadingScreen />}><AuthPage /></Suspense>;
+  if (!user) return <LoggedOut />;
 
   return (
     <AppProvider>

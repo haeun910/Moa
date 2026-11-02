@@ -1,7 +1,7 @@
 // ============================================================
 // 화면 스모크 테스트 (Playwright, 실제 Supabase 없이)
 //
-// 1) 로그인 전: 로그인 화면이 오류 없이 뜨는지
+// 1) 로그인 전: 소개(랜딩) 화면과 로그인 화면이 오류 없이 뜨는지
 // 2) 로그인 후: 할 일이 1,000개를 넘어도 끝까지 불러오는지 (Supabase API를 흉내 내서 2,345개를 돌려줌)
 // 3) 타임박스 반복: 매주 고정 블록을 만들면 회차마다 블록이 같은 묶음(series_id)으로 저장되는지
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정(끝 시간 길이대로), 여러 날 일정, D-Day가 타임박스에 보이는지
@@ -98,9 +98,26 @@ try {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(BASE);
-    await page.getByRole('button', { name: '로그인', exact: true }).first().waitFor({ timeout: 10000 });
-    if (errors.length) fail(`로그인 화면에서 오류: ${errors.join(' / ')}`);
-    else console.log('✅ 로그인 화면이 오류 없이 뜸');
+    try {
+      await page.getByRole('heading', { level: 1, name: /한 곳에 모아/ }).waitFor({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Google로 시작하기' }).first().waitFor({ timeout: 2000 });
+      await page.getByRole('button', { name: '가입 없이 둘러보기' }).first().waitFor({ timeout: 2000 });
+      console.log('✅ 로그인 전 첫 화면은 소개 화면 (Google로 시작하기 / 가입 없이 둘러보기)');
+    } catch {
+      fail('로그인 전 첫 화면에 소개와 시작 버튼이 보여야 함');
+    }
+    // 머리글의 "로그인" → 이메일 로그인 화면, 뒤로 가기 → 다시 소개 화면
+    await page.getByRole('button', { name: '로그인', exact: true }).first().click();
+    try {
+      await page.getByRole('heading', { name: '다시 만나서 반가워요' }).waitFor({ timeout: 10000 });
+      await page.goBack();
+      await page.getByRole('heading', { level: 1, name: /한 곳에 모아/ }).waitFor({ timeout: 5000 });
+      console.log('✅ 소개 → 로그인 화면 → 뒤로 가기로 소개 화면');
+    } catch {
+      fail('소개 화면에서 로그인 화면으로 갔다가 뒤로 가기로 돌아와야 함');
+    }
+    if (errors.length) fail(`로그인 전 화면에서 오류: ${errors.join(' / ')}`);
+    else console.log('✅ 로그인 전 화면이 오류 없이 뜸');
 
     // Google 동의 화면에 넣는 개인정보처리방침 주소는 로그인 없이 열려야 함
     await page.goto(`${BASE}/?screen=privacy`);
@@ -140,7 +157,7 @@ try {
       } });
     });
     await page.goto(BASE);
-    await page.getByRole('button', { name: '가입 없이 둘러보기' }).click({ timeout: 10000 });
+    await page.getByRole('button', { name: '가입 없이 둘러보기' }).first().click({ timeout: 10000 });
     try {
       await page.getByText('체험 중이에요. 계정을 만들면', { exact: false }).waitFor({ timeout: 15000 });
       if (!anonymousSignup) fail('둘러보기는 이메일 없는 익명 계정으로 시작해야 함');

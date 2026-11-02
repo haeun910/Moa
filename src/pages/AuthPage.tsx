@@ -19,7 +19,7 @@ function readLegalScreen(): Legal | null {
   return screen === 'terms' || screen === 'privacy' ? screen : null;
 }
 
-export default function AuthPage() {
+export default function AuthPage({ onBackToLanding }: { onBackToLanding?: () => void } = {}) {
   const { signIn, signUp, signInWithGoogle, signInAsGuest, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
 
@@ -29,6 +29,8 @@ export default function AuthPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState(readOAuthError);
   const [legal, setLegal] = useState<Legal | null>(readLegalScreen);
+  // 주소(?screen=privacy 등)로 바로 약관을 연 경우, 닫으면 소개 화면으로 돌아감
+  const [legalFromUrl] = useState(() => readLegalScreen() !== null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
 
@@ -94,6 +96,7 @@ export default function AuthPage() {
   }
 
   function closeLegal() {
+    if (legalFromUrl && onBackToLanding) { onBackToLanding(); return; }
     setLegal(null);
     if (readLegalScreen()) window.history.replaceState(null, '', window.location.pathname);
   }
@@ -117,6 +120,12 @@ export default function AuthPage() {
 
       <div className="flex-1 flex items-center justify-center px-5 py-10 sm:px-8">
       <div className="w-full max-w-[380px]">
+        {onBackToLanding && (
+          <button type="button" onClick={onBackToLanding}
+            className="inline-flex items-center gap-1 mb-8 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+            <ArrowLeft size={15} /> 모아 소개 보기
+          </button>
+        )}
         {/* Logo (작은 화면에서만, 큰 화면은 왼쪽 패널에 있음) */}
         <div className="lg:hidden flex items-center gap-2.5 mb-10">
           <Logo size={36} />
