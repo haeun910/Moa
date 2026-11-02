@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Check } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -6,6 +6,28 @@ import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
 
 type Mode = 'login' | 'signup' | 'forgot';
+type Legal = 'terms' | 'privacy';
+
+const TermsPage = lazy(() => import('./TermsPage'));
+const PrivacyPage = lazy(() => import('./PrivacyPage'));
+
+// 구글 로그인에서 돌아왔는데 실패한 경우(취소, 설정 문제 등) 주소에 붙어 오는 오류를 읽고 주소는 깨끗하게 정리
+function readOAuthError(): string {
+  const params = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const code = params.get('error') ?? hash.get('error');
+  if (!code) return '';
+  window.history.replaceState(null, '', window.location.pathname);
+  if (code === 'access_denied') return 'Google 로그인이 취소되었습니다.';
+  return 'Google 로그인에 실패했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.';
+}
+
+// 로그인하지 않아도 약관·개인정보처리방침을 볼 수 있게 (?screen=privacy / ?screen=terms)
+// Google 로그인 동의 화면에 넣는 개인정보처리방침 주소도 이걸 씀
+function readLegalScreen(): Legal | null {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  return screen === 'terms' || screen === 'privacy' ? screen : null;
+}
 
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
@@ -15,7 +37,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(readOAuthError);
+  const [legal, setLegal] = useState<Legal | null>(readLegalScreen);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -51,8 +75,28 @@ export default function AuthPage() {
 
   async function handleGoogle() {
     reset();
+    setGoogleLoading(true);
+    // 성공하면 구글 화면으로 넘어가므로 로딩 표시는 그대로 둠 (두 번 눌리지 않게)
     const { error } = await signInWithGoogle();
-    if (error) setError(error);
+    if (error) {
+      setError('Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.');
+      setGoogleLoading(false);
+    }
+  }
+
+  function closeLegal() {
+    setLegal(null);
+    if (readLegalScreen()) window.history.replaceState(null, '', window.location.pathname);
+  }
+
+  if (legal) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Suspense fallback={null}>
+          {legal === 'terms' ? <TermsPage onBack={closeLegal} /> : <PrivacyPage onBack={closeLegal} />}
+        </Suspense>
+      </div>
+    );
   }
 
   const inputClass = "w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all";
@@ -184,7 +228,8 @@ export default function AuthPage() {
 
               <button
                 onClick={handleGoogle}
-                className="btn-secondary w-full h-11 gap-2.5 shadow-sm"
+                disabled={googleLoading}
+                className="btn-secondary w-full h-11 gap-2.5 shadow-sm disabled:opacity-60"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18">
                   <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
@@ -192,14 +237,18 @@ export default function AuthPage() {
                   <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
                   <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z"/>
                 </svg>
-                Google로 계속하기
+                {googleLoading ? 'Google로 이동 중…' : 'Google로 계속하기'}
               </button>
             </>
           )}
         </div>
 
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 leading-relaxed">
-          계속하면 이용약관 및 개인정보처리방침에 동의하는 것으로 간주합니다.
+          계속하면{' '}
+          <button type="button" onClick={() => setLegal('terms')} className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300">이용약관</button>
+          {' '}및{' '}
+          <button type="button" onClick={() => setLegal('privacy')} className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300">개인정보처리방침</button>
+          에 동의하는 것으로 간주합니다.
         </p>
       </div>
       </div>

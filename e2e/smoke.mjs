@@ -101,6 +101,23 @@ try {
     await page.getByRole('button', { name: '로그인', exact: true }).first().waitFor({ timeout: 10000 });
     if (errors.length) fail(`로그인 화면에서 오류: ${errors.join(' / ')}`);
     else console.log('✅ 로그인 화면이 오류 없이 뜸');
+
+    // Google 동의 화면에 넣는 개인정보처리방침 주소는 로그인 없이 열려야 함
+    await page.goto(`${BASE}/?screen=privacy`);
+    try {
+      await page.getByRole('heading', { name: '개인정보처리방침' }).waitFor({ timeout: 10000 });
+      console.log('✅ 로그인하지 않아도 개인정보처리방침이 열림 (?screen=privacy)');
+    } catch {
+      fail('로그인 전에 ?screen=privacy로 개인정보처리방침이 보여야 함');
+    }
+    // 구글 로그인을 취소하고 돌아오면 안내 문구가 보여야 함
+    await page.goto(`${BASE}/?error=access_denied&error_description=cancelled`);
+    try {
+      await page.getByText('Google 로그인이 취소되었습니다.').waitFor({ timeout: 10000 });
+      console.log('✅ 구글 로그인 취소 후 돌아오면 안내가 보임');
+    } catch {
+      fail('구글 로그인 취소 안내가 보여야 함');
+    }
     await page.close();
   }
 

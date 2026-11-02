@@ -1,14 +1,16 @@
 import { ChevronLeft } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useOptionalApp } from '../context/AppContext';
 
 // 표준 템플릿입니다. 실제 서비스로 정식 운영하기 전에 변호사 등 전문가 검토를 받으세요.
-export default function TermsPage() {
-  const { setCurrentScreen } = useApp();
+// onBack: 로그인 전 화면에서 열 때 (앱 안에서는 설정으로 돌아감)
+export default function TermsPage({ onBack }: { onBack?: () => void }) {
+  const app = useOptionalApp();
+  const goBack = onBack ?? (() => app?.setCurrentScreen('settings'));
 
   return (
     <div className="min-h-screen pb-24 lg:pb-12">
       <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 lg:px-8 pt-8 sm:pt-10 pb-5">
-        <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
+        <button onClick={goBack} aria-label={onBack ? '돌아가기' : '설정으로 돌아가기'}
           className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>

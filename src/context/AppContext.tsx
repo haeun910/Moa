@@ -1090,3 +1090,8 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
   return ctx;
 }
+
+// 로그인 전 화면(약관·개인정보처리방침)처럼 AppProvider 밖에서도 쓰일 수 있는 곳용
+export function useOptionalApp() {
+  return useContext(AppContext);
+}
