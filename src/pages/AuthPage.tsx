@@ -4,23 +4,13 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInte
 import { ko } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
+import { readOAuthError } from '../lib/oauthError';
 
 type Mode = 'login' | 'signup' | 'forgot';
 type Legal = 'terms' | 'privacy';
 
 const TermsPage = lazy(() => import('./TermsPage'));
 const PrivacyPage = lazy(() => import('./PrivacyPage'));
-
-// 구글 로그인에서 돌아왔는데 실패한 경우(취소, 설정 문제 등) 주소에 붙어 오는 오류를 읽고 주소는 깨끗하게 정리
-function readOAuthError(): string {
-  const params = new URLSearchParams(window.location.search);
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const code = params.get('error') ?? hash.get('error');
-  if (!code) return '';
-  window.history.replaceState(null, '', window.location.pathname);
-  if (code === 'access_denied') return 'Google 로그인이 취소되었습니다.';
-  return 'Google 로그인에 실패했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.';
-}
 
 // 로그인하지 않아도 약관·개인정보처리방침을 볼 수 있게 (?screen=privacy / ?screen=terms)
 // Google 로그인 동의 화면에 넣는 개인정보처리방침 주소도 이걸 씀
@@ -30,7 +20,7 @@ function readLegalScreen(): Legal | null {
 }
 
 export default function AuthPage() {
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInAsGuest, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
 
   const [email, setEmail] = useState('');
@@ -40,6 +30,7 @@ export default function AuthPage() {
   const [error, setError] = useState(readOAuthError);
   const [legal, setLegal] = useState<Legal | null>(readLegalScreen);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -81,6 +72,17 @@ export default function AuthPage() {
     if (error) {
       setError('Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.');
       setGoogleLoading(false);
+    }
+  }
+
+  async function handleGuest() {
+    reset();
+    setGuestLoading(true);
+    const { error } = await signInAsGuest();
+    // 성공하면 로그인된 상태로 바뀌어 이 화면이 사라짐
+    if (error) {
+      setError('체험을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      setGuestLoading(false);
     }
   }
 
@@ -239,6 +241,18 @@ export default function AuthPage() {
                 </svg>
                 {googleLoading ? 'Google로 이동 중…' : 'Google로 계속하기'}
               </button>
+
+              {/* 가입 없이 바로 써 보기 (익명 계정). 마음에 들면 설정에서 이메일·구글 계정으로 옮김 */}
+              <button
+                onClick={handleGuest}
+                disabled={guestLoading}
+                className="w-full h-10 mt-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors disabled:opacity-60"
+              >
+                {guestLoading ? '체험 준비 중…' : '가입 없이 둘러보기'}
+              </button>
+              <p className="text-[11.5px] text-center text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
+                이 기기에서만 쓰는 체험 계정이에요. 나중에 가입하면 적어 둔 내용이 그대로 옮겨져요.
+              </p>
             </>
           )}
         </div>

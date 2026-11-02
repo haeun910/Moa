@@ -4,6 +4,7 @@ import {
   ChevronRight, ChevronLeft, LogOut, Moon, Sun, Monitor, Bell, BellRing, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX,
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
   UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
+  UserPlus,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,8 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import type { PushState } from '../hooks/usePushNotifications';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
+import UpgradeAccountModal from '../components/UpgradeAccountModal';
+import EndGuestModal from '../components/EndGuestModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import ChangelogModal from '../components/ChangelogModal';
 import AdminStatsModal from '../components/AdminStatsModal';
@@ -187,10 +190,12 @@ function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void 
 
 export default function SettingsPage() {
   const { settings, updateSettings, categories, isAdmin, setCurrentScreen } = useApp();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isGuest } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showEndGuestModal, setShowEndGuestModal] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAdminStats, setShowAdminStats] = useState(false);
@@ -236,7 +241,7 @@ export default function SettingsPage() {
 
   // 구글로 가입한 사람은 display_name 대신 구글 이름(full_name/name)이 들어 있음
   const meta = user?.user_metadata;
-  const displayName = meta?.display_name ?? meta?.full_name ?? meta?.name ?? user?.email?.split('@')[0] ?? '';
+  const displayName = (isGuest ? '게스트' : null) ?? meta?.display_name ?? meta?.full_name ?? meta?.name ?? user?.email?.split('@')[0] ?? '';
   const initials = displayName.slice(0, 2).toUpperCase();
   const visibleSections = SECTIONS.filter(s => !s.adminOnly || isAdmin);
   // 끈 기능은 시작 화면으로 고를 수 없음
@@ -328,7 +333,14 @@ export default function SettingsPage() {
     </>
   );
 
-  const accountRows = (
+  // 체험(게스트) 계정: 비밀번호·로그아웃·계정 삭제 대신 계정 만들기 / 체험 끝내기
+  const accountRows = isGuest ? (
+    <>
+      <Row Icon={UserPlus} label="계정 만들기" desc="적어 둔 내용을 그대로 옮기고 다른 기기에서도 로그인" onClick={() => setShowUpgradeModal(true)} />
+      <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
+      <Row Icon={LogOut} label="체험 끝내기" desc="체험 중에 적은 내용이 모두 지워져요" onClick={() => setShowEndGuestModal(true)} danger chevron={false} />
+    </>
+  ) : (
     <>
       {hasEmailPassword && <Row Icon={KeyRound} label="비밀번호 변경" onClick={() => setShowPasswordModal(true)} />}
       <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
@@ -374,7 +386,7 @@ export default function SettingsPage() {
               {avatar('lg')}
               <div className="min-w-0">
                 <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
               </div>
             </div>
           </Group>
@@ -412,7 +424,7 @@ export default function SettingsPage() {
                   {avatar('lg')}
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
                   </div>
                 </div>
               </Group>
@@ -443,7 +455,7 @@ export default function SettingsPage() {
             {avatar('sm')}
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{displayName || '사용자'}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
             </div>
           </div>
           <ul className="space-y-0.5">
@@ -474,6 +486,11 @@ export default function SettingsPage() {
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
       {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
+      {showUpgradeModal && <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} />}
+      {showEndGuestModal && (
+        <EndGuestModal onClose={() => setShowEndGuestModal(false)}
+          onUpgrade={() => { setShowEndGuestModal(false); setShowUpgradeModal(true); }} />
+      )}
       {showInstallInstructions && <InstallInstructionsModal onClose={() => setShowInstallInstructions(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showAdminStats && <AdminStatsModal onClose={() => setShowAdminStats(false)} />}

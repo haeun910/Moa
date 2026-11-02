@@ -11,6 +11,11 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  // 로그인 없이 체험: Supabase 익명 계정 (이 기기에만 연결, 나중에 이메일·구글로 정식 계정 전환)
+  isGuest: boolean;
+  signInAsGuest: () => Promise<{ error: string | null }>;
+  upgradeWithEmail: (email: string) => Promise<{ error: string | null }>;
+  linkGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -70,6 +75,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function signInAsGuest() {
+    const { error } = await supabase.auth.signInAnonymously({ options: { data: { display_name: '게스트' } } });
+    return { error: error?.message ?? null };
+  }
+
+  // 게스트 → 이메일 계정: 이메일 확인 메일의 링크를 누르면 같은 계정(데이터 그대로)이 정식 계정이 됨
+  async function upgradeWithEmail(email: string) {
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: window.location.origin });
+    return { error: error?.message ?? null };
+  }
+
+  // 게스트 → 구글 계정: 지금 계정에 구글을 연결 (Supabase에서 Manual Linking을 켜 둬야 함)
+  async function linkGoogle() {
+    const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo: window.location.origin } });
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     // 이 기기로 이전 계정의 타임박스 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
     await disablePush().catch(() => {});
@@ -94,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, loading, signUp, signIn, signInWithGoogle, signOut, resetPassword, updatePassword,
+      isGuest: user?.is_anonymous ?? false, signInAsGuest, upgradeWithEmail, linkGoogle,
       passwordRecovery, endPasswordRecovery: () => setPasswordRecovery(false),
     }}>
       {children}
