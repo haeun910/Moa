@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Check } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -31,6 +31,13 @@ export default function AuthPage() {
   const [legal, setLegal] = useState<Legal | null>(readLegalScreen);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
+
+  // 구글 화면에서 브라우저 뒤로 가기로 돌아오면 페이지가 그대로 복원돼서 "이동 중" 상태로 버튼이 막혀 있음 → 풀어 줌
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) { setGoogleLoading(false); setGuestLoading(false); } };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 

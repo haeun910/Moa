@@ -142,7 +142,7 @@ try {
     await page.goto(BASE);
     await page.getByRole('button', { name: '가입 없이 둘러보기' }).click({ timeout: 10000 });
     try {
-      await page.getByText('체험 중이에요', { exact: false }).waitFor({ timeout: 15000 });
+      await page.getByText('체험 중이에요. 계정을 만들면', { exact: false }).waitFor({ timeout: 15000 });
       if (!anonymousSignup) fail('둘러보기는 이메일 없는 익명 계정으로 시작해야 함');
       else console.log('✅ 가입 없이 둘러보기: 체험 계정으로 앱이 열리고 계정 만들기 안내가 보임');
     } catch {

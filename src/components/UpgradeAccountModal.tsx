@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,6 +9,13 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
   const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState<'email' | 'google' | null>(null);
+
+  // 구글 화면에서 뒤로 가기로 돌아오면 "이동 중" 상태가 그대로 복원되므로 풀어 줌
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) setLoading(null); };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
