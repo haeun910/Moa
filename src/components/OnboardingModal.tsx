@@ -10,7 +10,7 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    Icon: Sparkles, color: 'text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40',
+    Icon: Sparkles, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '모아에 오신 걸 환영해요',
     lines: [
       '할 일, 일정, 목표, D-Day를 한 곳에 모아 관리하는 플래너예요.',
@@ -18,7 +18,7 @@ const STEPS: Step[] = [
     ],
   },
   {
-    Icon: CalendarDays, color: 'text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40',
+    Icon: CalendarDays, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '홈 — 달력에서 날짜를 눌러보세요',
     lines: [
       '그 날의 D-Day · 일정 · 할 일이 한눈에 보여요.',
@@ -27,7 +27,7 @@ const STEPS: Step[] = [
     ],
   },
   {
-    Icon: Flag, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/30',
+    Icon: Flag, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '목표 · D-Day · 일정',
     lines: [
       '홈 위쪽 카드에서 이번 달 목표, D-Day, 일정을 추가할 수 있어요.',
@@ -36,7 +36,7 @@ const STEPS: Step[] = [
     ],
   },
   {
-    Icon: Package, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
+    Icon: Package, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '저장소 — 언젠가 할 일 보관함',
     lines: [
       '아직 날짜를 정하지 않은 할 일은 저장소에 모아두세요.',
@@ -44,7 +44,7 @@ const STEPS: Step[] = [
     ],
   },
   {
-    Icon: AlertCircle, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
+    Icon: AlertCircle, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '밀린 할 일도 놓치지 않게',
     lines: [
       '홈의 주황색 ! 버튼을 누르면 지난 날짜에 못 끝낸 할 일이 모여 있어요.',
@@ -52,7 +52,7 @@ const STEPS: Step[] = [
     ],
   },
   {
-    Icon: Settings, color: 'text-gray-600 bg-gray-100 dark:bg-gray-800',
+    Icon: Settings, color: 'text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800',
     title: '마지막으로',
     lines: [
       '설정 > 앱 다운로드로 홈 화면에 추가하면 앱처럼 쓸 수 있어요.',
@@ -106,7 +106,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
           <button onClick={() => (isLast ? onClose() : setStep(s => s + 1))}
-            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold">
+            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold">
             {isLast ? '시작하기' : <>다음 <ChevronRight size={15} /></>}
           </button>
         </div>

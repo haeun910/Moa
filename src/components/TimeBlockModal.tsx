@@ -214,7 +214,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
       <div className="modal-panel max-w-md" onClick={e => e.stopPropagation()}>
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Timer size={16} className="text-leaf-600 dark:text-leaf-400" />
+            <Timer size={16} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? '타임박스 수정' : '타임박스 추가'}</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
@@ -228,7 +228,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
           <div>
             {todo ? (
               <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-leaf-50/70 dark:bg-leaf-900/20 ring-1 ring-inset ring-leaf-200 dark:ring-leaf-800/60">
-                <Link2 size={14} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
+                <Link2 size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 {todoCat && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: todoCat.color }} />}
                 <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{todo.title}</span>
                 <button onClick={() => setPicking(v => !v)} className="row-action">바꾸기</button>
@@ -330,7 +330,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                   <button key={d} onClick={() => applyDuration(d)}
                     className={`h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
                       active
-                        ? 'bg-leaf-600 ring-leaf-600 text-white'
+                        ? 'bg-gray-900 ring-gray-900 text-white dark:bg-gray-100 dark:ring-gray-100 dark:text-gray-900'
                         : 'ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}>
                     {durationLabel(d)}

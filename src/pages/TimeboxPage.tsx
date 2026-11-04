@@ -47,7 +47,7 @@ type SourceModal = { schedule: ScheduleItem } | { dday: DDay } | { todo: Todo };
 
 function weekdayTone(dow: number) {
   if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
+  if (dow === 6) return 'text-gray-500 dark:text-gray-400';
   return 'text-gray-700 dark:text-gray-200';
 }
 
@@ -466,7 +466,7 @@ export default function TimeboxPage() {
               </button>
             ) : (
               <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-13px">
-                <ListChecks size={15} className="text-leaf-600 dark:text-leaf-400" />
+                <ListChecks size={15} className="text-gray-500 dark:text-gray-400" />
                 할 일 넣기
               </button>
             )}
@@ -484,17 +484,17 @@ export default function TimeboxPage() {
               return (
                 <button key={dateKey} role="tab" aria-selected={selected} onClick={() => setFocusDay(dateKey)}
                   className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
-                    selected ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    selected ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}>
                   <span className={`text-10.5px font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                     {format(day, 'EEEEE', { locale: ko })}
                   </span>
                   <span className={`text-15px font-bold tabular-nums leading-tight ${
-                    selected ? 'text-white' : isToday ? 'text-leaf-600 dark:text-leaf-400' : weekdayTone(day.getDay())
+                    selected ? 'text-white dark:text-gray-900' : isToday ? 'text-gray-900 dark:text-white underline underline-offset-4 decoration-2' : weekdayTone(day.getDay())
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white' : 'bg-leaf-500') : 'bg-transparent'}`} />
+                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white dark:bg-gray-900' : 'bg-gray-400') : 'bg-transparent'}`} />
                 </button>
               );
             })}
@@ -504,7 +504,7 @@ export default function TimeboxPage() {
 
       {/* ── 본문: 시간표 + (데스크톱) 할 일 패널 ── */}
       <div className="flex-1 min-h-0 flex gap-4 px-4 sm:px-6 xl:px-8 pb-4">
-        <div className="flex-1 min-w-0 rounded-2xl surface overflow-hidden flex flex-col">
+        <div className="flex-1 min-w-0 rounded-xl surface overflow-hidden flex flex-col">
           {/* 요일 머리글 (넓은 화면) */}
           {isWide && (
             <div className="flex-shrink-0 flex border-b border-gray-100 dark:border-gray-800 pr-[4px]">
@@ -517,11 +517,11 @@ export default function TimeboxPage() {
                 return (
                   <div key={dateKey} className="flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 px-2 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-11px font-semibold ${isToday ? 'text-leaf-700 dark:text-leaf-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <span className={`text-11px font-semibold ${isToday ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
                         {format(day, 'EEE', { locale: ko })}
                       </span>
                       <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-13px font-bold tabular-nums ${
-                        isToday ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : weekdayTone(day.getDay())
+                        isToday ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : weekdayTone(day.getDay())
                       }`}>
                         {format(day, 'd')}
                       </span>
@@ -585,7 +585,7 @@ export default function TimeboxPage() {
                     ref={el => { if (el) colRefs.current.set(dateKey, el); else colRefs.current.delete(dateKey); }}
                     onPointerDown={e => handleColumnPointerDown(e, dateKey)}
                     onClick={e => handleColumnClick(e, dateKey)}
-                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-leaf-50/40 dark:bg-leaf-900/10' : ''}`}
+                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-gray-50/70 dark:bg-gray-800/20' : ''}`}
                   >
                     {items.map(({ block, span }) => (
                       <BlockView
@@ -643,7 +643,7 @@ export default function TimeboxPage() {
 
         {/* 데스크톱: 할 일 패널 - 눌러서 넣거나 시간표로 끌어다 놓기 */}
         {showPanel && (
-          <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-2xl surface p-3.5 flex flex-col min-h-0">
+          <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-xl surface p-3.5 flex flex-col min-h-0">
             <div className="flex-shrink-0 mb-2.5">
               <p className="text-13px font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
               <p className="text-11.5px text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>
@@ -806,8 +806,8 @@ function AllDayChips({ items, onClick, compact }: { items: AgendaAllDay[]; onCli
           <button key={item.key} onClick={() => onClick(item)} title={`${isDday ? 'D-Day' : '일정'} · ${item.title}`}
             className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-10.5px font-medium text-left ${
               isDday
-                ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                ? 'bg-leaf-50 text-leaf-800 dark:bg-leaf-900/30 dark:text-leaf-300'
+                : 'bg-ink-50 text-ink-700 dark:bg-ink-900/30 dark:text-ink-300'
             }`}>
             {isDday ? <Flag size={10} className="flex-shrink-0" /> : <CalendarDays size={10} className="flex-shrink-0" />}
             <span className="truncate">{item.title}</span>

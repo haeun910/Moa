@@ -101,7 +101,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={15} className="text-leaf-600 dark:text-leaf-400" />
+                  <CheckCircle2 size={15} className="text-gray-500 dark:text-gray-400" />
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">할 일 달성률</span>
                 </div>
                 <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{rate}%</span>
@@ -115,7 +115,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Target size={15} className="text-leaf-600 dark:text-leaf-400" />
+                    <Target size={15} className="text-gray-500 dark:text-gray-400" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                       {format(viewMonth, 'M월')} 목표 달성률
                     </span>
@@ -134,7 +134,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp size={15} className="text-leaf-600 dark:text-leaf-400" />
+                <TrendingUp size={15} className="text-gray-500 dark:text-gray-400" />
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">최근 14일</p>
               </div>
               <div className="flex items-center gap-3">

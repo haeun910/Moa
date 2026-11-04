@@ -30,7 +30,7 @@ export default function TimeRangeInput({ start, end, onChange, inputClassName }:
         <input type="time" value={end} onChange={e => onChange(start, e.target.value)} disabled={!start}
           aria-label="끝 시간" aria-invalid={invalid} className={`${inputClassName} disabled:opacity-40`} />
       </div>
-      {invalid && <p className="mt-1 text-11.5px text-rose-500">끝 시간은 시작 시간보다 늦어야 해요</p>}
+      {invalid && <p className="mt-1 text-11.5px text-red-600">끝 시간은 시작 시간보다 늦어야 해요</p>}
     </div>
   );
 }

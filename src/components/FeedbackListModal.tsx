@@ -43,7 +43,7 @@ export default function FeedbackListModal({ onClose }: { onClose: () => void }) 
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Inbox size={17} className="text-leaf-600" />
+            <Inbox size={17} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">받은 의견</h2>
             {items && <span className="text-10px font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{items.length}</span>}
           </div>

@@ -125,8 +125,8 @@ function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, r
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
     <button onClick={onChange} role="switch" aria-checked={checked} aria-label={label}
-      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-leaf-600 dark:bg-leaf-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
-      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-gray-900 dark:bg-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px] dark:bg-gray-900' : 'translate-x-0'}`} />
     </button>
   );
 }
@@ -260,7 +260,7 @@ export default function SettingsPage() {
   }
 
   const avatar = (size: 'sm' | 'lg') => (
-    <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-leaf-50 dark:ring-leaf-900/30' : 'w-9 h-9 text-xs'} rounded-full bg-leaf-600 dark:bg-leaf-500 text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
+    <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-gray-100 dark:ring-gray-800' : 'w-9 h-9 text-xs'} rounded-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
       {user?.user_metadata?.avatar_url
         ? <img src={user.user_metadata.avatar_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
         : (initials || '?')}
@@ -470,7 +470,7 @@ export default function SettingsPage() {
                   <button onClick={() => setActiveSection(id)} aria-current={on ? 'page' : undefined}
                     className={`w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-sm transition-colors ${
                       on
-                        ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold [&>svg]:text-leaf-600 dark:[&>svg]:text-leaf-400'
+                        ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold [&>svg]:text-gray-900 dark:[&>svg]:text-white'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 font-medium'
                     }`}>
                     <Icon size={16} />

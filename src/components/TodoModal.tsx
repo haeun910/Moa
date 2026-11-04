@@ -229,7 +229,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 onClick={() => selectCategory(null)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   categoryId === null
-                    ? 'bg-leaf-600 border-leaf-600 text-white'
+                    ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
                     : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}
               >
@@ -265,7 +265,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                   onClick={() => setSubcategoryId(null)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     subcategoryId === null
-                      ? 'bg-leaf-600 border-leaf-600 text-white'
+                      ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
                       : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                   }`}
                 >
@@ -277,7 +277,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                     onClick={() => setSubcategoryId(sc.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                       subcategoryId === sc.id
-                        ? 'bg-leaf-600 border-leaf-600 text-white'
+                        ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
                         : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
                     }`}
                   >
@@ -296,7 +296,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                       onBlur={() => { if (!newSubcatName.trim()) setAddingSubcat(false); }}
                       className="w-24 px-2.5 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
                     />
-                    <button onClick={handleCreateSubcategory} className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center flex-shrink-0">
+                    <button onClick={handleCreateSubcategory} className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center flex-shrink-0">
                       <Check size={13} />
                     </button>
                   </div>
@@ -358,7 +358,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
+            className="flex-1 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
           >
             {saving ? '저장 중...'
               : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)

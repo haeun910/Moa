@@ -65,7 +65,7 @@ export default function GuestLoginModal({ onClose, onUpgrade }: { onClose: () =>
         </div>
         <div className="px-6 py-5 space-y-4 overflow-y-auto">
           <div className="flex gap-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 px-3.5 py-3">
-            <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={15} className="text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
             <p className="text-12.5px text-gray-600 dark:text-gray-300 leading-relaxed">
               {written ? <>체험 중에 적은 {written}는 기존 계정으로 옮겨지지 않고 지워져요. </> : <>체험 중에 적은 내용은 기존 계정으로 옮겨지지 않아요. </>}
               남기고 싶다면{' '}

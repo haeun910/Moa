@@ -44,7 +44,7 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div>
             <div className="flex items-center gap-2">
-              <AlertCircle size={16} className="text-amber-500" />
+              <AlertCircle size={16} className="text-gray-500 dark:text-gray-400" />
               <h2 className="text-base font-bold text-gray-900 dark:text-white">미완료 할 일</h2>
               <span className="text-10px font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">{todos.length}</span>
             </div>
@@ -84,7 +84,7 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
             <button
               onClick={moveAllToToday}
               disabled={movingAll}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold transition-colors"
             >
               <CalendarCheck size={15} />
               {movingAll ? '옮기는 중...' : `모두 오늘로 옮기기 (${todos.length}개)`}

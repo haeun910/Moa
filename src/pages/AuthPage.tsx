@@ -323,7 +323,7 @@ function BrandPanel() {
             </div>
             <div className="grid grid-cols-7 gap-y-1 text-center">
               {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                <span key={d} className={`text-9px font-semibold pb-1 ${i === 0 ? 'text-red-500/80' : i === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{d}</span>
+                <span key={d} className={`text-9px font-semibold pb-1 ${i === 0 ? 'text-red-500/80' : i === 6 ? 'text-ink-500/80' : 'text-gray-400'}`}>{d}</span>
               ))}
               {days.map(day => {
                 const key = format(day, 'yyyy-MM-dd');
@@ -335,7 +335,7 @@ function BrandPanel() {
                       key === todayKey ? 'bg-leaf-600 text-white font-bold' : inMonth ? 'text-gray-700 font-medium' : 'text-gray-300'
                     }`}>{format(day, 'd')}</span>
                     {chip && (
-                      <span className={`mt-0.5 w-[90%] h-1.5 rounded-full ${chip.tone === 'leaf' ? 'bg-leaf-300' : 'bg-blue-300'}`} />
+                      <span className={`mt-0.5 w-[90%] h-1.5 rounded-full ${chip.tone === 'leaf' ? 'bg-leaf-300' : 'bg-ink-300'}`} />
                     )}
                   </div>
                 );

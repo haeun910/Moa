@@ -43,13 +43,13 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
             const count = notes.filter(n => n.folderId === f.id).length;
             return (
               <div key={f.id} className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <Folder size={16} className="flex-shrink-0 text-amber-500" />
+                <Folder size={16} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
                 {editingId === f.id ? (
                   <>
                     <input maxLength={LIMITS.folderName} autoFocus value={editName} onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveRename(); if (e.key === 'Escape') setEditingId(null); }}
                       className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
-                    <button onClick={saveRename} aria-label="이름 저장" className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center"><Check size={14} /></button>
+                    <button onClick={saveRename} aria-label="이름 저장" className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center"><Check size={14} /></button>
                   </>
                 ) : confirmId === f.id ? (
                   <>
@@ -80,7 +80,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
             className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
           <button onClick={handleAdd} disabled={!newName.trim()}
-            className="px-3 py-2 rounded-xl bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold">추가</button>
+            className="px-3 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold">추가</button>
         </div>
       </div>
     </div>

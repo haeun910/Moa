@@ -125,7 +125,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         onBlur={() => { if (!addTitle.trim()) setAddingDate(null); }}
                       />
                       <button onClick={() => handleAdd(dateStr)} aria-label="추가"
-                        className="w-6 h-6 rounded-md bg-leaf-600 flex items-center justify-center text-white flex-shrink-0">
+                        className="w-6 h-6 rounded-md bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center flex-shrink-0">
                         <Send size={9} />
                       </button>
                     </div>

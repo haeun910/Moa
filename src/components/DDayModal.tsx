@@ -37,7 +37,7 @@ export default function DDayModal({ dday, onClose }: { dday?: DDay; onClose: () 
       >
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Flag size={16} className="text-leaf-600" />
+            <Flag size={16} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? 'D-Day 수정' : 'D-Day 추가'}</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
@@ -68,7 +68,7 @@ export default function DDayModal({ dday, onClose }: { dday?: DDay; onClose: () 
               취소
             </button>
             <button onClick={handleSave} disabled={!title.trim() || !targetDate || saving}
-              className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
+              className="flex-1 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
               {saving ? '저장 중...' : isEdit ? '저장' : '추가'}
             </button>
           </div>

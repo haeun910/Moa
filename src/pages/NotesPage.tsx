@@ -131,7 +131,7 @@ export default function NotesPage() {
   const list = (
     visible.length === 0 ? (
       <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl surface flex items-center justify-center mb-3">
+        <div className="w-14 h-14 rounded-xl surface flex items-center justify-center mb-3">
           <FileText size={24} className="text-gray-400" />
         </div>
         <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{q ? '검색 결과가 없어요' : '메모가 없어요'}</p>

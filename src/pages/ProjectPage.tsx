@@ -113,7 +113,7 @@ export default function ProjectPage() {
 
             {category && (
               <div className="mb-5 flex items-center gap-2">
-                <Milestone size={16} className="text-leaf-600 flex-shrink-0" />
+                <Milestone size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{category.name}</p>
                   <p className="text-xs text-gray-400">{projectTodos.length}개 · 완료 {completedCount}개</p>

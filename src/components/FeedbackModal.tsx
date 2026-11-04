@@ -43,7 +43,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageSquareHeart size={17} className="text-leaf-600" />
+            <MessageSquareHeart size={17} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">의견 보내기</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
@@ -77,7 +77,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
             취소
           </button>
           <button onClick={handleSend} disabled={!content.trim() || sending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold">
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold">
             <Send size={14} />
             {sending ? '보내는 중...' : '보내기'}
           </button>

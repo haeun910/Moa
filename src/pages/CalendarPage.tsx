@@ -132,7 +132,7 @@ export default function CalendarPage() {
             <div className="space-y-1.5">
               {dayDdays.map(d => (
                 <button key={`dday-${d.id}`} onClick={() => openDdayItem(d)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-rose-50 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300">
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-leaf-50 dark:bg-leaf-900/25 text-leaf-800 dark:text-leaf-300">
                   <Flag size={13} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{d.title}</span>
                   <span className="text-11px font-semibold">D-Day</span>
@@ -281,8 +281,8 @@ function TimeSlotTodo({ todo, onEdit }: { todo: Todo; onEdit: (e: React.MouseEve
 function ScheduleChip({ schedule, onOpen }: { schedule: ScheduleItem; onOpen: (s: ScheduleItem) => void }) {
   return (
     <button onClick={() => onOpen(schedule)}
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-blue-50 dark:bg-blue-900/25 border-l-[3px] border-blue-500">
-      <CalendarDays size={13} className="flex-shrink-0 text-blue-600 dark:text-blue-300" />
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-ink-50 dark:bg-ink-900/25 border-l-[3px] border-ink-500">
+      <CalendarDays size={13} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
       <span className={`text-xs font-medium flex-1 truncate ${schedule.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{schedule.title}</span>
       {schedule.startTime && !isMultiDay(schedule) && <span className="text-10px tabular-nums text-gray-500 dark:text-gray-400">{timeRangeLabel(schedule.startTime, schedule.endTime)}</span>}
     </button>

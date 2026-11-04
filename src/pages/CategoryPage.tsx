@@ -53,7 +53,7 @@ function SortableSubcategoryRow({
         />
         <div className="flex gap-1.5">
           <button onClick={onCancelEdit} className="flex-1 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">취소</button>
-          <button onClick={onSaveEdit} className="flex-1 py-1.5 rounded-lg bg-leaf-600 text-white text-xs font-semibold">저장</button>
+          <button onClick={onSaveEdit} className="flex-1 py-1.5 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-xs font-semibold">저장</button>
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
             onBlur={() => { if (!newName.trim()) setAdding(false); }}
             className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
           />
-          <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-leaf-600 text-white flex items-center justify-center flex-shrink-0">
+          <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center flex-shrink-0">
             <Check size={13} />
           </button>
         </div>
@@ -240,7 +240,7 @@ function SortableCategoryItem({
             <button onClick={onCancelEdit}
               className="flex-1 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400">취소</button>
             <button onClick={onSaveEdit}
-              className="flex-1 py-2 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold">저장</button>
+              className="flex-1 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold">저장</button>
           </div>
         </div>
       ) : (
@@ -389,7 +389,7 @@ export default function CategoryPage() {
               ))}
             </div>
             <button onClick={handleAdd} disabled={!newName.trim()}
-              className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold disabled:opacity-40 transition-opacity">
+              className="w-full py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold disabled:opacity-40 transition-opacity">
               추가
             </button>
           </div>

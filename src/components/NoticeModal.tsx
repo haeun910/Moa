@@ -50,13 +50,13 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Megaphone size={18} className="text-leaf-600" />
+            <Megaphone size={18} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">공지사항</h2>
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && editing === null && (
               <button onClick={openNew} aria-label="공지 작성"
-                className="w-8 h-8 rounded-full bg-leaf-600 hover:bg-leaf-700 text-white flex items-center justify-center transition-colors">
+                className="w-8 h-8 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white flex items-center justify-center transition-colors">
                 <Plus size={16} />
               </button>
             )}
@@ -91,7 +91,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                   취소
                 </button>
                 <button onClick={handleSave} disabled={!title.trim() || !content.trim() || saving}
-                  className="flex-1 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
+                  className="flex-1 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold transition-colors">
                   {saving ? '저장 중...' : '게시'}
                 </button>
               </div>

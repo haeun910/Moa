@@ -51,7 +51,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
       >
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={18} className="text-leaf-600" />
+            <ShieldCheck size={18} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">관리자 통계</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
@@ -67,7 +67,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
 
           {!loading && error && (
             <div className="flex flex-col items-center text-center gap-2 py-8">
-              <AlertTriangle size={24} className="text-amber-500" />
+              <AlertTriangle size={24} className="text-gray-500 dark:text-gray-400" />
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{error}</p>
             </div>
           )}
@@ -103,7 +103,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
               {/* 전반적 사용 통계 */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <ListChecks size={15} className="text-leaf-500" />
+                  <ListChecks size={15} className="text-gray-500 dark:text-gray-400" />
                   <p className="text-sm font-bold text-gray-700 dark:text-gray-300">전체 사용 통계</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">

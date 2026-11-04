@@ -54,7 +54,7 @@ export default function InstallInstructionsModal({ onClose }: { onClose: () => v
             </div>
           ))}
           <button onClick={onClose}
-            className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold transition-colors mt-2">
+            className="w-full py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold transition-colors mt-2">
             확인
           </button>
         </div>

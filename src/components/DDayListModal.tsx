@@ -38,7 +38,7 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
         >
           <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Flag size={16} className="text-leaf-600" />
+              <Flag size={16} className="text-gray-500 dark:text-gray-400" />
               <h2 className="text-base font-bold text-gray-900 dark:text-white">전체 D-Day</h2>
             </div>
             <div className="flex items-center gap-1">

@@ -104,7 +104,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-900/60 font-medium'
                 }`}
               >
-                <Icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-leaf-600 dark:text-leaf-400' : ''} />
+                <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
                 <span className="hidden wide:inline">{label}</span>
               </button>
             );
@@ -115,7 +115,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {isGuest && (
           <div className="px-3 pb-4 -mt-2">
             <button onClick={() => setGuestModal('login')} title="기존 계정으로 로그인"
-              className="w-full flex items-center justify-center wide:justify-start gap-3 h-10 px-3 rounded-lg text-sm font-semibold text-leaf-700 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/30 transition-colors">
+              className="w-full flex items-center justify-center wide:justify-start gap-3 h-10 px-3 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-900/60 transition-colors">
               <LogIn size={18} strokeWidth={2} />
               <span className="hidden wide:inline">로그인</span>
             </button>
@@ -142,10 +142,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 onClick={() => setCurrentScreen(screen)}
                 aria-current={active ? 'page' : undefined}
                 className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
-                  active ? 'text-leaf-600 dark:text-leaf-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-600'
+                  active ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 active:text-gray-600'
                 }`}
               >
-                <span className={`flex items-center justify-center w-14 h-7 rounded-full transition-colors ${active ? 'bg-leaf-100 dark:bg-leaf-900/40' : ''}`}>
+                <span className={`flex items-center justify-center w-14 h-7 rounded-full transition-colors ${active ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
                 </span>
                 <span className={`text-11px leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>

@@ -5,7 +5,7 @@ import type { ToastItem } from '../lib/toast';
 
 const STYLES: Record<ToastItem['kind'], { box: string; Icon: typeof Info }> = {
   error: { box: 'bg-red-600 text-white', Icon: AlertCircle },
-  success: { box: 'bg-leaf-600 text-white', Icon: CheckCircle2 },
+  success: { box: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900', Icon: CheckCircle2 },
   info: { box: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900', Icon: Info },
 };
 

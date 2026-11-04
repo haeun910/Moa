@@ -17,7 +17,7 @@ export default function ChangelogModal({ onClose }: { onClose: () => void }) {
       >
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-leaf-600" />
+            <Sparkles size={18} className="text-gray-500 dark:text-gray-400" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">업데이트 내역</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
