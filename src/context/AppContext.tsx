@@ -15,7 +15,7 @@ import { createSerialWriter } from '../lib/serialWrites';
 import { timeRangeEnd } from '../lib/timeRange';
 import { DAY_MINUTES, applySeriesUpdate, formatMinutes, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
 import { applyFontScale } from '../lib/fontScale';
-import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
+import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, DDayPlan, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
 import { OPTIONAL_FEATURES } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -36,6 +36,7 @@ function toTodo(t: DbTodo): Todo {
     seriesId: t.series_id ?? null,
     skipped: t.skipped ?? false,
     remindMinutes: t.remind_minutes ?? null,
+    ddayId: t.dday_id ?? null,
   };
 }
 
@@ -60,7 +61,7 @@ function toMonthlyGoal(g: DbMonthlyGoal): MonthlyGoal {
 }
 
 function toDDay(d: DbDDay): DDay {
-  return { id: d.id, title: d.title, targetDate: d.target_date };
+  return { id: d.id, title: d.title, targetDate: d.target_date, plan: d.plan ?? null };
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
@@ -134,6 +135,9 @@ interface AppContextType {
   // existingId가 있으면 그 할 일(이미 있는 항목)도 같은 반복으로 묶음. dates는 새로 만들 날짜만 (기존 항목 날짜 제외)
   addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => Promise<void>;
   updateTodoSeries: (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => Promise<void>;
+  // 프로젝트 로드맵: D-Day 준비 할 일 여러 개를 날짜별로 한 번에 만들고, 만든 할 일을 돌려줌
+  addPlanTodos: (ddayId: string, items: { title: string; date: string }[], common: { categoryId: string | null; subcategoryId: string | null }) => Promise<Todo[] | undefined>;
+  deleteTodos: (ids: string[]) => Promise<void>;
   deleteTodoSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
@@ -159,8 +163,8 @@ interface AppContextType {
   updateMonthlyGoal: (id: string, updates: { title?: string }) => Promise<void>;
   toggleMonthlyGoal: (id: string) => Promise<void>;
   deleteMonthlyGoal: (id: string) => Promise<void>;
-  addDDay: (title: string, targetDate: string) => Promise<void>;
-  updateDDay: (id: string, updates: { title?: string; targetDate?: string }) => Promise<void>;
+  addDDay: (title: string, targetDate: string) => Promise<DDay | undefined>;
+  updateDDay: (id: string, updates: { title?: string; targetDate?: string; plan?: DDayPlan | null }) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
   addSchedule: (fields: ScheduleFields & { date: string; endDate?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => Promise<void>;
@@ -588,6 +592,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...endTimeField(fields.endTime, false),
       ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
+      ...(fields.ddayId ? { dday_id: fields.ddayId } : {}),
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
       sort_order: takeTodoSortOrders(1),
@@ -627,6 +632,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const addPlanTodos = useCallback(async (ddayId: string, items: { title: string; date: string }[], common: { categoryId: string | null; subcategoryId: string | null }) => {
+    if (!user || items.length === 0) return [];
+    const firstSort = takeTodoSortOrders(items.length);
+    const rows = await db.createPlanTodos(user.id, items.map((item, i) => ({
+      title: item.title,
+      category_id: common.categoryId,
+      subcategory_id: common.subcategoryId,
+      date: item.date,
+      dday_id: ddayId,
+      sort_order: firstSort + i,
+    })));
+    const created = rows.map(toTodo);
+    setTodos(prev => [...prev, ...created]);
+    return created;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const deleteTodos = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    setTodos(prev => prev.filter(t => !set.has(t.id)));
+    removeLinkedBlocksLocally(ids);
+    await db.deleteTimeBlocksForTodos(ids);
+    await db.deleteTodos(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const updateTodoSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => {
     const dbUpdates: Parameters<typeof db.updateTodoSeries>[2] = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -663,6 +695,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.isDday !== undefined) dbUpdates.is_dday = updates.isDday;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if ('ddayId' in updates) dbUpdates.dday_id = updates.ddayId ?? null;
 
     const before = todosRef.current.find(t => t.id === id);
     if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
@@ -888,19 +921,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addDDay = useCallback(async (title: string, targetDate: string) => {
     if (!user) return;
     const row = await db.createDDay(user.id, title, targetDate);
-    setDDays(prev => [...prev, toDDay(row)].sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
+    const dday = toDDay(row);
+    setDDays(prev => [...prev, dday].sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
+    return dday;
   }, [user]);
 
-  const updateDDay = useCallback(async (id: string, updates: { title?: string; targetDate?: string }) => {
+  const updateDDay = useCallback(async (id: string, updates: { title?: string; targetDate?: string; plan?: DDayPlan | null }) => {
     setDDays(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d).sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
     const dbUpdates: Parameters<typeof db.updateDDay>[1] = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
+    if ('plan' in updates) dbUpdates.plan = updates.plan ?? null;
     await db.updateDDay(id, dbUpdates);
   }, []);
 
   const deleteDDay = useCallback(async (id: string) => {
     setDDays(prev => prev.filter(d => d.id !== id));
+    // DB도 준비 계획 할 일의 연결만 끊음 (on delete set null) → 할 일은 그대로 남음
+    setTodos(prev => prev.map(t => t.ddayId === id ? { ...t, ddayId: null } : t));
     await db.deleteDDay(id);
   }, []);
 
@@ -1184,6 +1222,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       loadError, retryLoad,
       addTodo: guard(addTodo, T, true),
       addTodoSeries: guard(addTodoSeries, T, true),
+      addPlanTodos: guard(addPlanTodos, T, true),
+      deleteTodos: guard(deleteTodos, B),
       updateTodoSeries: guard(updateTodoSeries, T),
       deleteTodoSeries: guard(deleteTodoSeries, B),
       updateTodo: guard(updateTodo, B),
