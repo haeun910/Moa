@@ -61,7 +61,7 @@ export default function GuestLoginModal({ onClose, onUpgrade }: { onClose: () =>
       <div className="modal-panel sm:max-w-sm">
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">기존 계정으로 로그인</h2>
-          <button onClick={onClose} aria-label="닫기" className="btn-icon -mr-1.5"><X size={17} /></button>
+          <button onClick={onClose} disabled={!!loading} aria-label="닫기" className="btn-icon -mr-1.5 disabled:opacity-40"><X size={17} /></button>
         </div>
         <div className="px-6 py-5 space-y-4 overflow-y-auto">
           <div className="flex gap-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 px-3.5 py-3">

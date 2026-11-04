@@ -29,11 +29,15 @@ begin
            coalesce(raw_app_meta_data -> 'providers' ? 'google', false) as google
     from auth.users
   ),
-  -- 최근 31일 동안 기록을 남기거나 고친 흔적 (어느 기능인지 + 한국 날짜)
+  -- 최근 31일 동안 기록을 만들거나 고친 흔적 (어느 기능인지 + 한국 날짜).
+  -- 할 일·메모는 만든 날과 마지막으로 고친 날을 둘 다 셈 (고칠 때마다 updated_at이 덮어써져서
+  -- 고친 날만 세면 예전 날의 사용자가 빠짐). 그 사이에 고친 날은 기록이 없어 세지 못함
   act as (
     select user_id, src, (ts at time zone 'Asia/Seoul')::date as day
     from (
-      select user_id, 'todos' as src, updated_at as ts from public.todos
+      select user_id, 'todos' as src, created_at as ts from public.todos
+      union all select user_id, 'todos', updated_at from public.todos
+      union all select user_id, 'notes', created_at from public.notes
       union all select user_id, 'notes', updated_at from public.notes
       union all select user_id, 'schedules', created_at from public.schedules
       union all select user_id, 'timeblocks', created_at from public.timeblocks

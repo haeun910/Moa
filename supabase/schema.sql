@@ -455,11 +455,15 @@ begin
            coalesce(raw_app_meta_data -> 'providers' ? 'google', false) as google
     from auth.users
   ),
-  -- 최근 31일 동안 기록을 남기거나 고친 흔적 (어느 기능인지 + 한국 날짜)
+  -- 최근 31일 동안 기록을 만들거나 고친 흔적 (어느 기능인지 + 한국 날짜).
+  -- 할 일·메모는 만든 날과 마지막으로 고친 날을 둘 다 셈 (고칠 때마다 updated_at이 덮어써져서
+  -- 고친 날만 세면 예전 날의 사용자가 빠짐). 그 사이에 고친 날은 기록이 없어 세지 못함
   act as (
     select user_id, src, (ts at time zone 'Asia/Seoul')::date as day
     from (
-      select user_id, 'todos' as src, updated_at as ts from public.todos
+      select user_id, 'todos' as src, created_at as ts from public.todos
+      union all select user_id, 'todos', updated_at from public.todos
+      union all select user_id, 'notes', created_at from public.notes
       union all select user_id, 'notes', updated_at from public.notes
       union all select user_id, 'schedules', created_at from public.schedules
       union all select user_id, 'timeblocks', created_at from public.timeblocks
@@ -561,6 +565,29 @@ $$;
 revoke all on function public.delete_my_account() from public;
 revoke all on function public.delete_my_account() from anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- 체험(익명) 계정만 지움: 지금 로그인한 계정이 그 체험 계정이고 익명일 때만 (회원 계정은 절대 안 지워짐)
+create or replace function public.delete_guest_account(p_guest_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or auth.uid() <> p_guest_id then
+    raise exception 'not this guest account';
+  end if;
+
+  delete from auth.users where id = p_guest_id and is_anonymous;
+  if not found then
+    raise exception 'not a guest account';
+  end if;
+end;
+$$;
+
+revoke all on function public.delete_guest_account(uuid) from public;
+revoke all on function public.delete_guest_account(uuid) from anon;
+grant execute on function public.delete_guest_account(uuid) to authenticated;
 
 -- 웹 푸시 구독 등록: 같은 브라우저에서 다른 계정으로 로그인하면 기존 줄을 지우고 새로 등록
 create or replace function public.register_push_subscription(

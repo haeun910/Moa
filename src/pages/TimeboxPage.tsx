@@ -262,11 +262,22 @@ export default function TimeboxPage() {
   }, [dragging]);
 
   // ── 폰·태블릿: 블록을 꾹 눌러서 옮기기 ─────────────────────
-  // 꾹 누르는 동안 손가락이 움직이면 스크롤로 보고 취소. 끌기가 시작되면 화면이 스크롤되지 않게 막음
+  // 꾹 누르는 동안 손가락이 움직이면 스크롤로 보고 취소. 끌기가 시작되면 화면이 스크롤되지 않게 막음.
+  // 터치 이벤트는 손가락을 처음 댄 요소로만 계속 전달됨. 다른 요일 칸으로 끌면 블록이 그 칸에 새로 그려지면서
+  // 처음 요소가 화면에서 떨어져 이벤트가 document까지 올라오지 않으므로, 처음 요소에 직접 리스너를 붙임
+  const touchSessionRef = useRef<{ start: (target: EventTarget) => void } | null>(null);
   useEffect(() => {
+    let target: EventTarget | null = null;
     function clearPress() {
       if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
       longPressRef.current = null;
+    }
+    function release() {
+      if (!target) return;
+      target.removeEventListener('touchmove', onTouchMove as EventListener);
+      target.removeEventListener('touchend', onTouchEnd as EventListener);
+      target.removeEventListener('touchcancel', onTouchEnd as EventListener);
+      target = null;
     }
     function onTouchMove(e: TouchEvent) {
       const t = e.touches[0];
@@ -281,20 +292,26 @@ export default function TimeboxPage() {
     }
     function onTouchEnd(e: TouchEvent) {
       clearPress();
+      release();
       const d = dragRef.current;
       if (d?.kind === 'move' && d.touch) {
         if (e.type === 'touchcancel') setDragState(null);
         else handlersRef.current.up({} as PointerEvent);
       }
     }
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend', onTouchEnd);
-    document.addEventListener('touchcancel', onTouchEnd);
+    touchSessionRef.current = {
+      start(t) {
+        release();
+        target = t;
+        t.addEventListener('touchmove', onTouchMove as EventListener, { passive: false });
+        t.addEventListener('touchend', onTouchEnd as EventListener);
+        t.addEventListener('touchcancel', onTouchEnd as EventListener);
+      },
+    };
     return () => {
       clearPress();
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
-      document.removeEventListener('touchcancel', onTouchEnd);
+      release();
+      touchSessionRef.current = null;
     };
   }, []);
 
@@ -302,6 +319,7 @@ export default function TimeboxPage() {
     if (e.touches.length !== 1 || dragRef.current) return;
     if ((e.target as HTMLElement).closest('button, [data-resize]')) return;
     const { clientX: x, clientY: y } = e.touches[0];
+    touchSessionRef.current?.start(e.target);
     const timer = window.setTimeout(() => {
       longPressRef.current = null;
       const min = minuteInColumn(span.dateKey, y) ?? span.startMin;

@@ -156,6 +156,42 @@ begin
 end $$;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
 
+-- 7-2) 체험 계정 지우기는 "지금 로그인한 체험 계정"만: 회원 계정은 절대 지워지지 않음
+do $$
+declare
+  ok boolean := false;
+begin
+  begin
+    perform public.delete_guest_account('00000000-0000-0000-0000-00000000000a');
+  exception when raise_exception then ok := true;
+  end;
+  assert ok, '회원 계정은 체험 계정 지우기로 지워지면 안 됨';
+end $$;
+reset role;
+insert into auth.users (id, is_anonymous) values ('00000000-0000-0000-0000-0000000000c1', true);
+do $$ begin
+  assert exists (select 1 from auth.users where id = '00000000-0000-0000-0000-00000000000a'), '회원 A가 남아 있어야 함';
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c1', false);
+do $$
+declare
+  ok boolean := false;
+begin
+  begin
+    perform public.delete_guest_account('00000000-0000-0000-0000-00000000000a');
+  exception when raise_exception then ok := true;
+  end;
+  assert ok, '다른 계정 id로는 지울 수 없어야 함';
+end $$;
+select public.delete_guest_account('00000000-0000-0000-0000-0000000000c1');
+reset role;
+do $$ begin
+  assert not exists (select 1 from auth.users where id = '00000000-0000-0000-0000-0000000000c1'), '체험 계정은 지워져야 함';
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
 -- 8) 회원 탈퇴: 계정과 데이터가 모두 지워지고, B는 그대로
 select public.delete_my_account();
 reset role;

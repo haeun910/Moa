@@ -82,6 +82,20 @@ export async function deleteMyAccount(userId: string): Promise<void> {
   }
 }
 
+// 체험(익명) 계정만 지움 (024 마이그레이션의 delete_guest_account 함수).
+// 서버가 "지금 로그인한 계정 = 이 체험 계정이고 익명일 때"만 지우므로, 그 사이 다른 창에서
+// 회원 계정으로 바뀌었어도 회원 계정은 절대 지워지지 않음
+export async function deleteGuestAccount(guestId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_guest_account', { p_guest_id: guestId });
+  if (error) throw error;
+}
+
+// 024를 아직 실행하지 않은 DB인지 (함수가 없다는 오류)
+export function isMissingGuestDeleteFunction(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  return e?.code === 'PGRST202' || /delete_guest_account/.test(e?.message ?? '');
+}
+
 // ────────────────────────────────────────────────
 // Categories
 // ────────────────────────────────────────────────

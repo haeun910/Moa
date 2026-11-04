@@ -333,6 +333,50 @@ try {
     await context.close();
   }
 
+  // 8) 태블릿 타임박스: 블록을 꾹 눌러 다른 요일 칸으로 끌어도 놓으면 저장됨
+  //    (다른 칸으로 옮겨 그려지면서 처음 누른 요소가 화면에서 떨어져도 손을 뗀 것을 놓치지 않아야 함)
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 810, height: 1080 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const block = {
+      id: 'tb-drag', user_id: USER_ID, title: '집중 작업', todo_id: null, color: null,
+      start_at: new Date(`${today}T09:00:00+09:00`).toISOString(), end_at: new Date(`${today}T10:30:00+09:00`).toISOString(),
+      completed: false, remind_minutes: null, notified_at: null, series_id: null, created_at: '2026-01-01T00:00:00Z',
+    };
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/timeblocks**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: [block] });
+      if (m === 'PATCH') patches.push(route.request().postData() ?? '');
+      return route.fulfill({ json: [] });
+    });
+    await page.goto(`${BASE}/?screen=timebox`);
+    try {
+      const el = page.locator('[data-block]').filter({ hasText: '집중 작업' }).first();
+      await el.waitFor({ timeout: 15000 });
+      await el.scrollIntoViewIfNeeded();
+      const box = await el.boundingBox();
+      const cdp = await context.newCDPSession(page);
+      const x = box.x + box.width / 2, y = box.y + 20;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await page.waitForTimeout(600); // 꾹 누르기
+      for (let i = 1; i <= 12; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + i * 9, y }] });
+        await page.waitForTimeout(30);
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      const moved = patches.map(p => JSON.parse(p)).find(p => p.start_at && p.start_at !== block.start_at);
+      if (!moved) throw new Error(`옮긴 위치가 저장되지 않음 (${patches.join(' / ') || '요청 없음'})`);
+      if (new Date(moved.start_at).getTime() - new Date(block.start_at).getTime() < 20 * 3600 * 1000) throw new Error(`다른 날로 옮겨지지 않음: ${moved.start_at}`);
+      console.log('✅ 태블릿 타임박스: 꾹 눌러 다른 요일로 끌어 놓으면 저장됨');
+    } catch (e) {
+      fail(`태블릿 타임박스 요일 넘겨 끌기 (${e.message})`);
+    }
+    if (errors.length) fail(`태블릿 타임박스 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
   await browser.close();
 } finally {
   server.kill();
