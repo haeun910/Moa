@@ -160,7 +160,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="할 일을 입력하세요"
-              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm"
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
             />
           </div>
@@ -173,7 +173,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
+                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm"
               />
             </div>
             <div>
@@ -183,7 +183,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 <span className="font-normal text-gray-400">(끝 시간은 선택)</span>
               </label>
               <TimeRangeInput start={startTime} end={endTime} onChange={(s, e) => { setStartTime(s); setEndTime(e); }}
-                inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm" />
+                inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm" />
             </div>
           </div>
 
@@ -197,7 +197,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm"
             />
             <label className={`flex items-center gap-2 mt-2 text-xs ${(date || dueDate) ? 'text-gray-500 dark:text-gray-400 cursor-pointer' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}>
               <input
@@ -205,7 +205,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 checked={isDday}
                 disabled={!date && !dueDate}
                 onChange={e => setIsDday(e.target.checked)}
-                className="w-3.5 h-3.5 rounded accent-leaf-500"
+                className="w-3.5 h-3.5 rounded accent-gray-900"
               />
               홈 화면 D-Day 목록에도 표시 (마감일이 있으면 마감일, 없으면 날짜 기준)
             </label>
@@ -294,7 +294,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                       placeholder="이름"
                       onKeyDown={e => { if (e.key === 'Enter') handleCreateSubcategory(); if (e.key === 'Escape') setAddingSubcat(false); }}
                       onBlur={() => { if (!newSubcatName.trim()) setAddingSubcat(false); }}
-                      className="w-24 px-2.5 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+                      className="w-24 px-2.5 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
                     />
                     <button onClick={handleCreateSubcategory} className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center flex-shrink-0">
                       <Check size={13} />
@@ -303,7 +303,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 ) : (
                   <button
                     onClick={() => setAddingSubcat(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:text-leaf-500 hover:border-leaf-400 transition-all"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:text-gray-900 hover:border-leaf-400 transition-all"
                   >
                     <Plus size={12} />
                     새로 만들기
@@ -321,7 +321,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               onChange={e => setNotes(e.target.value)}
               placeholder="메모를 입력하세요 (선택)"
               rows={3}
-              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition text-sm resize-none"
+              className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm resize-none"
             />
           </div>
         </div>

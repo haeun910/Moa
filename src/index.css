@@ -45,7 +45,7 @@ html {
   }
   /* 키보드로 이동할 때만 또렷한 초록 포커스 링 */
   :focus-visible {
-    outline: 2px solid theme('colors.leaf.500');
+    outline: 2px solid theme('colors.gray.500');
     outline-offset: 2px;
   }
   input:focus-visible, textarea:focus-visible, select:focus-visible {

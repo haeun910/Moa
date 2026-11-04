@@ -32,7 +32,7 @@ export default function ChangelogModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-baseline gap-2 mb-2">
                 <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">v{entry.version}</h3>
                 {i === 0 && (
-                  <span className="text-10px font-bold text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40 px-1.5 py-0.5 rounded-full">최신</span>
+                  <span className="text-10px font-bold text-white bg-gray-900 dark:text-gray-900 dark:bg-gray-100 px-1.5 py-0.5 rounded-full">최신</span>
                 )}
                 <span className="text-10px text-gray-400 dark:text-gray-500 ml-auto">
                   {format(new Date(entry.date), 'yyyy년 M월 d일', { locale: ko })}
@@ -41,7 +41,7 @@ export default function ChangelogModal({ onClose }: { onClose: () => void }) {
               <ul className="space-y-1">
                 {entry.changes.map((c, j) => (
                   <li key={j} className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed flex gap-1.5">
-                    <span className="text-leaf-500 flex-shrink-0">·</span>
+                    <span className="text-gray-400 flex-shrink-0">·</span>
                     {c}
                   </li>
                 ))}

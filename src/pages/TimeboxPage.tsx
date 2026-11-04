@@ -620,9 +620,9 @@ export default function TimeboxPage() {
                     ))}
 
                     {ghost && (
-                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-leaf-500 bg-leaf-100/60 dark:bg-leaf-900/30 pointer-events-none px-1.5 py-0.5"
+                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-gray-500 bg-gray-100/70 dark:bg-gray-800/60 pointer-events-none px-1.5 py-0.5"
                         style={{ top: ghost.lo * MIN_PX, height: (ghost.hi - ghost.lo) * MIN_PX }}>
-                        <span className="text-10.5px font-semibold tabular-nums text-leaf-800 dark:text-leaf-200">
+                        <span className="text-10.5px font-semibold tabular-nums text-gray-800 dark:text-gray-200">
                           {formatMinutes(ghost.lo)} – {formatMinutes(ghost.hi)}
                         </span>
                       </div>
@@ -658,7 +658,7 @@ export default function TimeboxPage() {
       {/* 새 블록 버튼 (데스크톱은 머리글의 "추가" 버튼) */}
       {!isDesktop && (
         <button onClick={openNewBlock} aria-label="타임박스 추가"
-          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
+          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20">
           <Plus size={24} />
         </button>
       )}

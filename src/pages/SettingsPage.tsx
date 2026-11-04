@@ -411,7 +411,7 @@ export default function SettingsPage() {
         {mobileGeneralOpen ? (
           <>
             <button onClick={() => setMobileGeneralOpen(false)}
-              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-leaf-700 dark:text-leaf-400">
+              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-gray-900 dark:text-white">
               <ChevronLeft size={18} /> 설정
             </button>
             <h1 className="page-title mb-6">일반</h1>

@@ -116,7 +116,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
       {/* 도구 줄 */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 sm:px-5 h-14 border-b border-gray-100 dark:border-gray-800">
         {onClose && (
-          <button onClick={onClose} className="flex items-center gap-0.5 -ml-1 pr-2 text-sm font-medium text-leaf-600 dark:text-leaf-400">
+          <button onClick={onClose} className="flex items-center gap-0.5 -ml-1 pr-2 text-sm font-medium text-gray-900 dark:text-white">
             <ChevronLeft size={20} /> 메모
           </button>
         )}
@@ -126,7 +126,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
             value={folderId ?? ''}
             onChange={e => changeFolder(e.target.value || null)}
             aria-label="폴더"
-            className="pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 max-w-[140px] truncate cursor-pointer"
+            className="pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 max-w-[140px] truncate cursor-pointer"
           >
             <option value="">폴더 없음</option>
             {noteFolders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}

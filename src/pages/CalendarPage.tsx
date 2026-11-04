@@ -96,7 +96,7 @@ export default function CalendarPage() {
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               {format(dateObj, 'EEEE', { locale: ko })}
-              {selectedDate === todayStr && <span className="ml-1.5 text-leaf-600 dark:text-leaf-400 font-semibold">오늘</span>}
+              {selectedDate === todayStr && <span className="ml-1.5 text-gray-900 dark:text-white font-semibold">오늘</span>}
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function CalendarPage() {
             <div className="space-y-1.5">
               {dayDdays.map(d => (
                 <button key={`dday-${d.id}`} onClick={() => openDdayItem(d)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-leaf-50 dark:bg-leaf-900/25 text-leaf-800 dark:text-leaf-300">
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                   <Flag size={13} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{d.title}</span>
                   <span className="text-11px font-semibold">D-Day</span>
@@ -161,7 +161,7 @@ export default function CalendarPage() {
 
               {/* Slot */}
               <div
-                className="flex-1 pl-2 pt-1 pb-1 relative cursor-pointer hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
+                className="flex-1 pl-2 pt-1 pb-1 relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 onClick={() => openNewAtTime(h)}
               >
                 {(schedulesByHour[h] ?? []).map(sc => (
@@ -175,8 +175,8 @@ export default function CalendarPage() {
                 {/* Add hint */}
                 {!(todosByHour[h]?.length) && !(schedulesByHour[h]?.length) && (
                   <span className="absolute inset-0 flex items-center pl-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Plus size={12} className="text-leaf-600 mr-1" />
-                    <span className="text-11px font-medium text-leaf-600">추가</span>
+                    <Plus size={12} className="text-gray-500 mr-1" />
+                    <span className="text-11px font-medium text-gray-500">추가</span>
                   </span>
                 )}
               </div>
@@ -189,7 +189,7 @@ export default function CalendarPage() {
       <button
         onClick={() => { setEditTodo(undefined); setDefaultTime(undefined); setShowModal(true); }}
         aria-label="할 일 추가"
-        className="fixed bottom-20 lg:bottom-8 right-6 lg:right-8 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20"
+        className="fixed bottom-20 lg:bottom-8 right-6 lg:right-8 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20"
       >
         <Plus size={24} />
       </button>

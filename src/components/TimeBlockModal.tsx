@@ -46,7 +46,7 @@ function saveAddToListPref(on: boolean) {
   try { localStorage.setItem(ADD_TO_LIST_PREF_KEY, on ? '1' : '0'); } catch { /* 저장 못 해도 동작에는 문제 없음 */ }
 }
 
-const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500 text-sm transition-all';
+const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm transition-all';
 
 // 타임박스 블록 만들기/고치기: 무엇을(제목 또는 할 일) · 언제(날짜, 시작~끝) · 알림
 export default function TimeBlockModal({ block, draft, onClose }: Props) {
@@ -227,7 +227,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
           {/* 무엇을 */}
           <div>
             {todo ? (
-              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-leaf-50/70 dark:bg-leaf-900/20 ring-1 ring-inset ring-leaf-200 dark:ring-leaf-800/60">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 ring-1 ring-inset ring-gray-200 dark:ring-gray-700">
                 <Link2 size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 {todoCat && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: todoCat.color }} />}
                 <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{todo.title}</span>
@@ -248,7 +248,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                   className={inputCls}
                 />
                 {!noTodoLink && <button onClick={() => setPicking(v => !v)} title="할 일에서 고르기" aria-label="할 일에서 고르기" aria-expanded={picking}
-                  className={`btn-secondary flex-shrink-0 px-3 ${picking ? 'ring-leaf-500 text-leaf-700 dark:text-leaf-300' : ''}`}>
+                  className={`btn-secondary flex-shrink-0 px-3 ${picking ? 'ring-gray-900 text-gray-900 dark:ring-gray-300 dark:text-white' : ''}`}>
                   <ListChecks size={15} />
                   <span className="hidden sm:inline text-13px">할 일</span>
                 </button>}
@@ -266,9 +266,9 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                 <button type="button" role="checkbox" aria-checked={addToList} onClick={toggleAddToList}
                   className="flex items-center gap-2 text-13px text-gray-700 dark:text-gray-200">
                   <span className={`w-4 h-4 rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
-                    addToList ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500' : 'border-gray-300 dark:border-gray-600'
+                    addToList ? 'bg-gray-900 border-gray-900 dark:bg-gray-100 dark:border-gray-100' : 'border-gray-300 dark:border-gray-600'
                   }`}>
-                    {addToList && <Check size={10} className="text-white" strokeWidth={3.2} />}
+                    {addToList && <Check size={10} className="text-white dark:text-gray-900" strokeWidth={3.2} />}
                   </span>
                   할 일 목록에도 추가
                   <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -283,7 +283,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                         <button key={cat.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => { setListCategoryId(cat.id); setListSubcategoryId(null); }}
                           className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
                             active
-                              ? 'ring-leaf-500 bg-leaf-50 dark:bg-leaf-900/30 text-gray-900 dark:text-white'
+                              ? 'ring-gray-900 bg-gray-50 dark:ring-gray-300 dark:bg-gray-800 text-gray-900 dark:text-white'
                               : 'ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                           }`}>
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
@@ -302,7 +302,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                         <button key={sc.id ?? '__none__'} type="button" role="radio" aria-checked={active} onClick={() => setListSubcategoryId(sc.id)}
                           className={`h-7 px-2.5 rounded-full text-xs font-medium ring-1 ring-inset transition-colors ${
                             active
-                              ? 'ring-leaf-500 bg-leaf-50 dark:bg-leaf-900/30 text-gray-900 dark:text-white'
+                              ? 'ring-gray-900 bg-gray-50 dark:ring-gray-300 dark:bg-gray-800 text-gray-900 dark:text-white'
                               : 'ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                           }`}>
                           {sc.name}

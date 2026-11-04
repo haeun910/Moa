@@ -103,7 +103,7 @@ export default function TodayTimeline() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Timer size={15} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
           <button onClick={() => setCurrentScreen('timebox')}
-            className="text-13px font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
+            className="text-13px font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
             오늘 타임박스
           </button>
           <HelpTip text={GUIDES.timebox} label="오늘 타임박스" />
@@ -141,7 +141,7 @@ export default function TodayTimeline() {
             {/* 시간 눈금: 빈 칸을 누르면 그 시각에 블록 추가 */}
             {hours.map((h, i) => (
               <button key={h} onClick={() => addBlockAt(h * 60)} aria-label={`${h}시에 타임박스 추가`}
-                className="group absolute inset-x-0 flex items-start text-left hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
+                className="group absolute inset-x-0 flex items-start text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 style={{ top: i * HOUR_PX, height: HOUR_PX }}>
                 <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-10.5px tabular-nums text-gray-400 dark:text-gray-500">
                   {h}시

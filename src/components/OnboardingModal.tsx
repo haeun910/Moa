@@ -94,7 +94,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
         <div className="flex-shrink-0 flex justify-center gap-1.5 py-3">
           {STEPS.map((_, i) => (
             <button key={i} onClick={() => setStep(i)} aria-label={`${i + 1}번째 안내`}
-              className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-leaf-500' : 'w-1.5 bg-gray-200 dark:bg-gray-700'}`} />
+              className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-gray-900 dark:bg-white' : 'w-1.5 bg-gray-200 dark:bg-gray-700'}`} />
           ))}
         </div>
 

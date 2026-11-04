@@ -79,7 +79,7 @@ export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () 
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all" />
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all" />
                 </div>
                 <button type="submit" disabled={loading !== null} className="btn-primary w-full h-10 disabled:opacity-50">
                   {loading === 'email' ? '보내는 중…' : '확인 메일 받기'}
@@ -89,7 +89,7 @@ export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () 
               {onLogin && (
                 <p className="text-center text-12.5px text-gray-500 dark:text-gray-400">
                   이미 계정이 있나요?{' '}
-                  <button onClick={onLogin} className="font-semibold text-leaf-700 dark:text-leaf-400 underline underline-offset-2">기존 계정으로 로그인</button>
+                  <button onClick={onLogin} className="font-semibold text-gray-900 dark:text-white underline underline-offset-2">기존 계정으로 로그인</button>
                 </p>
               )}
 

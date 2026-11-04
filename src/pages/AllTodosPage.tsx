@@ -30,7 +30,7 @@ interface TodoGroup {
 function DroppableGroup({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={`rounded-xl transition-shadow ${isOver ? 'ring-2 ring-leaf-500/60 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
+    <div ref={setNodeRef} className={`rounded-xl transition-shadow ${isOver ? 'ring-2 ring-gray-500/60 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
       {children}
     </div>
   );
@@ -106,7 +106,7 @@ function SendToDateButton({ todo }: { todo: Todo }) {
           type="date"
           autoFocus
           defaultValue={todo.date ?? ''}
-          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
+          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
           onChange={e => {
             if (e.target.value) updateTodo(todo.id, { date: e.target.value });
             setOpen(false);
@@ -133,7 +133,7 @@ function CategoryQuickAdd({ categoryId, subcategoryId, onAdd, placeholder = '할
 
   return (
     <div className="flex items-center gap-2 pl-2.5 pr-1.5 h-9 rounded-lg mt-1.5 text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-900/60 focus-within:bg-white dark:focus-within:bg-gray-900 focus-within:ring-1 focus-within:ring-gray-200 dark:focus-within:ring-gray-700 focus-within:shadow-sm transition-colors group">
-      <Plus size={15} className="flex-shrink-0 group-focus-within:text-leaf-600" />
+      <Plus size={15} className="flex-shrink-0 group-focus-within:text-gray-900 dark:group-focus-within:text-white" />
       <input maxLength={LIMITS.title}
         ref={ref}
         type="text"
@@ -304,7 +304,7 @@ export default function AllTodosPage() {
       <>
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
-          className="row-action !bg-leaf-50 !text-leaf-700 hover:!bg-leaf-100 dark:!bg-leaf-900/30 dark:!text-leaf-300 dark:hover:!bg-leaf-900/60"
+          className="row-action !bg-gray-100 !text-gray-800 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-100 dark:hover:!bg-gray-700"
           title="오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
@@ -435,7 +435,7 @@ export default function AllTodosPage() {
     return (
       <div className="fixed bottom-[62px] lg:bottom-0 left-0 lg:left-[76px] wide:left-[232px] right-0 z-40 pointer-events-none">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 pb-3 lg:pb-6 pt-8 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent dark:from-gray-950 dark:via-gray-950/90">
-          <div className="pointer-events-auto bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-leaf-500 transition-shadow flex items-center gap-1 pl-3.5 pr-1.5 py-1.5">
+          <div className="pointer-events-auto bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-gray-500 transition-shadow flex items-center gap-1 pl-3.5 pr-1.5 py-1.5">
             <Plus size={16} className="text-gray-400 flex-shrink-0" />
             <input maxLength={LIMITS.title} ref={quickInputRef} type="text" value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}

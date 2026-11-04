@@ -76,14 +76,14 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="제목"
-                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm font-semibold transition-all"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm font-semibold transition-all"
               />
               <textarea maxLength={LIMITS.longText}
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 placeholder="내용을 입력하세요"
                 rows={6}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all resize-none"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all resize-none"
               />
               <div className="flex gap-2">
                 <button onClick={cancelEdit}
@@ -110,7 +110,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                     {isAdmin && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => openEdit(n)} aria-label="공지 편집"
-                          className="text-gray-400 hover:text-leaf-600 transition-colors p-1">
+                          className="text-gray-400 hover:text-gray-900 transition-colors p-1">
                           <Pencil size={13} />
                         </button>
                         {confirmDeleteId === n.id ? (

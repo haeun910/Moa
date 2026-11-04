@@ -48,7 +48,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
                   <>
                     <input maxLength={LIMITS.folderName} autoFocus value={editName} onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveRename(); if (e.key === 'Escape') setEditingId(null); }}
-                      className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
+                      className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500" />
                     <button onClick={saveRename} aria-label="이름 저장" className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center"><Check size={14} /></button>
                   </>
                 ) : confirmId === f.id ? (
@@ -78,7 +78,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
           <FolderPlus size={16} className="flex-shrink-0 text-gray-400 ml-2" />
           <input maxLength={LIMITS.folderName} value={newName} onChange={e => setNewName(e.target.value)} placeholder="새 폴더 이름"
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
-            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500" />
+            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500" />
           <button onClick={handleAdd} disabled={!newName.trim()}
             className="px-3 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 text-white text-sm font-semibold">추가</button>
         </div>

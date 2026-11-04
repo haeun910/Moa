@@ -48,7 +48,7 @@ export default function InstallInstructionsModal({ onClose }: { onClose: () => v
           {steps.map((step, i) => (
             <div key={i} className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center flex-shrink-0">
-                <step.Icon size={15} className="text-leaf-600" />
+                <step.Icon size={15} className="text-gray-500 dark:text-gray-400" />
               </div>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pt-1">{step.text}</p>
             </div>

@@ -73,19 +73,19 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                 <div key={dateStr}
                   className={`flex flex-col rounded-xl p-3 ${
                     isToday
-                      ? 'bg-leaf-50 dark:bg-leaf-900/20 ring-2 ring-leaf-400'
+                      ? 'bg-gray-50 dark:bg-gray-800 ring-2 ring-gray-900 dark:ring-gray-300'
                       : 'bg-gray-50 dark:bg-gray-800/40'
                   }`}
                 >
                   {/* Day header */}
                   <div className="text-center mb-3 flex-shrink-0">
                     <p className={`text-10px font-bold tracking-wide ${
-                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-leaf-500' : 'text-gray-400 dark:text-gray-500'
+                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-gray-500' : 'text-gray-400 dark:text-gray-500'
                     }`}>{DAY_EN[dow]}</p>
                     <p className={`text-xl font-bold leading-tight ${
-                      isToday ? 'text-leaf-600'
+                      isToday ? 'text-gray-900 dark:text-white'
                       : dow === 0 ? 'text-red-500'
-                      : dow === 6 ? 'text-leaf-500'
+                      : dow === 6 ? 'text-gray-500'
                       : 'text-gray-800 dark:text-gray-100'
                     }`}>{format(day, 'd')}</p>
                     {dayTodos.length > 0 && (
@@ -120,7 +120,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         value={addTitle}
                         onChange={e => setAddTitle(e.target.value)}
                         placeholder="할 일..."
-                        className="flex-1 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-400"
+                        className="flex-1 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400"
                         onKeyDown={e => { if (e.key === 'Enter') handleAdd(dateStr); if (e.key === 'Escape') { setAddingDate(null); setAddTitle(''); } }}
                         onBlur={() => { if (!addTitle.trim()) setAddingDate(null); }}
                       />
@@ -132,7 +132,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                   ) : (
                     <button
                       onClick={() => { setAddingDate(dateStr); setAddTitle(''); }}
-                      className="mt-2 w-full flex items-center justify-center gap-1 text-10px text-gray-300 dark:text-gray-600 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors flex-shrink-0 py-1"
+                      className="mt-2 w-full flex items-center justify-center gap-1 text-10px text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:hover:text-white transition-colors flex-shrink-0 py-1"
                     >
                       <Plus size={11} />
                       추가

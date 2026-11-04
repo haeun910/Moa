@@ -42,14 +42,14 @@ function SortableSubcategoryRow({
           value={editName}
           onChange={e => onEditName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
-          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
         />
         <textarea maxLength={LIMITS.longText}
           value={editNotes}
           onChange={e => onEditNotes(e.target.value)}
           placeholder="메모 (저장소 화면에서만 보여요, 선택)"
           rows={2}
-          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-leaf-400 placeholder-gray-400"
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-gray-400 placeholder-gray-400"
         />
         <div className="flex gap-1.5">
           <button onClick={onCancelEdit} className="flex-1 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">취소</button>
@@ -69,7 +69,7 @@ function SortableSubcategoryRow({
         {sc.notes && <span className="block text-11px text-gray-400 dark:text-gray-500 truncate">{sc.notes}</span>}
       </span>
       <button onClick={onStartEdit} aria-label={`${sc.name} 편집`}
-        className="text-gray-400 hover:text-leaf-500 transition-colors p-1 flex-shrink-0">
+        className="text-gray-400 hover:text-gray-900 transition-colors p-1 flex-shrink-0">
         <Edit2 size={12} />
       </button>
       {confirmDelete ? (
@@ -157,7 +157,7 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
             placeholder="하위카테고리 이름"
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false); }}
             onBlur={() => { if (!newName.trim()) setAdding(false); }}
-            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
           />
           <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center flex-shrink-0">
             <Check size={13} />
@@ -165,7 +165,7 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
         </div>
       ) : (
         <button onClick={() => setAdding(true)}
-          className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors pt-0.5">
+          className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors pt-0.5">
           <Plus size={12} />
           하위카테고리 추가
         </button>
@@ -219,13 +219,13 @@ function SortableCategoryItem({
       {editingId === cat.id ? (
         <div className="space-y-3">
           <input maxLength={LIMITS.categoryName} value={editName} onChange={e => onEditName(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
+            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
             onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
           />
           <textarea maxLength={LIMITS.longText} value={editDescription} onChange={e => onEditDescription(e.target.value)}
             placeholder="설명 (저장소 화면에서만 보여요, 선택)"
             rows={2}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
+            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
           />
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map(color => (
@@ -264,13 +264,13 @@ function SortableCategoryItem({
           )}
           <button onClick={() => setShowSubcats(v => !v)} aria-label="하위카테고리 관리"
             title="하위카테고리 관리"
-            className="flex items-center gap-0.5 text-gray-400 hover:text-leaf-500 transition-colors p-1">
+            className="flex items-center gap-0.5 text-gray-400 hover:text-gray-900 transition-colors p-1">
             <Layers size={13} />
             {subcatCount > 0 && <span className="text-10px font-semibold">{subcatCount}</span>}
             {showSubcats ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
           <button onClick={() => { onStartEdit(cat.id); onCancelDelete(); }} aria-label={`${cat.name} 편집`}
-            className="text-gray-400 hover:text-leaf-500 transition-colors p-1">
+            className="text-gray-400 hover:text-gray-900 transition-colors p-1">
             <Edit2 size={14} />
           </button>
           {confirmDeleteId === cat.id ? (
@@ -371,13 +371,13 @@ export default function CategoryPage() {
             <p className="text-sm font-semibold text-gray-900 dark:text-white">새 카테고리</p>
             <input maxLength={LIMITS.categoryName} value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="카테고리 이름"
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
             />
             <textarea maxLength={LIMITS.longText} value={newDescription} onChange={e => setNewDescription(e.target.value)}
               placeholder="설명 (저장소 화면에서만 보여요, 선택)"
               rows={2}
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 placeholder-gray-400"
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
             />
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (

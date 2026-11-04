@@ -65,7 +65,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
           type="date"
           autoFocus
           defaultValue={todo.date ?? ''}
-          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
+          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
           onChange={e => { if (e.target.value) onMove(e.target.value); setOpen(false); }}
           onBlur={() => setOpen(false)}
         />
@@ -99,7 +99,7 @@ function OverviewColumn({
           {icon}
           {onTitleClick ? (
             <button onClick={onTitleClick} title={titleHint}
-              className="text-13px font-semibold text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
+              className="text-13px font-semibold text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
               {title}
             </button>
           ) : (
@@ -272,7 +272,7 @@ export default function TodayPage() {
       <>
         <button
           onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: todayStr }); }}
-          className="row-action !bg-leaf-50 !text-leaf-700 hover:!bg-leaf-100 dark:!bg-leaf-900/30 dark:!text-leaf-300 dark:hover:!bg-leaf-900/60"
+          className="row-action !bg-gray-100 !text-gray-800 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-100 dark:hover:!bg-gray-700"
           title="오늘 할 일로 옮기기"
         >
           <CalendarCheck size={11} />
@@ -448,7 +448,7 @@ export default function TodayPage() {
           <button
             onClick={() => setGoalModalState({ goal: g })}
             title="눌러서 수정"
-            className={`flex-1 min-w-0 truncate text-left text-13px hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
+            className={`flex-1 min-w-0 truncate text-left text-13px hover:text-gray-900 dark:hover:text-white transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
           >
             {g.title}
           </button>
@@ -822,7 +822,7 @@ export default function TodayPage() {
                               value={weekAddTitle}
                               onChange={e => setWeekAddTitle(e.target.value)}
                               placeholder="추가..."
-                              className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-500"
+                              className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-gray-500"
                               onKeyDown={async e => {
                                 if (e.key === 'Enter') {
                                   const t = weekAddTitle.trim();
@@ -838,7 +838,7 @@ export default function TodayPage() {
                           <button
                             onClick={() => { setWeekAddDate(dateStr); setWeekAddTitle(''); }}
                             aria-label="이 날에 할 일 추가"
-                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-leaf-600 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
+                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-gray-900 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
                           >
                             <Plus size={12} />
                           </button>
