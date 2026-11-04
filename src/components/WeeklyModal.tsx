@@ -6,8 +6,11 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function WeeklyModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const { todos, toggleTodo, addTodo } = useApp();
   const [weekRef, setWeekRef] = useState(new Date());
   const [addingDate, setAddingDate] = useState<string | null>(null);
@@ -30,16 +33,16 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
+        className="modal-panel max-w-5xl"
         style={{ maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between px-7 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white" style={{ fontStyle: 'italic' }}>Weekly Record</h2>
+            <h2 className="text-xl font-bold tracking-[-0.03em] text-gray-900 dark:text-white">주간 기록</h2>
             <div className="flex items-center gap-2 mt-1">
               <button onClick={() => setWeekRef(w => subWeeks(w, 1))} aria-label="이전 주"
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700">
@@ -78,17 +81,17 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                 >
                   {/* Day header */}
                   <div className="text-center mb-3 flex-shrink-0">
-                    <p className={`text-[10px] font-bold tracking-wide ${
-                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-leaf-500' : 'text-gray-400 dark:text-gray-500'
+                    <p className={`text-10px font-bold tracking-wide ${
+                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
                     }`}>{DAY_EN[dow]}</p>
                     <p className={`text-xl font-bold leading-tight ${
                       isToday ? 'text-leaf-600'
                       : dow === 0 ? 'text-red-500'
-                      : dow === 6 ? 'text-leaf-500'
+                      : dow === 6 ? 'text-blue-500'
                       : 'text-gray-800 dark:text-gray-100'
                     }`}>{format(day, 'd')}</p>
                     {dayTodos.length > 0 && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">{completed}/{dayTodos.length}</p>
+                      <p className="text-10px text-gray-400 mt-0.5">{completed}/{dayTodos.length}</p>
                     )}
                   </div>
 
@@ -100,11 +103,11 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         onClick={() => toggleTodo(todo.id)}
                       >
                         <div className={`flex-shrink-0 mt-0.5 w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
-                          todo.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-400'
+                          todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-400'
                         }`}>
-                          {todo.completed && <Check size={7} className="text-leaf-800" strokeWidth={3} />}
+                          {todo.completed && <Check size={7} className="text-white" strokeWidth={3} />}
                         </div>
-                        <span className={`text-[11px] leading-snug break-words ${
+                        <span className={`text-11px leading-snug break-words ${
                           todo.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'
                         }`}>{todo.title}</span>
                       </div>
@@ -114,24 +117,24 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                   {/* Add button */}
                   {addingDate === dateStr ? (
                     <div className="mt-2 flex items-center gap-1 flex-shrink-0">
-                      <input
+                      <input maxLength={LIMITS.title}
                         autoFocus
                         value={addTitle}
                         onChange={e => setAddTitle(e.target.value)}
                         placeholder="할 일..."
-                        className="flex-1 text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-400"
-                        onKeyDown={e => { if (e.key === 'Enter') handleAdd(dateStr); if (e.key === 'Escape') { setAddingDate(null); setAddTitle(''); } }}
+                        className="flex-1 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-400"
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(dateStr); if (e.key === 'Escape') { e.preventDefault(); setAddingDate(null); setAddTitle(''); } }}
                         onBlur={() => { if (!addTitle.trim()) setAddingDate(null); }}
                       />
                       <button onClick={() => handleAdd(dateStr)} aria-label="추가"
-                        className="w-6 h-6 rounded-md bg-leaf-300 flex items-center justify-center text-leaf-800 flex-shrink-0">
+                        className="w-6 h-6 rounded-md bg-leaf-600 flex items-center justify-center flex-shrink-0">
                         <Send size={9} />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => { setAddingDate(dateStr); setAddTitle(''); }}
-                      className="mt-2 w-full flex items-center justify-center gap-1 text-[10px] text-gray-300 dark:text-gray-600 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors flex-shrink-0 py-1"
+                      className="mt-2 w-full flex items-center justify-center gap-1 text-10px text-gray-300 dark:text-gray-600 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors flex-shrink-0 py-1"
                     >
                       <Plus size={11} />
                       추가

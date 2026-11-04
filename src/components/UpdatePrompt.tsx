@@ -38,23 +38,52 @@ export default function UpdatePrompt() {
     };
   }, []);
 
+  // "새로고침" 버튼: 새 서비스워커를 활성화하고, 화면 제어가 넘어오는 순간 직접 새로고침.
+  // (vite-plugin-pwa는 자기가 처음 찾은 업데이트일 때만 자동 새로고침하고, 위의 registration.update()로
+  //  찾은 업데이트는 "외부" 업데이트로 취급하거나, 서비스워커가 제어하지 않는 페이지(강력 새로고침 직후 등)에서는
+  //  새로고침 신호 자체가 오지 않아 버튼을 눌러도 화면이 그대로였음)
+  function applyUpdate() {
+    let reloaded = false;
+    const reload = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    const waiting = registrationRef.current?.waiting;
+    if (!waiting) {
+      // 이미 활성화까지 끝났으면 새로고침만 하면 최신 버전
+      reload();
+      return;
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+    // 강력 새로고침(Ctrl+Shift+R)으로 연 페이지처럼 서비스워커가 제어하지 않는 페이지에서는
+    // controllerchange가 오지 않으므로, 새 서비스워커가 활성화되는 순간에도 새로고침
+    waiting.addEventListener('statechange', () => {
+      if (waiting.state === 'activated') reload();
+    });
+    waiting.postMessage({ type: 'SKIP_WAITING' });
+    updateServiceWorker(true).catch(() => {});
+    // 혹시 제어 전환 신호를 못 받아도 잠시 뒤에는 새로고침 (새 버전은 이미 활성화된 상태)
+    window.setTimeout(reload, 4000);
+  }
+
   if (!needRefresh) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 max-w-sm mx-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl shadow-2xl p-4 flex items-center gap-3 z-50 animate-slide-in-bottom motion-reduce:animate-none">
-      <div className="w-10 h-10 bg-white/20 dark:bg-gray-900/10 rounded-xl flex items-center justify-center flex-shrink-0">
+    <div className="fixed bottom-20 lg:bottom-6 left-4 right-4 lg:left-auto lg:right-6 max-w-sm mx-auto lg:mx-0 lg:w-[360px] bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl ring-1 ring-white/10 p-3.5 flex items-center gap-3 z-50 animate-slide-in-bottom motion-reduce:animate-none">
+      <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0">
         <RefreshCw size={18} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm">새 버전이 있어요</p>
-        <p className="text-xs text-leaf-200 dark:text-leaf-600 mt-0.5">새로고침하면 최신 버전으로 업데이트돼요</p>
+        <p className="text-xs text-gray-400 mt-0.5">새로고침하면 최신 버전으로 업데이트돼요</p>
       </div>
-      <button onClick={() => updateServiceWorker(true)}
-        className="bg-white dark:bg-leaf-300 text-leaf-600 dark:text-leaf-800 text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0">
+      <button onClick={applyUpdate}
+        className="bg-leaf-500 hover:bg-leaf-400 text-leaf-950 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
         새로고침
       </button>
       <button onClick={() => setNeedRefresh(false)} aria-label="닫기"
-        className="text-white/70 dark:text-gray-900/60 hover:text-white dark:hover:text-gray-900 flex-shrink-0">
+        className="text-white/50 hover:text-white flex-shrink-0">
         <X size={16} />
       </button>
     </div>

@@ -8,8 +8,12 @@ export interface Todo {
   dueDate?: string | null; // 마감일(작업할 날짜 date와는 별개) YYYY-MM-DD or null
   isDday?: boolean; // 체크하면 홈 화면 D-Day 목록에도 자동으로 나타남 (dueDate 또는 date를 기준일로 사용)
   startTime?: string | null; // HH:MM
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
   createdAt: string;
   notes?: string;
+  seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
+  skipped?: boolean; // '안 하기'로 정리한 할 일 (밀린 일·달성률에서 빠지고, 그 날짜에 흐리게 남음)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (시간이 없으면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
 }
 
 export interface Category {
@@ -31,20 +35,34 @@ export interface Note {
   id: string;
   title: string;
   content: string;
+  folderId: string | null; // 메모 폴더 (없으면 "폴더 없음")
+  pinned: boolean; // 목록 맨 위에 고정
   createdAt: string;
   updatedAt: string;
 }
 
+export interface NoteFolder {
+  id: string;
+  name: string;
+}
+
 export interface Settings {
   theme: 'light' | 'dark' | 'system';
-  defaultScreen: 'today' | 'calendar' | 'all' | 'notes';
+  defaultScreen: 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   listSortBy: 'manual' | 'date' | 'name'; // 목록 정렬 기준
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
   hiddenCategoryIds: string[]; // 목록에서 숨길 카테고리
+  calendarTextSize: 'small' | 'medium' | 'large'; // 앱 전체 글자 크기 (예전엔 월 달력 칸 글자만 바꿨어서 이름이 calendar_text_size)
+  showHolidays: boolean; // 달력·홈에 한국 공휴일(빨간 날) 표시
+  hiddenFeatures: OptionalFeature[]; // 메뉴에서 숨긴 기능 (데이터는 그대로)
 }
 
-export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
+// 설정에서 끄고 켤 수 있는 기능 (화면 이름과 같음). 홈·달력·설정은 항상 켜져 있음
+export type OptionalFeature = 'timebox' | 'all' | 'notes';
+export const OPTIONAL_FEATURES: OptionalFeature[] = ['timebox', 'all', 'notes'];
+
+export type Screen = 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';
 
 export interface MonthlyGoal {
   id: string;
@@ -58,6 +76,37 @@ export interface DDay {
   title: string;
   targetDate: string; // YYYY-MM-DD
   fromTodoId?: string; // 이 값이 있으면 할 일에서 자동으로 연동된 가상 D-Day (직접 수정/삭제 불가, 할 일 쪽에서 관리)
+}
+
+// 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과는 별개로 관리되고,
+// 홈 화면 달력에는 할 일(색깔 점)과 달리 제목이 보이는 칩으로 표시됨.
+export interface ScheduleItem {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  startTime?: string | null; // HH:MM
+  endDate?: string | null; // 여러 날에 걸친 일정의 마지막 날 YYYY-MM-DD (없으면 하루짜리)
+  endTime?: string | null; // HH:MM (없으면 시작부터 1시간으로 보여줌)
+  notes?: string | null;
+  createdAt: string;
+  seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
+  completed: boolean; // 끝낸 일정 (완료 체크하면 위쪽 일정 목록에서 빠짐)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (하루 종일이면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
+}
+
+// 타임박스: "이 시간엔 이걸 하겠다"는 시간 블록. 정해진 약속(일정)과 달리 자유롭게 옮기고 늘리고 줄임.
+// 할 일과 연결하면 제목/색/완료 체크가 그 할 일을 따라감.
+export interface TimeBlock {
+  id: string;
+  title: string; // 할 일과 연결된 블록은 연결 당시 제목(할 일이 지워졌을 때 대신 보여줄 용도)
+  todoId: string | null;
+  color: string | null; // 할 일과 연결 안 된 블록의 색 (연결된 블록은 할 일 카테고리 색)
+  startAt: string; // ISO timestamp
+  endAt: string; // ISO timestamp
+  completed: boolean; // 할 일과 연결 안 된 블록의 완료 여부
+  remindMinutes: number | null; // 시작 몇 분 전에 알릴지 (0 = 시작 시각, null = 알림 없음)
+  createdAt: string;
+  seriesId: string | null; // 반복(매주 고정 등)으로 만든 블록 묶음
 }
 
 export interface Notice {

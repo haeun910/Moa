@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ADMIN_USER_ID } from '../lib/supabase';
-import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice } from '../lib/supabase';
+import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbNoteFolder, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbTimeBlock, DbNotice } from '../lib/supabase';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
-import { format } from 'date-fns';
-import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, Notice } from '../types';
+import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
+import { newSeriesId } from '../lib/recurrence';
+import { showSaveError, markSaveErrorHandled, showToast } from '../lib/toast';
+import { drainOutbox, loadOutbox, onOutboxDrained, pendingFor, setOutboxUser } from '../lib/outbox';
+import { offlineStore } from '../lib/offlineStore';
+import { snapshotKey } from '../lib/offlineData';
+import { reportError } from '../lib/monitoring';
+import { createSerialWriter } from '../lib/serialWrites';
+import { timeRangeEnd } from '../lib/timeRange';
+import { DAY_MINUTES, applySeriesUpdate, formatMinutes, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
+import { applyFontScale } from '../lib/fontScale';
+import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
+import { OPTIONAL_FEATURES } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -19,8 +30,12 @@ function toTodo(t: DbTodo): Todo {
     dueDate: t.due_date,
     isDday: t.is_dday,
     startTime: t.start_time,
+    endTime: t.end_time ?? null,
     notes: t.notes ?? '',
     createdAt: t.created_at,
+    seriesId: t.series_id ?? null,
+    skipped: t.skipped ?? false,
+    remindMinutes: t.remind_minutes ?? null,
   };
 }
 
@@ -33,7 +48,11 @@ function toSubcategory(s: DbSubcategory): Subcategory {
 }
 
 function toNote(n: DbNote): Note {
-  return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
+  return { id: n.id, title: n.title, content: n.content, folderId: n.folder_id ?? null, pinned: n.pinned ?? false, createdAt: n.created_at, updatedAt: n.updated_at };
+}
+
+function toNoteFolder(f: DbNoteFolder): NoteFolder {
+  return { id: f.id, name: f.name };
 }
 
 function toMonthlyGoal(g: DbMonthlyGoal): MonthlyGoal {
@@ -43,6 +62,35 @@ function toMonthlyGoal(g: DbMonthlyGoal): MonthlyGoal {
 function toDDay(d: DbDDay): DDay {
   return { id: d.id, title: d.title, targetDate: d.target_date };
 }
+
+function toSchedule(s: DbSchedule): ScheduleItem {
+  return {
+    id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes,
+    createdAt: s.created_at, seriesId: s.series_id ?? null, completed: s.completed ?? false, remindMinutes: s.remind_minutes ?? null,
+  };
+}
+
+function toTimeBlock(b: DbTimeBlock): TimeBlock {
+  return {
+    id: b.id, title: b.title, todoId: b.todo_id, color: b.color, startAt: b.start_at, endAt: b.end_at,
+    completed: b.completed, remindMinutes: b.remind_minutes, createdAt: b.created_at, seriesId: b.series_id ?? null,
+  };
+}
+
+function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
+  return [...list].sort((a, b) => a.startAt.localeCompare(b.startAt));
+}
+
+// 알림을 누르고 들어오면 ?screen=timebox(타임박스 알림) / ?screen=today(할 일·일정 알림)로 열림 → 그 화면부터 보여줌
+function screenFromUrl(): Screen | null {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  // 약관·개인정보처리방침 주소(Google 동의 화면 링크 등)는 로그인한 상태에서도 그 화면으로
+  return screen === 'timebox' || screen === 'today' || screen === 'terms' || screen === 'privacy' ? screen : null;
+}
+
+export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
+// 반복 블록은 할 일과 연결하지 않고 제목·색·알림만 가짐
+export type TimeBlockSeriesFields = Pick<TimeBlock, 'title' | 'color' | 'remindMinutes'>;
 
 function toNotice(n: DbNotice): Notice {
   return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
@@ -56,6 +104,9 @@ function toSettings(s: DbSettings): Settings {
     listSortBy: s.list_sort_by,
     hideCompleted: s.hide_completed,
     hiddenCategoryIds: s.hidden_category_ids ?? [],
+    calendarTextSize: s.calendar_text_size ?? 'medium',
+    showHolidays: s.show_holidays ?? true,
+    hiddenFeatures: (s.hidden_features ?? []).filter((f): f is OptionalFeature => (OPTIONAL_FEATURES as string[]).includes(f)),
   };
 }
 
@@ -65,15 +116,25 @@ interface AppContextType {
   categories: Category[];
   subcategories: Subcategory[];
   notes: Note[];
+  noteFolders: NoteFolder[];
   settings: Settings;
   monthlyGoals: MonthlyGoal[];
   ddays: DDay[];
+  schedules: ScheduleItem[];
+  timeblocks: TimeBlock[];
   notices: Notice[];
   isAdmin: boolean;
   currentScreen: Screen;
   selectedDate: string;
   dataLoading: boolean;
-  addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<void>;
+  loadError: boolean; // 처음 불러오기 실패
+  retryLoad: () => void;
+  // 만든 할 일을 돌려줌 (타임박스에서 새 할 일을 만들고 바로 블록에 연결하려면 id가 필요)
+  addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<Todo | undefined>;
+  // existingId가 있으면 그 할 일(이미 있는 항목)도 같은 반복으로 묶음. dates는 새로 만들 날짜만 (기존 항목 날짜 제외)
+  addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => Promise<void>;
+  updateTodoSeries: (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => Promise<void>;
+  deleteTodoSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   toggleTodo: (id: string) => Promise<void>;
@@ -86,22 +147,98 @@ interface AppContextType {
   updateSubcategory: (id: string, updates: { name?: string; notes?: string | null }) => Promise<void>;
   deleteSubcategory: (id: string) => Promise<void>;
   reorderSubcategories: (orderedIds: string[]) => Promise<void>;
-  addNote: (title: string, content: string) => Promise<void>;
-  updateNote: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
+  // 만든 메모를 돌려줌 (메모 편집기에서 새 메모를 만든 뒤 이어서 자동 저장하려면 id가 필요)
+  addNote: (title: string, content: string, folderId?: string | null) => Promise<Note | undefined>;
+  updateNote: (id: string, updates: NoteUpdates) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  addNoteFolder: (name: string) => Promise<NoteFolder | undefined>;
+  renameNoteFolder: (id: string, name: string) => Promise<void>;
+  deleteNoteFolder: (id: string) => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
   addMonthlyGoal: (month: string, title: string) => Promise<void>;
+  updateMonthlyGoal: (id: string, updates: { title?: string }) => Promise<void>;
   toggleMonthlyGoal: (id: string) => Promise<void>;
   deleteMonthlyGoal: (id: string) => Promise<void>;
   addDDay: (title: string, targetDate: string) => Promise<void>;
   updateDDay: (id: string, updates: { title?: string; targetDate?: string }) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
+  addSchedule: (fields: ScheduleFields & { date: string; endDate?: string | null }) => Promise<void>;
+  updateSchedule: (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
+  toggleSchedule: (id: string) => Promise<void>;
+  addScheduleSeries: (fields: ScheduleFields, dates: string[], existingId?: string) => Promise<void>;
+  updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => Promise<void>;
+  deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
+  addTimeBlock: (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => Promise<TimeBlock | null | undefined>;
+  updateTimeBlock: (id: string, updates: Partial<TimeBlockFields>) => Promise<void>;
+  deleteTimeBlock: (id: string) => Promise<void>;
+  toggleTimeBlock: (id: string) => Promise<void>;
+  addTimeBlockSeries: (fields: TimeBlockSeriesFields, dateKeys: string[], startMin: number, endMin: number, existingId?: string) => Promise<void>;
+  updateTimeBlockSeries: (seriesId: string, fromStartAt: string | null, updates: Partial<TimeBlockSeriesFields> & { startMin?: number; endMin?: number }) => Promise<void>;
+  deleteTimeBlockSeries: (seriesId: string, fromStartAt: string | null) => Promise<void>;
+  ensureTimeBlocksFrom: (dateKey: string) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
   setCurrentScreen: (screen: Screen) => void;
   setSelectedDate: (date: string) => void;
 }
+
+// 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
+export type NoteUpdates = Partial<Pick<Note, 'title' | 'content' | 'folderId' | 'pinned'>>;
+
+export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes' | 'remindMinutes'>>;
+export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null; remindMinutes?: number | null };
+
+// 알림은 정했을 때(또는 있던 걸 끌 때)만 DB로 보냄 (025 마이그레이션 전 DB에서도 알림 없는 저장은 그대로 되게).
+// 알림 시각은 DB가 날짜·시간과 이 기기 시간대로 계산함 (반복 회차를 한꺼번에 고쳐도 회차마다 맞게)
+function remindFields(next: number | null | undefined, had: boolean): { remind_minutes?: number | null; time_zone?: string } {
+  if (next === undefined || (next === null && !had)) return {};
+  return { remind_minutes: next, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul' };
+}
+
+// 끝 시간은 있을 때(또는 있던 걸 지울 때)만 DB로 보냄.
+// 021 마이그레이션(end_time 칸)을 실행하기 전 DB에서도 끝 시간을 안 쓰는 저장은 그대로 되게 하기 위함
+function endTimeField(next: string | null | undefined, had: boolean): { end_time?: string | null } {
+  return next || had ? { end_time: next || null } : {};
+}
+
+// fromDate가 있으면 그 날짜(포함) 이후 회차만, 없으면 반복 전체 (DB 쿼리와 같은 기준)
+function inSeries(item: { seriesId?: string | null; date: string | null }, seriesId: string, fromDate: string | null): boolean {
+  if (item.seriesId !== seriesId) return false;
+  return fromDate ? !!item.date && item.date >= fromDate : true;
+}
+
+// 오프라인으로 앱을 열어도 보이도록 이 기기에 남겨 두는 마지막 화면 내용
+interface Snapshot {
+  savedAt: string;
+  todos: Todo[]; categories: Category[]; subcategories: Subcategory[]; notes: Note[]; noteFolders: NoteFolder[];
+  settings: Settings; monthlyGoals: MonthlyGoal[]; ddays: DDay[]; schedules: ScheduleItem[]; timeblocks: TimeBlock[]; notices: Notice[];
+}
+
+// 서버에 닿지 못한 오류인지 (오프라인, 연결 끊김)
+function isNetworkError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = err instanceof Error ? err.message : typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : '';
+  return err instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(msg);
+}
+
+// 서버에서 다시 불러올 수 있는 데이터 종류
+type Resource = 'todos' | 'categories' | 'subcategories' | 'notes' | 'noteFolders' | 'settings' | 'monthlyGoals' | 'ddays' | 'schedules' | 'timeblocks' | 'notices';
+
+// 실시간 동기화 대상 테이블 → 다시 불러올 데이터 종류 (notices는 모든 사용자 공용이라 따로 처리)
+const REALTIME_TABLES: [string, Resource][] = [
+  ['todos', 'todos'],
+  ['categories', 'categories'],
+  ['subcategories', 'subcategories'],
+  ['notes', 'notes'],
+  ['note_folders', 'noteFolders'],
+  ['monthly_goals', 'monthlyGoals'],
+  ['ddays', 'ddays'],
+  ['schedules', 'schedules'],
+  ['timeblocks', 'timeblocks'],
+  ['user_settings', 'settings'],
+];
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -112,6 +249,9 @@ const DEFAULT_SETTINGS: Settings = {
   listSortBy: 'manual',
   hideCompleted: false,
   hiddenCategoryIds: [],
+  calendarTextSize: 'medium',
+  showHolidays: true,
+  hiddenFeatures: [],
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -121,62 +261,237 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [noteFolders, setNoteFolders] = useState<NoteFolder[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [ddays, setDDays] = useState<DDay[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [timeblocks, setTimeblocks] = useState<TimeBlock[]>([]);
+  // 타임박스는 매일 쌓이므로 이 시각 이후 것만 불러와 둠. 더 예전 주를 보면 그때 더 불러옴(ensureTimeBlocksFrom)
+  const timeblocksFromRef = useRef<Date>(startOfWeek(subWeeks(new Date(), 2)));
   const [notices, setNotices] = useState<Notice[]>([]);
   const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  // 설정에서 끈 기능 화면에 있으면(시작 화면·알림으로 들어온 경우 포함) 홈으로
+  useEffect(() => {
+    if ((settings.hiddenFeatures as Screen[]).includes(currentScreen)) setCurrentScreen('today');
+  }, [settings.hiddenFeatures, currentScreen]);
   const [dataLoading, setDataLoading] = useState(true);
+  // 처음 불러오기가 실패하면(네트워크 등) 빈 화면 대신 "다시 시도" 화면을 보여주기 위함
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const retryLoad = useCallback(() => setReloadKey(k => k + 1), []);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // ── 서버에서 다시 불러오기 (여러 기기 동기화 / 저장 실패 시 원상복구에 공통 사용) ──
+  // 화면은 저장 전에 먼저 바뀌므로(낙관적 업데이트), 저장이 실패하면 서버 내용으로 다시 맞춤
+  const fetchersRef = useRef<Record<Resource, () => Promise<void>> | null>(null);
+  fetchersRef.current = user ? {
+    todos: async () => setTodos((await db.fetchTodos(user.id)).map(toTodo)),
+    categories: async () => setCategories((await db.fetchCategories(user.id)).map(toCategory)),
+    subcategories: async () => setSubcategories((await db.fetchSubcategories(user.id)).map(toSubcategory)),
+    notes: async () => setNotes((await db.fetchNotes(user.id)).map(toNote)),
+    noteFolders: async () => setNoteFolders((await db.fetchNoteFolders(user.id)).map(toNoteFolder)),
+    settings: async () => { const s = await db.fetchSettings(user.id); if (s) setSettings(toSettings(s)); },
+    monthlyGoals: async () => setMonthlyGoals((await db.fetchMonthlyGoals(user.id)).map(toMonthlyGoal)),
+    ddays: async () => setDDays((await db.fetchDDays(user.id)).map(toDDay)),
+    schedules: async () => setSchedules((await db.fetchSchedules(user.id)).map(toSchedule)),
+    timeblocks: async () => setTimeblocks(sortTimeBlocks((await db.fetchTimeBlocks(user.id, timeblocksFromRef.current.toISOString())).map(toTimeBlock))),
+    notices: async () => setNotices((await db.fetchNotices()).map(toNotice)),
+  } : null;
+
+  // 같은 종류를 짧은 시간에 여러 번 요청하면 한 번만 불러옴
+  // (예: 반복으로 한 번에 100개를 만들면 실시간 알림도 100번 오기 때문)
+  const resyncTimersRef = useRef<Partial<Record<Resource, ReturnType<typeof setTimeout>>>>({});
+  // 오프라인이거나 아직 보내지 못한 변경이 있으면 서버 내용으로 덮지 않음 (그러면 방금 바꾼 게 사라져 보임).
+  // 대신 표시해 두었다가 다 보낸 뒤(onOutboxDrained) 한꺼번에 다시 불러옴
+  const deferredResyncRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = user?.id ?? null;
+  const resync = useCallback((kind: Resource, delayMs = 300) => {
+    clearTimeout(resyncTimersRef.current[kind]);
+    resyncTimersRef.current[kind] = setTimeout(() => {
+      if ((typeof navigator !== 'undefined' && navigator.onLine === false) || pendingFor(userIdRef.current) > 0) {
+        deferredResyncRef.current = true;
+        return;
+      }
+      fetchersRef.current?.[kind]().catch(err => { if (!isNetworkError(err)) reportError(err, `resync ${kind}`); });
+    }, delayMs);
+  }, []);
+  const resyncAll = useCallback(() => {
+    for (const kind of Object.keys(fetchersRef.current ?? {}) as Resource[]) resync(kind, 0);
+  }, [resync]);
+
+  // 실시간 "삭제" 알림은 user_id로 거를 수 없어서(Supabase 제약) 내 화면에 있는 id인지로 판단
+  const localIdsRef = useRef<Partial<Record<Resource, { id: string }[]>>>({});
+  localIdsRef.current = { todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays, schedules, timeblocks, notices };
   // 앱 진입 시 defaultScreen으로 딱 한 번만 이동하기 위한 플래그.
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
   const didSetInitialScreenRef = useRef(false);
+  // 처음 불러오기가 끝난 계정 (끝나기 전의 빈 목록을 "마지막 내용"으로 저장하지 않기 위함)
+  const loadedUserRef = useRef<string | null>(null);
+
+  // 최신 목록을 렌더 사이에도 바로 읽기 위한 참조.
+  // 완료 토글처럼 "지금 값의 반대"를 저장해야 하는 함수가 이전 렌더의 목록을 보면,
+  // 빠르게 두 번 눌렀을 때 두 번 다 같은 값을 저장해 화면과 DB가 어긋났음
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
+  const monthlyGoalsRef = useRef(monthlyGoals);
+  monthlyGoalsRef.current = monthlyGoals;
+  const timeblocksRef = useRef(timeblocks);
+  timeblocksRef.current = timeblocks;
+  const schedulesRef = useRef(schedules);
+  schedulesRef.current = schedules;
+  // 새 할 일의 sort_order. 연달아 추가할 때 다음 렌더 전이라 todos.length가 그대로여서 같은 값이 겹쳤음
+  // 완료 체크처럼 빠르게 반복되는 저장을 항목별로 순서대로 보냄
+  const serialWriteRef = useRef(createSerialWriter());
+  const nextTodoSortRef = useRef(0);
+  const takeTodoSortOrders = (count: number) => {
+    const start = Math.max(nextTodoSortRef.current, todosRef.current.length);
+    nextTodoSortRef.current = start + count;
+    return start;
+  };
 
   // ── 초기 데이터 로드 ────────────────────────────────────
   useEffect(() => {
     if (!user) {
-      setTodos([]); setCategories([]); setSubcategories([]); setNotes([]);
-      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setNotices([]);
+      setTodos([]); setCategories([]); setSubcategories([]); setNotes([]); setNoteFolders([]);
+      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setSchedules([]); setTimeblocks([]); setNotices([]);
       setDataLoading(false);
       didSetInitialScreenRef.current = false;
       return;
     }
 
     setDataLoading(true);
-    Promise.all([
-      db.fetchTodos(user.id),
-      db.fetchCategories(user.id),
-      db.fetchSubcategories(user.id),
-      db.fetchNotes(user.id),
-      db.fetchSettings(user.id),
-      db.fetchMonthlyGoals(user.id),
-      db.fetchDDays(user.id),
-      db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawNotices]) => {
-      setTodos(rawTodos.map(toTodo));
-      setCategories(rawCats.map(toCategory));
-      setSubcategories(rawSubcats.map(toSubcategory));
-      setNotes(rawNotes.map(toNote));
-      setMonthlyGoals(rawGoals.map(toMonthlyGoal));
-      setDDays(rawDDays.map(toDDay));
-      setNotices(rawNotices.map(toNotice));
-      if (rawSettings) {
-        const s = toSettings(rawSettings);
-        setSettings(s);
-        if (!didSetInitialScreenRef.current) {
-          setCurrentScreen(s.defaultScreen as Screen);
-          didSetInitialScreenRef.current = true;
-        }
+    setLoadError(false);
+    loadedUserRef.current = null;
+    let cancelled = false;
+    const userId = user.id;
+    setOutboxUser(userId);
+
+    function applyScreenAfterLoad(s: Settings | null) {
+      const urlScreen = screenFromUrl();
+      if (urlScreen) {
+        window.history.replaceState(null, '', window.location.pathname);
+        setCurrentScreen(urlScreen);
+        didSetInitialScreenRef.current = true;
       }
-    }).finally(() => setDataLoading(false));
+      if (s && !didSetInitialScreenRef.current) {
+        setCurrentScreen(s.defaultScreen as Screen);
+        didSetInitialScreenRef.current = true;
+      }
+    }
+
+    // 오프라인으로 열었거나 서버에 닿지 못하면, 이 기기에 남겨 둔 마지막 내용으로 엶
+    async function loadSnapshot(): Promise<boolean> {
+      const snap = await offlineStore.get<Snapshot>('kv', snapshotKey(userId));
+      if (!snap || cancelled) return false;
+      setTodos(snap.todos); setCategories(snap.categories); setSubcategories(snap.subcategories);
+      setNotes(snap.notes); setNoteFolders(snap.noteFolders); setMonthlyGoals(snap.monthlyGoals);
+      setDDays(snap.ddays); setSchedules(snap.schedules); setNotices(snap.notices ?? []);
+      setTimeblocks(snap.timeblocks); setSettings(snap.settings);
+      applyScreenAfterLoad(snap.settings);
+      loadedUserRef.current = userId;
+      deferredResyncRef.current = true; // 다시 연결되면 서버 내용으로 맞춤
+      return true;
+    }
+
+    (async () => {
+      // 지난번에 보내지 못한 변경이 있으면 먼저 보냄 (안 그러면 서버에서 불러온 내용에 그 변경이 빠져 보임)
+      await loadOutbox();
+      if (pendingFor(userId) > 0) await drainOutbox();
+      if (cancelled) return;
+      if (pendingFor(userId) > 0 && await loadSnapshot()) return;
+
+      try {
+        const [rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders, rawTimeBlocks] = await Promise.all([
+          db.fetchTodos(userId),
+          db.fetchCategories(userId),
+          db.fetchSubcategories(userId),
+          db.fetchNotes(userId),
+          db.fetchSettings(userId),
+          db.fetchMonthlyGoals(userId),
+          db.fetchDDays(userId),
+          db.fetchSchedules(userId).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNoteFolders(userId).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
+          db.fetchTimeBlocks(userId, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks 테이블이 아직 없어도(016 전) 나머지는 정상 로드되도록
+        ]);
+        if (cancelled) return;
+        setTodos(rawTodos.map(toTodo));
+        setCategories(rawCats.map(toCategory));
+        setSubcategories(rawSubcats.map(toSubcategory));
+        setNotes(rawNotes.map(toNote));
+        setNoteFolders(rawNoteFolders.map(toNoteFolder));
+        setMonthlyGoals(rawGoals.map(toMonthlyGoal));
+        setDDays(rawDDays.map(toDDay));
+        setSchedules(rawSchedules.map(toSchedule));
+        setNotices(rawNotices.map(toNotice));
+        setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+        const s = rawSettings ? toSettings(rawSettings) : null;
+        if (s) setSettings(s);
+        applyScreenAfterLoad(s);
+        loadedUserRef.current = userId;
+      } catch (err) {
+        if (cancelled) return;
+        if (isNetworkError(err) && await loadSnapshot()) return;
+        // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
+        if (!isNetworkError(err)) reportError(err, 'initial load');
+        setLoadError(true);
+      }
+    })().finally(() => { if (!cancelled) setDataLoading(false); });
+    return () => { cancelled = true; };
     // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
     // 실제 로그인 계정은 그대로인 경우에는 이 무거운 재조회 + 화면 이동이 일어나지 않게 함
+    // (reloadKey는 "다시 시도" 버튼용)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
+
+  // ── 오프라인 대비 ──────────────────────────────────────
+  // 보관 중인 변경은 지금 로그인한 사람 것만 보냄
+  useEffect(() => {
+    setOutboxUser(user?.id ?? null);
+    if (user) void loadOutbox().then(() => drainOutbox());
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 보관했던 변경을 다 보내면: 서버 내용으로 다시 맞추고 결과를 알려 줌
+  useEffect(() => onOutboxDrained(({ sent, failed }) => {
+    if (failed > 0) showToast(`오프라인에서 바꾼 내용 중 ${failed}개는 저장하지 못했어요 (다른 기기에서 지운 항목 등)`, 'error', 7000);
+    else if (sent > 0) showToast('오프라인에서 바꾼 내용을 모두 저장했어요', 'success');
+    deferredResyncRef.current = false;
+    resyncAll();
+  }), [resyncAll]);
+
+  // 다시 연결됐는데 보낼 변경이 없으면, 미뤄 둔 다시 불러오기를 바로
+  useEffect(() => {
+    function onOnline() {
+      setTimeout(() => {
+        if (deferredResyncRef.current && pendingFor(userIdRef.current) === 0 && navigator.onLine) {
+          deferredResyncRef.current = false;
+          resyncAll();
+        }
+      }, 1500);
+    }
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [resyncAll]);
+
+  // 지금 화면 내용을 이 기기에 저장 (오프라인으로 열 때 사용). 바뀐 뒤 1초 모아서 한 번
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId || loadedUserRef.current !== userId) return;
+    const timer = setTimeout(() => {
+      const snap: Snapshot = {
+        savedAt: new Date().toISOString(),
+        todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices,
+      };
+      void offlineStore.put('kv', snap, snapshotKey(userId));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [user?.id, todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices]);
 
   // ── 테마 적용 ───────────────────────────────────────────
   useEffect(() => {
@@ -189,6 +504,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings.theme]);
 
+  // ── 글자 크기 적용 (앱 전체) ───────────────────────────────
+  useEffect(() => { applyFontScale(settings.calendarTextSize); }, [settings.calendarTextSize]);
+
+  // ── 이미 열린 앱에서 알림을 누르면 서비스워커가 보내는 메시지로 화면 이동 ──
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    function handleMessage(e: MessageEvent) {
+      // 알림을 누르면: 타임박스 알림은 타임박스로, 할 일·일정 알림은 홈으로
+      if (e.data?.type === 'moa:navigate' && (e.data.screen === 'timebox' || e.data.screen === 'today')) setCurrentScreen(e.data.screen);
+    }
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, []);
+
   // ── Realtime 구독 ────────────────────────────────────────
   useEffect(() => {
     if (!user) {
@@ -196,37 +525,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const channel = supabase
-      .channel(`user-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchTodos(user.id);
-          setTodos(rows.map(toTodo));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchCategories(user.id);
-          setCategories(rows.map(toCategory));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchSubcategories(user.id);
-          setSubcategories(rows.map(toSubcategory));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchNotes(user.id);
-          setNotes(rows.map(toNote));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' },
-        async () => {
-          const rows = await db.fetchNotices().catch(() => []);
-          setNotices(rows.map(toNotice));
-        })
-      .subscribe();
+    // 다른 기기(폰 ↔ PC)에서 바꾼 내용을 바로 반영. 모든 데이터 종류를 구독함.
+    let channel = supabase.channel(`user-${user.id}`);
+    for (const [table, kind] of REALTIME_TABLES) {
+      // 추가/수정: 내 데이터만 오도록 user_id로 거름
+      channel = channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: `user_id=eq.${user.id}` }, () => resync(kind))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter: `user_id=eq.${user.id}` }, () => resync(kind))
+        // 삭제: Supabase는 삭제 알림을 user_id로 거르지 못해서, 지워진 id가 내 화면에 있을 때만 다시 불러옴
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table }, payload => {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id && localIdsRef.current[kind]?.some(item => item.id === id)) resync(kind);
+        });
+    }
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => resync('notices'));
+
+    // 연결이 끊겼다가 다시 붙으면(폰 잠금 해제, 네트워크 전환 등) 그 사이 놓친 변경을 전부 다시 불러옴
+    let subscribedOnce = false;
+    channel.subscribe(status => {
+      if (status !== 'SUBSCRIBED') return;
+      if (subscribedOnce) resyncAll();
+      subscribedOnce = true;
+    });
 
     channelRef.current = channel;
     return () => { channel.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // 앱으로 다시 돌아오거나(백그라운드 → 화면 켜짐) 인터넷이 다시 연결되면 최신 내용으로 맞춤.
+  // 모바일은 백그라운드에서 실시간 연결이 끊기는 경우가 많아서 이게 없으면 다른 기기 변경이 늦게 보임
+  useEffect(() => {
+    if (!user) return;
+    let lastSync = Date.now();
+    const syncIfStale = () => {
+      if (Date.now() - lastSync < 5000) return; // 너무 자주 불러오지 않도록
+      lastSync = Date.now();
+      resyncAll();
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') syncIfStale(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', syncIfStale);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', syncIfStale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -242,15 +585,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       due_date: fields.dueDate ?? null,
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
+      ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
-      sort_order: todos.length,
+      sort_order: takeTodoSortOrders(1),
     });
-    setTodos(prev => [...prev, toTodo(row)]);
-  }, [user, todos.length]);
+    const todo = toTodo(row);
+    setTodos(prev => [...prev, todo]);
+    return todo;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => {
+  // 반복 할 일: 각 날짜마다 독립된 할 일을 한 번에 만들고 같은 seriesId로 묶음
+  const addTodoSeries = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // dates에는 기존 항목 날짜를 빼고 넘겨야 함 (호출하는 쪽에서 방금 바꾼 날짜를 알고 있으므로)
+      await db.setSeriesId('todos', existingId, seriesId);
+      setTodos(prev => prev.map(t => t.id === existingId ? { ...t, seriesId } : t));
+    }
+    if (dates.length === 0) return;
+    const firstSort = takeTodoSortOrders(dates.length);
+    const rows = await db.createTodos(user.id, dates.map((date, i) => ({
+      title: fields.title,
+      completed: fields.completed,
+      category_id: fields.categoryId,
+      subcategory_id: fields.subcategoryId ?? null,
+      date,
+      due_date: fields.dueDate ?? null,
+      is_dday: fields.isDday ?? false,
+      start_time: fields.startTime ?? null,
+      ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
+      notes: fields.notes,
+      sort_order: firstSort + i,
+    })), seriesId);
+    setTodos(prev => [...prev, ...rows.map(toTodo)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const updateTodoSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => {
+    const dbUpdates: Parameters<typeof db.updateTodoSeries>[2] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('categoryId' in updates) dbUpdates.category_id = updates.categoryId ?? null;
+    if ('subcategoryId' in updates) dbUpdates.subcategory_id = updates.subcategoryId ?? null;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.endTime)));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.remindMinutes != null)));
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    setTodos(prev => prev.map(t => inSeries(t, seriesId, fromDate) ? { ...t, ...updates } : t));
+    await db.updateTodoSeries(seriesId, fromDate, dbUpdates);
+  }, []);
+
+  const deleteTodoSeries = useCallback(async (seriesId: string, fromDate: string | null) => {
+    const ids = todosRef.current.filter(t => inSeries(t, seriesId, fromDate)).map(t => t.id);
+    setTodos(prev => prev.filter(t => !inSeries(t, seriesId, fromDate)));
+    removeLinkedBlocksLocally(ids);
+    // 블록 먼저: 할 일을 먼저 지우면 DB가 블록의 todo_id를 비워서(on delete set null) 찾을 수 없게 됨
+    if (ids.length) await db.deleteTimeBlocksForTodos(ids);
+    await db.deleteTodoSeries(seriesId, fromDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // followBlocks: 블록을 옮겨서 할 일을 맞추는 경우에는 false (다시 블록들을 옮기지 않도록)
+  const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>, followBlocks = true) => {
     if (!user) return;
     const dbUpdates: Parameters<typeof db.updateTodo>[1] = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -263,20 +664,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    const before = todosRef.current.find(t => t.id === id);
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
+    // '안 하기'는 켤 때(또는 켜져 있던 걸 풀 때)만 보냄 (025 전 DB 대비). 완료하면 '안 하기'는 풀림
+    const nextUpdates = { ...updates };
+    if (updates.completed === true && before?.skipped) nextUpdates.skipped = false;
+    if (nextUpdates.skipped !== undefined && (nextUpdates.skipped || before?.skipped)) dbUpdates.skipped = nextUpdates.skipped;
+    if (nextUpdates.skipped === true && before?.completed) { nextUpdates.completed = false; dbUpdates.completed = false; }
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, ...nextUpdates } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...nextUpdates } : t));
     await db.updateTodo(id, dbUpdates);
+    if (before && followBlocks) await followTodoWithBlocks(before, updates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // 할 일의 날짜·시간을 바꾸면, 원래 날짜에 잡아 둔 연결 블록도 같이 옮김
+  // (날짜만 바뀌면 같은 시각 그대로 새 날짜로, 시간이 바뀌면 길이는 그대로 두고 새 시각으로.
+  //  저장소로 보내 날짜가 없어지면 그 날의 블록은 지움)
+  async function followTodoWithBlocks(before: Todo, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) {
+    if (!before.date || !('date' in updates || 'startTime' in updates || 'endTime' in updates)) return;
+    const newDate = 'date' in updates ? updates.date ?? null : before.date;
+    const newTime = 'startTime' in updates ? updates.startTime ?? null : before.startTime ?? null;
+    const timeChanged = 'startTime' in updates && newTime !== (before.startTime ?? null) && newTime !== null;
+    const linked = timeblocksRef.current.filter(b => b.todoId === before.id && !b.seriesId && getBlockSpan(b).dateKey === before.date);
+    for (const block of linked) {
+      if (!newDate) {
+        timeblocksRef.current = timeblocksRef.current.filter(b => b.id !== block.id);
+        setTimeblocks(prev => prev.filter(b => b.id !== block.id));
+        await db.deleteTimeBlock(block.id);
+        continue;
+      }
+      const span = getBlockSpan(block);
+      // 블록이 하나뿐이고 할 일에 끝 시간이 있으면 블록 길이도 할 일 시간에 맞춤
+      const newEndMin = linked.length === 1 && newTime ? timeRangeEnd(newTime, 'endTime' in updates ? updates.endTime : before.endTime) : null;
+      const endChanged = 'endTime' in updates && (updates.endTime ?? null) !== (before.endTime ?? null);
+      const length = endChanged && newEndMin !== null ? newEndMin - (parseMinutes(newTime ?? '') ?? 0) : span.endMin - span.startMin;
+      // 시간이 바뀌면: 원래 시간이 있었으면 그만큼 같이 밀고(여러 번에 나눠 잡은 블록도 간격 유지),
+      // 없었으면 블록이 하나일 때만 새 시각으로
+      const oldMin = before.startTime ? parseMinutes(before.startTime) : null;
+      const newMin = parseMinutes(newTime ?? '');
+      let startMin = span.startMin;
+      if (timeChanged && newMin !== null) {
+        if (oldMin !== null) startMin = span.startMin + (newMin - oldMin);
+        else if (linked.length === 1) startMin = newMin;
+      } else if (endChanged && newMin !== null && linked.length === 1) startMin = newMin;
+      startMin = Math.max(0, Math.min(startMin, DAY_MINUTES - length));
+      const range = spanToRange(newDate, startMin, startMin + length);
+      if (range.startAt === block.startAt && range.endAt === block.endAt) continue;
+      timeblocksRef.current = timeblocksRef.current.map(b => b.id === block.id ? { ...b, ...range } : b);
+      setTimeblocks(prev => sortTimeBlocks(prev.map(b => b.id === block.id ? { ...b, ...range } : b)));
+      await db.updateTimeBlock(block.id, { start_at: range.startAt, end_at: range.endAt, notified_at: null });
+    }
+  }
+
+  function removeLinkedBlocksLocally(todoIds: string[]) {
+    const ids = new Set(todoIds);
+    timeblocksRef.current = timeblocksRef.current.filter(b => !b.todoId || !ids.has(b.todoId));
+    setTimeblocks(prev => prev.filter(b => !b.todoId || !ids.has(b.todoId)));
+  }
 
   const deleteTodo = useCallback(async (id: string) => {
     setTodos(prev => prev.filter(t => t.id !== id));
+    removeLinkedBlocksLocally([id]);
+    await db.deleteTimeBlocksForTodos([id]);
     await db.deleteTodo(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleTodo = useCallback(async (id: string) => {
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    const todo = todos.find(t => t.id === id);
-    if (todo) await db.updateTodo(id, { completed: !todo.completed });
-  }, [todos]);
+    const todo = todosRef.current.find(t => t.id === id);
+    if (!todo) return;
+    const completed = !todo.completed;
+    // 끝냈으면 '안 하기'는 풀림
+    const unskip = completed && !!todo.skipped;
+    // 다음 렌더 전에 또 눌려도 방금 바꾼 값을 기준으로 뒤집도록 참조도 바로 갱신
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t));
+    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed, ...(unskip ? { skipped: false } : {}) }));
+  }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
     setTodos(prev => {
@@ -285,7 +751,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const rest = prev.filter(t => !orderedIds.includes(t.id));
       return [...reordered, ...rest];
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateTodo(id, { sort_order: i })));
+    await db.reorderItems('todos', orderedIds);
   }, []);
 
   // ── Categories ───────────────────────────────────────────
@@ -317,7 +783,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const map = new Map(prev.map(c => [c.id, c]));
       return orderedIds.map(id => map.get(id)!).filter(Boolean);
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateCategory(id, { sort_order: i })));
+    await db.reorderItems('categories', orderedIds);
   }, []);
 
   // ── Subcategories (카테고리 하위 그룹) ──────────────────────
@@ -346,24 +812,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const rest = prev.filter(s => !orderedIds.includes(s.id));
       return [...reordered, ...rest];
     });
-    await Promise.all(orderedIds.map((id, i) => db.updateSubcategory(id, { sort_order: i })));
+    await db.reorderItems('subcategories', orderedIds);
   }, []);
 
   // ── Notes ────────────────────────────────────────────────
-  const addNote = useCallback(async (title: string, content: string) => {
-    if (!user) return;
-    const row = await db.createNote(user.id, title, content);
-    setNotes(prev => [toNote(row), ...prev]);
+  const addNote = useCallback(async (title: string, content: string, folderId: string | null = null): Promise<Note | undefined> => {
+    if (!user) return undefined;
+    const note = toNote(await db.createNote(user.id, title, content, folderId));
+    setNotes(prev => [note, ...prev]);
+    return note;
   }, [user]);
 
-  const updateNote = useCallback(async (id: string, updates: { title?: string; content?: string }) => {
+  const updateNote = useCallback(async (id: string, updates: NoteUpdates) => {
     setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n));
-    await db.updateNote(id, updates);
+    const dbUpdates: Parameters<typeof db.updateNote>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.content !== undefined) dbUpdates.content = updates.content;
+    if ('folderId' in updates) dbUpdates.folder_id = updates.folderId ?? null;
+    if (updates.pinned !== undefined) dbUpdates.pinned = updates.pinned;
+    await db.updateNote(id, dbUpdates);
   }, []);
 
   const deleteNote = useCallback(async (id: string) => {
     setNotes(prev => prev.filter(n => n.id !== id));
     await db.deleteNote(id);
+  }, []);
+
+  // ── 메모 폴더 ─────────────────────────────────────
+  const addNoteFolder = useCallback(async (name: string): Promise<NoteFolder | undefined> => {
+    if (!user) return undefined;
+    const folder = toNoteFolder(await db.createNoteFolder(user.id, name, noteFolders.length));
+    setNoteFolders(prev => [...prev, folder]);
+    return folder;
+  }, [user, noteFolders.length]);
+
+  const renameNoteFolder = useCallback(async (id: string, name: string) => {
+    setNoteFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
+    await db.updateNoteFolder(id, { name });
+  }, []);
+
+  // 폴더를 지워도 안의 메모는 남고 "폴더 없음"으로 이동 (DB도 on delete set null)
+  const deleteNoteFolder = useCallback(async (id: string) => {
+    setNoteFolders(prev => prev.filter(f => f.id !== id));
+    setNotes(prev => prev.map(n => n.folderId === id ? { ...n, folderId: null } : n));
+    await db.deleteNoteFolder(id);
   }, []);
 
   // ── Monthly Goals ────────────────────────────────
@@ -373,11 +865,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMonthlyGoals(prev => [...prev, toMonthlyGoal(row)]);
   }, [user]);
 
+  const updateMonthlyGoal = useCallback(async (id: string, updates: { title?: string }) => {
+    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+    await db.updateMonthlyGoal(id, updates);
+  }, []);
+
   const toggleMonthlyGoal = useCallback(async (id: string) => {
-    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
-    const goal = monthlyGoals.find(g => g.id === id);
-    if (goal) await db.updateMonthlyGoal(id, { completed: !goal.completed });
-  }, [monthlyGoals]);
+    const goal = monthlyGoalsRef.current.find(g => g.id === id);
+    if (!goal) return;
+    const completed = !goal.completed;
+    monthlyGoalsRef.current = monthlyGoalsRef.current.map(g => g.id === id ? { ...g, completed } : g);
+    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed } : g));
+    await serialWriteRef.current(`goal:${id}`, () => db.updateMonthlyGoal(id, { completed }));
+  }, []);
 
   const deleteMonthlyGoal = useCallback(async (id: string) => {
     setMonthlyGoals(prev => prev.filter(g => g.id !== id));
@@ -403,6 +903,226 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDDays(prev => prev.filter(d => d.id !== id));
     await db.deleteDDay(id);
   }, []);
+
+  // ── 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개) ───────────
+  function sortSchedules(list: ScheduleItem[]): ScheduleItem[] {
+    return [...list].sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99:99').localeCompare(b.startTime ?? '99:99'));
+  }
+
+  const addSchedule = useCallback(async (fields: ScheduleFields & { date: string; endDate?: string | null }) => {
+    if (!user) return;
+    const row = await db.createSchedule(user.id, {
+      title: fields.title, date: fields.date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false),
+      ...(fields.endDate ? { end_date: fields.endDate } : {}), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
+    });
+    setSchedules(prev => sortSchedules([...prev, toSchedule(row)]));
+  }, [user]);
+
+  const updateSchedule = useCallback(async (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => {
+    const before = schedulesRef.current.find(s => s.id === id);
+    setSchedules(prev => sortSchedules(prev.map(s => s.id === id ? { ...s, ...updates } : s)));
+    const dbUpdates: Parameters<typeof db.updateSchedule>[1] = {};
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
+    // 끝 날짜도 끝 시간처럼 있을 때(또는 지울 때)만 보냄 (021 마이그레이션 전 DB 대비)
+    if ('endDate' in updates && (updates.endDate || before?.endDate)) dbUpdates.end_date = updates.endDate || null;
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
+    await db.updateSchedule(id, dbUpdates);
+  }, []);
+
+  // 일정 완료 체크 (끝낸 일정은 위쪽 일정 목록에서 빠지고 달력에는 흐리게 남음)
+  const toggleSchedule = useCallback(async (id: string) => {
+    const schedule = schedulesRef.current.find(s => s.id === id);
+    if (!schedule) return;
+    const completed = !schedule.completed;
+    schedulesRef.current = schedulesRef.current.map(s => s.id === id ? { ...s, completed } : s);
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, completed } : s));
+    await serialWriteRef.current(`schedule:${id}`, () => db.updateSchedule(id, { completed }));
+  }, []);
+
+  const deleteSchedule = useCallback(async (id: string) => {
+    setSchedules(prev => prev.filter(s => s.id !== id));
+    await db.deleteSchedule(id);
+  }, []);
+
+  // 반복 일정: 각 날짜마다 독립된 일정을 한 번에 만들고 같은 seriesId로 묶음
+  const addScheduleSeries = useCallback(async (fields: ScheduleFields, dates: string[], existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // dates에는 기존 일정 날짜를 빼고 넘겨야 함 (호출하는 쪽에서 방금 바꾼 날짜를 알고 있으므로)
+      await db.setSeriesId('schedules', existingId, seriesId);
+      setSchedules(prev => prev.map(s => s.id === existingId ? { ...s, seriesId } : s));
+    }
+    if (dates.length === 0) return;
+    const rows = await db.createSchedules(user.id, dates.map(date => ({
+      title: fields.title, date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
+    })), seriesId);
+    setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
+  }, [user]);
+
+  const updateScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => {
+    const dbUpdates: Parameters<typeof db.updateScheduleSeries>[2] = {};
+    if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, schedulesRef.current.some(s => inSeries(s, seriesId, fromDate) && s.endTime)));
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, schedulesRef.current.some(s => inSeries(s, seriesId, fromDate) && s.remindMinutes != null)));
+    setSchedules(prev => sortSchedules(prev.map(s => inSeries(s, seriesId, fromDate) ? { ...s, ...updates } : s)));
+    await db.updateScheduleSeries(seriesId, fromDate, dbUpdates);
+  }, []);
+
+  const deleteScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null) => {
+    setSchedules(prev => prev.filter(s => !inSeries(s, seriesId, fromDate)));
+    await db.deleteScheduleSeries(seriesId, fromDate);
+  }, []);
+
+  // ── 타임박스 (시간 블록) ──────────────────────────────
+  // 저장소(날짜 없음)에 있던 할 일을 블록에 넣으면 그 날 할 일로 옮겨서 홈 화면 그 날짜에도 보이게 함
+  // 블록을 만들거나 옮기면 연결된 할 일도 맞춤
+  // - 날짜 없는 할 일: 블록 날짜로
+  // - 할 일 날짜에 있던 블록을 다른 날로 옮기면: 할 일도 그 날로 (그 날 연결 블록이 이것 하나일 때)
+  // - 시간이 정해진 할 일: 그 날 연결 블록이 이것 하나면 할 일 시간도 블록 시작 시각으로
+  //   (한 할 일을 여러 번에 나눠 잡은 경우에는 할 일 시간은 그대로 둠)
+  const scheduleLinkedTodo = useCallback(async (blockId: string | null, todoId: string | null | undefined, startAt: string, prevStartAt?: string) => {
+    if (!todoId) return;
+    const todo = todosRef.current.find(t => t.id === todoId);
+    if (!todo) return;
+    const start = parseISO(startAt);
+    const dateKey = format(start, 'yyyy-MM-dd');
+    const time = format(start, 'HH:mm');
+    const prevDate = prevStartAt ? format(parseISO(prevStartAt), 'yyyy-MM-dd') : null;
+    const othersOn = (day: string) => timeblocksRef.current.some(b => b.id !== blockId && b.todoId === todoId && getBlockSpan(b).dateKey === day);
+    if (!todo.date) { await updateTodo(todoId, { date: dateKey }, false); return; }
+    const updates: Partial<Todo> = {};
+    if (todo.date !== dateKey && prevDate === todo.date && !othersOn(prevDate)) updates.date = dateKey;
+    const landsOnTodoDay = (updates.date ?? todo.date) === dateKey;
+    if (landsOnTodoDay && todo.startTime && todo.startTime !== time && !othersOn(dateKey)) {
+      updates.startTime = time;
+      // 끝 시간이 있으면 같은 길이만큼 같이 옮김
+      const oldStart = parseMinutes(todo.startTime);
+      const oldEnd = todo.endTime ? parseMinutes(todo.endTime) : null;
+      const newStart = parseMinutes(time);
+      if (oldStart !== null && oldEnd !== null && newStart !== null) {
+        updates.endTime = formatMinutes(Math.min(DAY_MINUTES - 1, newStart + (oldEnd - oldStart)));
+      }
+    }
+    if (Object.keys(updates).length) await updateTodo(todoId, updates, false);
+  }, [updateTodo]);
+
+  const addTimeBlock = useCallback(async (fields: Omit<TimeBlockFields, 'completed'> & { completed?: boolean }) => {
+    if (!user) return null;
+    const row = await db.createTimeBlock(user.id, {
+      title: fields.title,
+      todo_id: fields.todoId,
+      color: fields.color,
+      start_at: fields.startAt,
+      end_at: fields.endAt,
+      remind_minutes: fields.remindMinutes,
+      completed: fields.completed ?? false,
+    });
+    const block = toTimeBlock(row);
+    setTimeblocks(prev => sortTimeBlocks([...prev, block]));
+    await scheduleLinkedTodo(block.id, fields.todoId, fields.startAt);
+    return block;
+  }, [user, scheduleLinkedTodo]);
+
+  const updateTimeBlock = useCallback(async (id: string, updates: Partial<TimeBlockFields>) => {
+    const block = timeblocksRef.current.find(b => b.id === id);
+    timeblocksRef.current = timeblocksRef.current.map(b => b.id === id ? { ...b, ...updates } : b);
+    setTimeblocks(prev => sortTimeBlocks(prev.map(b => b.id === id ? { ...b, ...updates } : b)));
+    const dbUpdates: Parameters<typeof db.updateTimeBlock>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('todoId' in updates) dbUpdates.todo_id = updates.todoId ?? null;
+    if ('color' in updates) dbUpdates.color = updates.color ?? null;
+    if (updates.startAt !== undefined) dbUpdates.start_at = updates.startAt;
+    if (updates.endAt !== undefined) dbUpdates.end_at = updates.endAt;
+    if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+    if ('remindMinutes' in updates) dbUpdates.remind_minutes = updates.remindMinutes ?? null;
+    // 시작 시각이나 알림 시점이 바뀌면 새 시간에 다시 울리도록 "보냄" 표시를 지움
+    if (updates.startAt !== undefined || 'remindMinutes' in updates) dbUpdates.notified_at = null;
+    await db.updateTimeBlock(id, dbUpdates);
+    const linkedTodoId = 'todoId' in updates ? updates.todoId : block?.todoId;
+    if (linkedTodoId && (updates.todoId || updates.startAt)) await scheduleLinkedTodo(id, linkedTodoId, updates.startAt ?? block?.startAt ?? new Date().toISOString(), block?.startAt);
+  }, [scheduleLinkedTodo]);
+
+  const deleteTimeBlock = useCallback(async (id: string) => {
+    setTimeblocks(prev => prev.filter(b => b.id !== id));
+    await db.deleteTimeBlock(id);
+  }, []);
+
+  // 할 일과 연결된 블록이면 그 할 일을 완료 처리, 아니면 블록 자체를 완료 처리
+  const toggleTimeBlock = useCallback(async (id: string) => {
+    const block = timeblocksRef.current.find(b => b.id === id);
+    if (!block) return;
+    if (block.todoId && todosRef.current.some(t => t.id === block.todoId)) {
+      await toggleTodo(block.todoId);
+      return;
+    }
+    const completed = !block.completed;
+    timeblocksRef.current = timeblocksRef.current.map(b => b.id === id ? { ...b, completed } : b);
+    setTimeblocks(prev => prev.map(b => b.id === id ? { ...b, completed } : b));
+    await serialWriteRef.current(`block:${id}`, () => db.updateTimeBlock(id, { completed }));
+  }, [toggleTodo]);
+
+  // 반복 블록 (매주 고정 일정): 날짜마다 같은 시간의 블록을 만들고 seriesId로 묶음
+  const addTimeBlockSeries = useCallback(async (fields: TimeBlockSeriesFields, dateKeys: string[], startMin: number, endMin: number, existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // 기존 블록을 반복으로 바꾸기: 이 블록이 첫 회차 (dateKeys에는 이 블록 날짜를 빼고 넘김)
+      await db.setSeriesId('timeblocks', existingId, seriesId);
+      setTimeblocks(prev => prev.map(b => b.id === existingId ? { ...b, seriesId } : b));
+    }
+    if (dateKeys.length === 0) return;
+    const rows = await db.createTimeBlocks(user.id, dateKeys.map(dateKey => {
+      const range = spanToRange(dateKey, startMin, endMin);
+      return { title: fields.title, color: fields.color, start_at: range.startAt, end_at: range.endAt, remind_minutes: fields.remindMinutes };
+    }), seriesId);
+    setTimeblocks(prev => sortTimeBlocks([...prev, ...rows.map(toTimeBlock)]));
+  }, [user]);
+
+  // 반복 블록 여러 회차를 한 번에 고치기. 시간을 바꾸면 각 회차의 날짜는 그대로 두고 시각만 바꿈
+  const updateTimeBlockSeries = useCallback(async (seriesId: string, fromStartAt: string | null, updates: Partial<TimeBlockSeriesFields> & { startMin?: number; endMin?: number }) => {
+    const rows = await db.fetchTimeBlockSeries(seriesId, fromStartAt);
+    const next = applySeriesUpdate(rows, updates);
+    const byId = new Map(next.map(r => [r.id, toTimeBlock(r)]));
+    setTimeblocks(prev => sortTimeBlocks(prev.map(b => byId.get(b.id) ?? b)));
+    // 제목·색·알림은 묶음 전체에 한 번에, 시각은 바뀐 회차만 행마다 저장 (가져온 행 전체를 덮어쓰지 않음)
+    const fields: Parameters<typeof db.updateTimeBlockSeriesFields>[2] = {};
+    if (updates.title !== undefined) fields.title = updates.title;
+    if ('color' in updates) fields.color = updates.color ?? null;
+    if ('remindMinutes' in updates && rows.some(r => r.remind_minutes !== updates.remindMinutes)) {
+      fields.remind_minutes = updates.remindMinutes ?? null;
+      fields.notified_at = null;
+    }
+    await db.updateTimeBlockSeriesFields(seriesId, fromStartAt, fields);
+    const before = new Map(rows.map(r => [r.id, r.start_at]));
+    await db.updateTimeBlockTimes(next.filter(r => before.get(r.id) !== r.start_at));
+  }, []);
+
+  const deleteTimeBlockSeries = useCallback(async (seriesId: string, fromStartAt: string | null) => {
+    setTimeblocks(prev => prev.filter(b => !(b.seriesId === seriesId && (!fromStartAt || b.startAt >= fromStartAt))));
+    await db.deleteTimeBlockSeries(seriesId, fromStartAt);
+  }, []);
+
+  const ensureTimeBlocksFrom = useCallback(async (dateKey: string) => {
+    if (!user) return;
+    const from = parseISO(dateKey);
+    const loadedFrom = timeblocksFromRef.current;
+    if (from >= loadedFrom) return;
+    timeblocksFromRef.current = from;
+    const rows = await db.fetchTimeBlocks(user.id, from.toISOString(), loadedFrom.toISOString()).catch(() => []);
+    setTimeblocks(prev => {
+      const known = new Set(prev.map(b => b.id));
+      return sortTimeBlocks([...prev, ...rows.map(toTimeBlock).filter(b => !known.has(b.id))]);
+    });
+  }, [user]);
 
   // ── 공지사항 ───────────────────────────────────────
   const addNotice = useCallback(async (title: string, content: string) => {
@@ -431,20 +1151,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.listSortBy) dbUpdates.list_sort_by = updates.listSortBy;
     if (updates.hideCompleted !== undefined) dbUpdates.hide_completed = updates.hideCompleted;
     if (updates.hiddenCategoryIds !== undefined) dbUpdates.hidden_category_ids = updates.hiddenCategoryIds;
+    if (updates.calendarTextSize) dbUpdates.calendar_text_size = updates.calendarTextSize;
+    if (updates.showHolidays !== undefined) dbUpdates.show_holidays = updates.showHolidays;
+    if (updates.hiddenFeatures !== undefined) dbUpdates.hidden_features = updates.hiddenFeatures;
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 
+  // ── 저장 실패 처리 ─────────────────────────────────────
+  // 모든 추가/수정/삭제를 감싸서, 실패하면 알림을 띄우고 관련 데이터를 서버 내용으로 다시 맞춤.
+  // 추가(create)는 실패를 다시 던져서 입력 창이 닫히지 않고 쓰던 내용이 남아 있게 함.
+  function guard<A extends unknown[], R>(fn: (...args: A) => Promise<R>, kinds: Resource[], rethrow = false) {
+    return async (...args: A): Promise<R | undefined> => {
+      try {
+        return await fn(...args);
+      } catch (err) {
+        reportError(err, 'save');
+        showSaveError();
+        for (const kind of kinds) resync(kind, 0);
+        if (rethrow) throw markSaveErrorHandled(err);
+        return undefined;
+      }
+    };
+  }
+  const T: Resource[] = ['todos'];
+  const S: Resource[] = ['schedules'];
+  // 연결된 할 일 완료 체크/날짜 이동도 함께 일어나므로 실패하면 할 일도 다시 맞춤
+  const B: Resource[] = ['timeblocks', 'todos'];
+
   return (
     <AppContext.Provider value={{
-      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, updateTodo, deleteTodo, toggleTodo, reorderTodos,
-      addCategory, updateCategory, deleteCategory, reorderCategories,
-      addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
-      addNote, updateNote, deleteNote,
-      updateSettings,
-      addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
-      addDDay, updateDDay, deleteDDay,
-      addNotice, updateNotice, deleteNotice,
+      todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices, isAdmin, currentScreen, selectedDate, dataLoading,
+      loadError, retryLoad,
+      addTodo: guard(addTodo, T, true),
+      addTodoSeries: guard(addTodoSeries, T, true),
+      updateTodoSeries: guard(updateTodoSeries, T),
+      deleteTodoSeries: guard(deleteTodoSeries, B),
+      updateTodo: guard(updateTodo, B),
+      deleteTodo: guard(deleteTodo, B),
+      toggleTodo: guard(toggleTodo, T),
+      reorderTodos: guard(reorderTodos, T),
+      addCategory: guard(addCategory, ['categories'], true),
+      updateCategory: guard(updateCategory, ['categories']),
+      deleteCategory: guard(deleteCategory, ['categories', 'subcategories', 'todos']),
+      reorderCategories: guard(reorderCategories, ['categories']),
+      addSubcategory: guard(addSubcategory, ['subcategories'], true),
+      updateSubcategory: guard(updateSubcategory, ['subcategories']),
+      deleteSubcategory: guard(deleteSubcategory, ['subcategories', 'todos']),
+      reorderSubcategories: guard(reorderSubcategories, ['subcategories']),
+      addNote: guard(addNote, ['notes'], true),
+      updateNote: guard(updateNote, ['notes']),
+      deleteNote: guard(deleteNote, ['notes']),
+      addNoteFolder: guard(addNoteFolder, ['noteFolders'], true),
+      renameNoteFolder: guard(renameNoteFolder, ['noteFolders']),
+      deleteNoteFolder: guard(deleteNoteFolder, ['noteFolders', 'notes']),
+      updateSettings: guard(updateSettings, ['settings']),
+      addMonthlyGoal: guard(addMonthlyGoal, ['monthlyGoals'], true),
+      updateMonthlyGoal: guard(updateMonthlyGoal, ['monthlyGoals']),
+      toggleMonthlyGoal: guard(toggleMonthlyGoal, ['monthlyGoals']),
+      deleteMonthlyGoal: guard(deleteMonthlyGoal, ['monthlyGoals']),
+      addDDay: guard(addDDay, ['ddays'], true),
+      updateDDay: guard(updateDDay, ['ddays']),
+      deleteDDay: guard(deleteDDay, ['ddays']),
+      addSchedule: guard(addSchedule, S, true),
+      updateSchedule: guard(updateSchedule, S),
+      deleteSchedule: guard(deleteSchedule, S),
+      toggleSchedule: guard(toggleSchedule, S),
+      addScheduleSeries: guard(addScheduleSeries, S, true),
+      updateScheduleSeries: guard(updateScheduleSeries, S),
+      deleteScheduleSeries: guard(deleteScheduleSeries, S),
+      addTimeBlock: guard(addTimeBlock, B, true),
+      updateTimeBlock: guard(updateTimeBlock, B),
+      deleteTimeBlock: guard(deleteTimeBlock, B),
+      toggleTimeBlock: guard(toggleTimeBlock, B),
+      addTimeBlockSeries: guard(addTimeBlockSeries, B, true),
+      updateTimeBlockSeries: guard(updateTimeBlockSeries, B),
+      deleteTimeBlockSeries: guard(deleteTimeBlockSeries, B),
+      ensureTimeBlocksFrom,
+      addNotice: guard(addNotice, ['notices'], true),
+      updateNotice: guard(updateNotice, ['notices']),
+      deleteNotice: guard(deleteNotice, ['notices']),
       setCurrentScreen, setSelectedDate,
     }}>
       {children}
@@ -456,4 +1241,9 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
   return ctx;
+}
+
+// 로그인 전 화면(약관·개인정보처리방침)처럼 AppProvider 밖에서도 쓰일 수 있는 곳용
+export function useOptionalApp() {
+  return useContext(AppContext);
 }

@@ -2,16 +2,18 @@ import { X, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANGELOG } from '../data/changelog';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function ChangelogModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+    <div className="modal-overlay" onClick={handleBackdrop}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
+        className="modal-panel max-w-lg"
         style={{ maxHeight: '85vh' }}
         onClick={e => e.stopPropagation()}
       >
@@ -32,9 +34,9 @@ export default function ChangelogModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-baseline gap-2 mb-2">
                 <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">v{entry.version}</h3>
                 {i === 0 && (
-                  <span className="text-[10px] font-bold text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40 px-1.5 py-0.5 rounded-full">최신</span>
+                  <span className="text-10px font-bold text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40 px-1.5 py-0.5 rounded-full">최신</span>
                 )}
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
+                <span className="text-10px text-gray-400 dark:text-gray-500 ml-auto">
                   {format(new Date(entry.date), 'yyyy년 M월 d일', { locale: ko })}
                 </span>
               </div>

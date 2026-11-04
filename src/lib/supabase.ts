@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { configureOutbox, createOfflineFetch } from './outbox';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -11,16 +12,46 @@ export const isSupabaseConfigured = Boolean(url && key);
 // supabase/migrations/003_notices.sql의 RLS 정책과 반드시 같은 값이어야 합니다.
 export const ADMIN_USER_ID = '17478ff6-7e7a-419e-ba64-7bb9db8bbcea';
 
+export const supabaseUrl = url || 'https://placeholder.supabase.co';
+export const supabaseAnonKey = key || 'placeholder-anon-key';
+
 export const supabase = createClient(
-  url || 'https://placeholder.supabase.co',
-  key || 'placeholder-anon-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
     },
+    // 인터넷이 끊겨도 추가·수정·삭제를 이 기기에 보관했다가 다시 연결되면 보냄 (outbox.ts)
+    global: { fetch: createOfflineFetch() },
   }
 );
+
+// 오프라인일 때는 로그인 갱신(토큰 새로 받기)을 시도하지 않고 저장된 토큰을 그대로 씀.
+// 갱신을 시도하면 Supabase가 25초 가까이 다시 시도하느라 추가·수정이 그만큼 늦게 끝났음.
+// (어차피 오프라인 요청은 보관했다가 다시 연결되면 새 토큰으로 보냄)
+const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+function storedAccessToken(): string | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    return raw ? (JSON.parse(raw) as { access_token?: string }).access_token ?? null : null;
+  } catch {
+    return null;
+  }
+}
+(supabase as unknown as { accessToken?: () => Promise<string | null> }).accessToken = async () => {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    const stored = storedAccessToken();
+    if (stored) return stored;
+  }
+  return (await supabase.auth.getSession()).data.session?.access_token ?? null;
+};
+
+configureOutbox({
+  apiKey: supabaseAnonKey,
+  getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+});
 
 // ────────────────────────────────────────────────
 // DB 타입 (Supabase 반환 행 기준)
@@ -57,8 +88,13 @@ export interface DbTodo {
   due_date: string | null;
   is_dday: boolean;
   start_time: string | null;
+  end_time?: string | null; // 021 마이그레이션 전에는 컬럼이 없을 수 있음
   notes: string | null;
   sort_order: number;
+  series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
+  skipped?: boolean;              // 025 마이그레이션 전에는 컬럼이 없을 수 있음
+  remind_minutes?: number | null; // 025
+  time_zone?: string | null;      // 025: 알림 시각을 계산할 기기 시간대
   created_at: string;
   updated_at: string;
 }
@@ -68,8 +104,18 @@ export interface DbNote {
   user_id: string;
   title: string;
   content: string;
+  folder_id?: string | null; // 014 마이그레이션 전에는 컬럼이 없을 수 있음
+  pinned?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DbNoteFolder {
+  id: string;
+  user_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface DbMonthlyGoal {
@@ -90,6 +136,40 @@ export interface DbDDay {
   created_at: string;
 }
 
+// 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과 구분되는 별도 항목으로,
+// 홈 화면 달력에는 제목이 보이는 칩으로, 할 일은 그대로 색깔 점으로 표시됨.
+export interface DbSchedule {
+  id: string;
+  user_id: string;
+  title: string;
+  date: string;
+  start_time: string | null;
+  end_time?: string | null; // 021 마이그레이션 전에는 컬럼이 없을 수 있음
+  end_date?: string | null;
+  notes: string | null;
+  series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
+  completed?: boolean; // 022 마이그레이션 전에는 컬럼이 없을 수 있음
+  remind_minutes?: number | null; // 025 마이그레이션 전에는 컬럼이 없을 수 있음
+  time_zone?: string | null;      // 025: 알림 시각을 계산할 기기 시간대
+  created_at: string;
+}
+
+// 타임박스 블록. 시각은 기기 시간대 기준으로 만든 절대 시각(timestamptz)
+export interface DbTimeBlock {
+  id: string;
+  user_id: string;
+  todo_id: string | null;
+  title: string;
+  color: string | null;
+  start_at: string;
+  end_at: string;
+  completed: boolean;
+  remind_minutes: number | null;
+  notified_at: string | null;
+  created_at: string;
+  series_id?: string | null; // 019 전 DB에는 없음
+}
+
 export interface DbNotice {
   id: string;
   title: string;
@@ -101,11 +181,14 @@ export interface DbNotice {
 export interface DbSettings {
   user_id: string;
   theme: 'light' | 'dark' | 'system';
-  default_screen: 'today' | 'calendar' | 'all' | 'notes';
+  default_screen: 'today' | 'month' | 'calendar' | 'all' | 'notes' | 'timebox';
   notifications: boolean;
   list_sort_by: 'manual' | 'date' | 'name';
   hide_completed: boolean;
   hidden_category_ids: string[];
+  calendar_text_size: 'small' | 'medium' | 'large';
+  show_holidays?: boolean; // 020 마이그레이션 전에는 컬럼이 없을 수 있음
+  hidden_features?: string[];
   updated_at: string;
 }
 
@@ -120,4 +203,40 @@ export interface AdminStats {
   completedTodos: number;
   totalNotes: number;
   totalCategories: number;
+  // 023_admin_stats_v2.sql 이후에만 옴 (version: 2). 날짜는 모두 한국 시간 기준
+  version?: number;
+  registeredUsers?: number; // 회원 (체험 계정 제외)
+  guestUsers?: number; // 체험(익명) 계정
+  googleUsers?: number; // 구글 계정을 연결한 회원
+  newUsers30d?: number;
+  newGuestsToday?: number;
+  newGuests7d?: number;
+  activeUsersToday?: number; // 오늘 기록을 남기거나 고친 사용자
+  cohortSize?: number; // 지난주(8~14일 전) 가입한 회원 수
+  cohortRetained?: number; // 그중 최근 7일에 다시 쓴 사람
+  features?: AdminFeatureUsage; // 최근 30일 기능별 사용자 수
+  daily?: AdminDailyStat[]; // 최근 14일 (오래된 날부터)
+  totalSchedules?: number;
+  totalTimeblocks?: number;
+  totalDdays?: number;
+  feedbackTotal?: number;
+  feedback7d?: number;
+  pushUsers?: number; // 푸시 알림을 켠 사용자
+  hiddenFeatures?: { timebox: number; all: number; notes: number }; // 메뉴에서 기능을 숨긴 사용자 수
+}
+
+export interface AdminFeatureUsage {
+  todos: number;
+  schedules: number;
+  timeblocks: number;
+  notes: number;
+  ddays: number;
+  goals: number;
+}
+
+export interface AdminDailyStat {
+  day: string; // YYYY-MM-DD
+  signups: number; // 회원 가입
+  guests: number; // 체험 시작
+  active: number; // 기록을 남긴 사용자
 }

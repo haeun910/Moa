@@ -1,0 +1,226 @@
+import { useState } from 'react';
+import { X, CalendarClock, Trash2, Check } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { buildRecurringDates } from '../lib/recurrence';
+import type { RepeatRule } from '../lib/recurrence';
+import RepeatPicker from './RepeatPicker';
+import SeriesScopePicker from './SeriesScopePicker';
+import type { SeriesScope } from './SeriesScopePicker';
+import type { ScheduleItem } from '../types';
+import { LIMITS } from '../lib/limits';
+import { isValidTimeRange } from '../lib/timeRange';
+import TimeRangeInput from './TimeRangeInput';
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import ReminderPicker from './ReminderPicker';
+import { normalizeRemind } from '../lib/reminder';
+
+interface Props {
+  schedule?: ScheduleItem;
+  defaultDate?: string;
+  onClose: () => void;
+}
+
+export default function ScheduleModal({ schedule, defaultDate, onClose }: Props) {
+  useEscapeKey(onClose);
+  const {
+    schedules, addSchedule, updateSchedule, deleteSchedule, toggleSchedule,
+    addScheduleSeries, updateScheduleSeries, deleteScheduleSeries,
+  } = useApp();
+  const isEdit = !!schedule;
+  // 완료 체크는 바로 저장되므로 목록의 최신 값을 따라감
+  const liveSchedule = schedule ? schedules.find(s => s.id === schedule.id) : undefined;
+  const [title, setTitle] = useState(schedule?.title ?? '');
+  const [date, setDate] = useState(schedule?.date ?? defaultDate ?? '');
+  const [endDate, setEndDate] = useState(schedule?.endDate ?? '');
+  const [startTime, setStartTime] = useState(schedule?.startTime ?? '');
+  const [endTime, setEndTime] = useState(schedule?.endTime ?? '');
+  // 끝 날짜가 시작 날짜와 같거나 없으면 하루짜리
+  const rangeEnd = endDate && endDate > date ? endDate : null;
+  const dateRangeInvalid = !!endDate && !!date && endDate < date;
+  const [notes, setNotes] = useState(schedule?.notes ?? '');
+  const [remind, setRemind] = useState<number | null>(schedule?.remindMinutes ?? null);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // 반복으로 만든 일정을 수정/삭제할 때 적용 범위
+  const seriesId = schedule?.seriesId ?? null;
+  const seriesItems = seriesId ? schedules.filter(s => s.seriesId === seriesId) : [];
+  const inSeries = seriesItems.length > 1;
+
+  // 반복 설정 (예: 매주 월·수 수업, 매주 화요일 정기 회의). 새 일정뿐 아니라
+  // 아직 반복이 아닌 기존 일정도 반복으로 바꿀 수 있음 (이 일정이 첫 회차가 되고 이후 날짜가 추가됨)
+  // 여러 날 일정은 반복할 수 없음 (반복 회차마다 기간을 맞추기 어려워서)
+  const canRepeat = !inSeries && !rangeEnd;
+  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
+  const repeating = canRepeat && repeat.freq !== 'none';
+  const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
+  // 기존 일정을 반복으로 바꿀 때 새로 만들어지는 개수 (이 일정 날짜는 제외)
+  const newRepeatCount = isEdit ? repeatDates.filter(d => d !== date).length : repeatDates.length;
+  const [scope, setScope] = useState<SeriesScope>('one');
+  const followingCount = schedule ? seriesItems.filter(s => s.date >= schedule.date).length : 0;
+  const scopeFromDate = scope === 'following' && schedule ? schedule.date : null;
+
+  const canSave = !!title.trim() && !!date && !saving && (!repeating || repeatDates.length > 0)
+    && !dateRangeInvalid && isValidTimeRange(startTime, endTime);
+
+  // 시작 날짜를 바꾸면 끝 날짜도 같은 기간만큼 같이 옮김
+  function changeDate(next: string) {
+    if (rangeEnd && date && next) {
+      const span = differenceInCalendarDays(parseISO(rangeEnd), parseISO(date));
+      setEndDate(format(addDays(parseISO(next), span), 'yyyy-MM-dd'));
+    }
+    setDate(next);
+  }
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const fields = {
+        title: title.trim(), startTime: startTime || null, endTime: (startTime && endTime) || null, notes: notes.trim() || null,
+        remindMinutes: normalizeRemind(remind, !!startTime),
+      };
+      if (isEdit && repeating && newRepeatCount > 0) {
+        // 기존 일정을 반복으로 바꾸기: 이 일정은 내용/날짜만 저장하고 반복 묶음의 첫 회차로 사용
+        await updateSchedule(schedule.id, { ...fields, date });
+        await addScheduleSeries(fields, repeatDates.filter(d => d !== date), schedule.id);
+      } else if (isEdit) {
+        if (inSeries && scope !== 'one' && seriesId) {
+          await updateScheduleSeries(seriesId, scopeFromDate, fields);
+          // 날짜 변경은 이 일정에만 적용
+          if (date !== schedule.date || rangeEnd !== (schedule.endDate ?? null)) await updateSchedule(schedule.id, { date, endDate: rangeEnd });
+        } else {
+          await updateSchedule(schedule.id, { ...fields, date, endDate: rangeEnd });
+        }
+      } else if (repeating) {
+        await addScheduleSeries(fields, repeatDates);
+      } else {
+        await addSchedule({ ...fields, date, endDate: rangeEnd });
+      }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleDelete() {
+    if (!schedule) return;
+    if (inSeries && scope !== 'one' && seriesId) deleteScheduleSeries(seriesId, scopeFromDate);
+    else deleteSchedule(schedule.id);
+    onClose();
+  }
+
+  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget) onClose();
+  }
+
+  const deleteCount = inSeries ? (scope === 'all' ? seriesItems.length : scope === 'following' ? followingCount : 1) : 1;
+
+  return (
+    <div className="modal-overlay" onClick={handleBackdrop}>
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm max-h-[90dvh] overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarClock size={16} className="text-blue-500" />
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? '일정 수정' : '일정 추가'}</h2>
+          </div>
+          {liveSchedule && (
+            <button onClick={() => toggleSchedule(liveSchedule.id)} aria-pressed={liveSchedule.completed}
+              className={`ml-auto mr-1 h-8 px-3 rounded-full flex items-center gap-1 text-12.5px font-semibold transition-colors ${
+                liveSchedule.completed
+                  ? 'bg-blue-500 text-white dark:bg-blue-400 dark:text-gray-900'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}>
+              <Check size={13} strokeWidth={3} />
+              {liveSchedule.completed ? '완료함' : '완료'}
+            </button>
+          )}
+          <button onClick={onClose} aria-label="닫기"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+          <input maxLength={LIMITS.title}
+            autoFocus
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="일정 제목"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
+          />
+          <div>
+            <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">날짜 <span className="font-normal text-gray-400">(여러 날이면 끝 날짜도)</span></p>
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={date} onChange={e => changeDate(e.target.value)} aria-label="시작 날짜" className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
+              <span className="flex-shrink-0 text-gray-400 text-sm">~</span>
+              <input type="date" value={endDate} min={date || undefined} onChange={e => setEndDate(e.target.value)} aria-label="끝 날짜" aria-invalid={dateRangeInvalid} className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
+            </div>
+            {dateRangeInvalid && <p className="mt-1 text-11.5px text-red-600">끝 날짜는 시작 날짜와 같거나 늦어야 해요</p>}
+          </div>
+          <div>
+            <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">시간 <span className="font-normal text-gray-400">(비우면 하루 종일, 끝 시간은 선택)</span></p>
+            <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
+              inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
+          </div>
+          <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} compact accent="blue" />
+          <textarea maxLength={LIMITS.longText}
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="메모 (선택)"
+            rows={2}
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm resize-none transition-all"
+          />
+
+          {canRepeat && (
+            <RepeatPicker
+              startDate={date}
+              rule={repeat}
+              onChange={setRepeat}
+              occurrenceCount={repeatDates.length}
+              itemLabel="일정"
+              accent="blue"
+              convertingExisting={isEdit}
+            />
+          )}
+
+          {isEdit && inSeries && (
+            <SeriesScopePicker scope={scope} onChange={setScope} seriesCount={seriesItems.length} followingCount={followingCount} accent="blue" />
+          )}
+        </div>
+
+        <div className="flex-shrink-0 flex gap-2 px-6 pb-5 pt-1">
+          {isEdit && (
+            confirmDelete ? (
+              <button onClick={handleDelete}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-500 text-white text-sm font-semibold whitespace-nowrap">
+                <Trash2 size={14} />
+                {deleteCount > 1 ? `${deleteCount}개 삭제` : '정말 삭제'}
+              </button>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} aria-label="삭제"
+                className="flex items-center justify-center w-10 py-2.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <Trash2 size={15} />
+              </button>
+            )
+          )}
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
+            취소
+          </button>
+          <button onClick={handleSave} disabled={!canSave}
+            className="flex-1 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-semibold transition-colors whitespace-nowrap">
+            {saving ? '저장 중...'
+              : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
+              : isEdit ? '저장' : '추가'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

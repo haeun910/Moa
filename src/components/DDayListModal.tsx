@@ -3,6 +3,7 @@ import { X, Flag, Trash2, Pencil, Plus, Link2 } from 'lucide-react';
 import { parseISO, differenceInCalendarDays, format } from 'date-fns';
 import DDayModal from './DDayModal';
 import type { DDay } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   ddays: DDay[]; // 지나간 것 포함 전체 (수동 등록 + 할 일 연동 가상 항목 모두)
@@ -14,6 +15,7 @@ interface Props {
 // 메인 D-Day 위젯은 다가올 것만 보여주고, 여기서 전체 히스토리를 확인/관리함.
 export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
   const [editing, setEditing] = useState<DDay | 'new' | null>(null);
+  useEscapeKey(onClose, editing === null);
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -30,9 +32,9 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
+      <div className="modal-overlay" onClick={handleBackdrop}>
         <div
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col"
+          className="modal-panel max-w-sm"
           style={{ maxHeight: '85vh' }}
           onClick={e => e.stopPropagation()}
         >
@@ -62,12 +64,12 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
                 const isPast = differenceInCalendarDays(parseISO(d.targetDate), new Date()) < 0;
                 return (
                   <div key={d.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl ${isPast ? 'opacity-50' : ''}`}>
-                    <span className={`flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[42px] text-center ${
+                    <span className={`flex-shrink-0 text-11px font-bold px-1.5 py-0.5 rounded-md min-w-[42px] text-center ${
                       isPast ? 'bg-gray-100 dark:bg-gray-800 text-gray-400' : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
                     }`}>{ddayLabel(d.targetDate)}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{d.title}</p>
-                      <p className="text-[11px] text-gray-400">{format(parseISO(d.targetDate), 'yyyy.M.d')}</p>
+                      <p className="text-11px text-gray-400">{format(parseISO(d.targetDate), 'yyyy.M.d')}</p>
                     </div>
                     {d.fromTodoId ? (
                       <span title="할 일에서 연동됨 (할 일 쪽에서 관리)" className="flex-shrink-0 text-gray-300 dark:text-gray-600">
