@@ -94,7 +94,7 @@ function TrendChart({ daily }: { daily: AdminDailyStat[] }) {
                   onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onClick={() => setHover(i)}
                   className="flex-1 h-full flex items-end focus:outline-none">
                   <span
-                    className={`w-full rounded-t-[4px] transition-colors ${on ? 'bg-gray-900 dark:bg-white' : 'bg-gray-700 dark:bg-gray-300'} ${hover != null && !on ? 'opacity-40' : ''}`}
+                    className={`w-full rounded-t-[4px] transition-colors ${on ? 'bg-leaf-700 dark:bg-leaf-300' : 'bg-leaf-500 dark:bg-leaf-500'} ${hover != null && !on ? 'opacity-40' : ''}`}
                     style={{ height: v > 0 ? `${Math.max(3, (v / max) * 100)}%` : 0 }} />
                 </button>
               );
@@ -132,7 +132,7 @@ function FeatureBars({ features, mau }: { features: AdminFeatureUsage; mau: numb
             <div key={key} className="flex items-center gap-3">
               <span className="w-[72px] flex-shrink-0 text-xs text-gray-600 dark:text-gray-300">{label}</span>
               <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                <div className="h-full rounded-full bg-gray-700 dark:bg-gray-300 transition-[width] duration-500" style={{ width: `${p}%` }} />
+                <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${p}%` }} />
               </div>
               <span className="w-[84px] flex-shrink-0 text-right text-xs tabular-nums text-gray-900 dark:text-white font-semibold">
                 {num(v)}명 <span className="font-normal text-gray-400">{p}%</span>

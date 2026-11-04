@@ -40,12 +40,12 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
         >
           <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Flag size={16} className="text-gray-500 dark:text-gray-400" />
+              <Flag size={16} className="text-leaf-600" />
               <h2 className="text-base font-bold text-gray-900 dark:text-white">전체 D-Day</h2>
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => setEditing('new')} aria-label="D-Day 추가"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                className="w-8 h-8 rounded-full flex items-center justify-center text-leaf-600 hover:bg-leaf-50 dark:hover:bg-leaf-900/20">
                 <Plus size={17} />
               </button>
               <button onClick={onClose} aria-label="닫기"
@@ -78,7 +78,7 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
                     ) : (
                       <>
                         <button onClick={() => setEditing(d)} aria-label="수정"
-                          className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                          className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-leaf-600 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 transition-colors">
                           <Pencil size={13} />
                         </button>
                         <button onClick={() => onDelete(d)} aria-label="삭제"

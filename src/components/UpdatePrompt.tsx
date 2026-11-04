@@ -79,7 +79,7 @@ export default function UpdatePrompt() {
         <p className="text-xs text-gray-400 mt-0.5">새로고침하면 최신 버전으로 업데이트돼요</p>
       </div>
       <button onClick={applyUpdate}
-        className="bg-white hover:bg-gray-100 text-gray-900 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
+        className="bg-leaf-500 hover:bg-leaf-400 text-leaf-950 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
         새로고침
       </button>
       <button onClick={() => setNeedRefresh(false)} aria-label="닫기"

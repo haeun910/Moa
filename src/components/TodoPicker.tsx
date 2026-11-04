@@ -76,7 +76,7 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
         onClick={() => onPick(todo)}
         onPointerDown={onDragStart ? e => onDragStart(e, todo) : undefined}
         title={onDragStart ? '눌러서 시간 정하기 · 타임라인으로 끌어다 놓기' : undefined}
-        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200/80 dark:ring-gray-800 hover:ring-gray-400 dark:hover:ring-leaf-600 transition-shadow select-none ${
+        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200/80 dark:ring-gray-800 hover:ring-leaf-400 dark:hover:ring-leaf-600 transition-shadow select-none ${
           onDragStart ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
       >
@@ -87,7 +87,7 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
           </span>
         )}
         {placed && (
-          <span className="flex-shrink-0 flex items-center gap-0.5 text-10.5px font-semibold tabular-nums text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded">
+          <span className="flex-shrink-0 flex items-center gap-0.5 text-10.5px font-semibold tabular-nums text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">
             <Clock size={9} strokeWidth={2.6} />{placed}
           </span>
         )}
@@ -110,7 +110,7 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
         ))}
       </div>
 
-      <label className="flex-shrink-0 mt-2 flex items-center gap-2 h-8 px-2.5 rounded-lg bg-white dark:bg-gray-800/60 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-gray-500">
+      <label className="flex-shrink-0 mt-2 flex items-center gap-2 h-8 px-2.5 rounded-lg bg-white dark:bg-gray-800/60 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-leaf-500">
         <Search size={13} className="text-gray-400 flex-shrink-0" />
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="할 일 검색"
           className="flex-1 min-w-0 bg-transparent text-13px text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none" />

@@ -17,8 +17,8 @@ interface Props {
   accent?: 'leaf' | 'blue';
 }
 
-export default function SeriesScopePicker({ scope, onChange, seriesCount, followingCount }: Props) {
-  const on = 'bg-gray-900 text-white dark:bg-white dark:text-gray-900';
+export default function SeriesScopePicker({ scope, onChange, seriesCount, followingCount, accent = 'leaf' }: Props) {
+  const on = accent === 'blue' ? 'bg-ink-500 text-white' : 'bg-leaf-600 text-white';
   const counts: Record<SeriesScope, number> = { one: 1, following: followingCount, all: seriesCount };
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">

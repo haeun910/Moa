@@ -84,7 +84,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               ? 'bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600'
               : todo.completed
                 ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500'
-                : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500 hover:bg-leaf-50 dark:hover:bg-leaf-900/30'
           }`}
           style={!todo.completed && !todo.skipped && category ? { borderColor: `${category.color}99` } : undefined}
         >
@@ -105,7 +105,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
                 if (e.key === 'Escape') { e.preventDefault(); setEditingTitle(false); }
               }}
               onBlur={saveTitleEdit}
-              className="block w-full text-14px leading-snug bg-transparent border-b border-gray-400 text-gray-800 dark:text-gray-100 focus:outline-none"
+              className="block w-full text-14px leading-snug bg-transparent border-b border-leaf-400 text-gray-800 dark:text-gray-100 focus:outline-none"
             />
           ) : (
             <span
@@ -131,7 +131,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
                 </span>
               )}
               {todo.startTime && (
-                <span className="flex items-center gap-1 text-11px text-gray-500 dark:text-gray-400 font-semibold">
+                <span className="flex items-center gap-1 text-11px text-leaf-600 dark:text-leaf-400 font-semibold">
                   <Clock size={10} />
                   {timeRangeLabel(todo.startTime, todo.endTime)}
                 </span>

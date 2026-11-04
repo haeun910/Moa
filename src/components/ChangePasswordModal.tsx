@@ -53,7 +53,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">비밀번호가 변경되었습니다</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">다음 로그인부터 새 비밀번호를 사용해주세요.</p>
               <button onClick={onClose}
-                className="w-full py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold transition-colors">
+                className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold transition-colors">
                 확인
               </button>
             </div>
@@ -74,7 +74,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="8자 이상"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all"
                   />
                 </div>
               </div>
@@ -87,7 +87,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
                     value={confirm}
                     onChange={e => setConfirm(e.target.value)}
                     placeholder="다시 입력"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all"
                   />
                 </div>
               </div>
@@ -101,7 +101,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-50 text-white text-sm font-semibold transition-colors mt-1"
+                className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors mt-1"
               >
                 {loading ? '변경 중...' : '비밀번호 변경'}
               </button>

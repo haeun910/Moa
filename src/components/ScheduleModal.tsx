@@ -168,7 +168,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
               inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all" />
           </div>
-          <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} compact />
+          <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} compact accent="blue" />
           <textarea maxLength={LIMITS.longText}
             value={notes}
             onChange={e => setNotes(e.target.value)}

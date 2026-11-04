@@ -67,7 +67,7 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
           )}
         </button>
         <div className="flex-shrink-0 flex items-center gap-1">
-          <button onClick={() => updateTodo(t.id, { date: todayStr })} className="row-action !bg-gray-900 !text-white hover:!bg-gray-800 dark:!bg-gray-100 dark:!text-gray-900"
+          <button onClick={() => updateTodo(t.id, { date: todayStr })} className="row-action !bg-leaf-50 !text-leaf-700 hover:!bg-leaf-100 dark:!bg-leaf-900/30 dark:!text-leaf-300 dark:hover:!bg-leaf-900/60"
             title="오늘 할 일로 옮기기">
             <CalendarCheck size={11} />오늘로
           </button>

@@ -56,7 +56,7 @@ export default function GuestLoginModal({ onClose, onUpgrade }: { onClose: () =>
     }
   }
 
-  const inputClass = 'w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all';
+  const inputClass = 'w-full pl-10 pr-4 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all';
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}>
@@ -71,7 +71,7 @@ export default function GuestLoginModal({ onClose, onUpgrade }: { onClose: () =>
             <p className="text-12.5px text-gray-600 dark:text-gray-300 leading-relaxed">
               {written ? <>체험 중에 적은 {written}는 기존 계정으로 옮겨지지 않고 지워져요. </> : <>체험 중에 적은 내용은 기존 계정으로 옮겨지지 않아요. </>}
               남기고 싶다면{' '}
-              <button onClick={onUpgrade} className="font-semibold text-gray-900 dark:text-white underline underline-offset-2">새 계정 만들기</button>
+              <button onClick={onUpgrade} className="font-semibold text-leaf-700 dark:text-leaf-400 underline underline-offset-2">새 계정 만들기</button>
               로 옮겨 주세요.
             </p>
           </div>
