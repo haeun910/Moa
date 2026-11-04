@@ -152,15 +152,15 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
 }
 
 const PUSH_DESC: Record<PushState, string> = {
-  on: '타임박스가 시작할 때 이 기기로 알려드려요',
-  off: '타임박스가 시작할 때 이 기기로 알림 받기',
+  on: '할 일·일정·타임박스 시간에 맞춰 이 기기로 알려드려요',
+  off: '할 일·일정·타임박스 시간에 맞춰 이 기기로 알림 받기',
   denied: '알림이 차단되어 있어요. 브라우저(앱) 설정에서 알림을 허용해주세요',
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
   'ios-needs-install': '아이폰·아이패드는 홈 화면에 앱을 설치한 뒤 켤 수 있어요',
   'not-configured': '알림 서버 설정이 아직 안 되어 있어요 (README 참고)',
 };
 
-// 타임박스 알림 (웹 푸시) - 기기마다 따로 켜고 끔
+// 알림 (웹 푸시): 할 일·일정 미리 알림, 타임박스 시작 알림 - 기기마다 따로 켜고 끔
 function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void }) {
   const { state, busy, error, enable, disable, test } = usePushNotifications();
   const [testSent, setTestSent] = useState(false);

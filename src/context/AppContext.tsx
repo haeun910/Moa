@@ -78,11 +78,11 @@ function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
   return [...list].sort((a, b) => a.startAt.localeCompare(b.startAt));
 }
 
-// 알림을 누르고 들어오면 ?screen=timebox 로 열림 → 그 화면부터 보여줌
+// 알림을 누르고 들어오면 ?screen=timebox(타임박스 알림) / ?screen=today(할 일·일정 알림)로 열림 → 그 화면부터 보여줌
 function screenFromUrl(): Screen | null {
   const screen = new URLSearchParams(window.location.search).get('screen');
   // 약관·개인정보처리방침 주소(Google 동의 화면 링크 등)는 로그인한 상태에서도 그 화면으로
-  return screen === 'timebox' || screen === 'terms' || screen === 'privacy' ? screen : null;
+  return screen === 'timebox' || screen === 'today' || screen === 'terms' || screen === 'privacy' ? screen : null;
 }
 
 export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
@@ -405,7 +405,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     function handleMessage(e: MessageEvent) {
-      if (e.data?.type === 'moa:navigate' && e.data.screen === 'timebox') setCurrentScreen('timebox');
+      // 알림을 누르면: 타임박스 알림은 타임박스로, 할 일·일정 알림은 홈으로
+      if (e.data?.type === 'moa:navigate' && (e.data.screen === 'timebox' || e.data.screen === 'today')) setCurrentScreen(e.data.screen);
     }
     navigator.serviceWorker.addEventListener('message', handleMessage);
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage);

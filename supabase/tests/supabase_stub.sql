@@ -14,7 +14,22 @@ create table if not exists auth.users (
   email             text,
   created_at        timestamptz not null default now(),
   is_anonymous      boolean not null default false, -- 체험(익명) 계정
-  raw_app_meta_data jsonb                           -- {"provider": "email", "providers": ["email", "google"]}
+  raw_app_meta_data jsonb,                          -- {"provider": "email", "providers": ["email", "google"]}
+  last_sign_in_at   timestamptz,
+  updated_at        timestamptz
+);
+-- 로그인 유지 기록 (체험 계정을 "마지막으로 쓴 때" 계산에 사용)
+create table if not exists auth.sessions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create table if not exists auth.refresh_tokens (
+  id         bigserial primary key,
+  user_id    varchar(255),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 -- 요청한 사용자 id: set_config('request.jwt.claim.sub', '<uuid>', ...)로 흉내

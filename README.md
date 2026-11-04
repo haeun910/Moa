@@ -6,7 +6,7 @@
 
 - **할 일 관리** — 하위 항목, 카테고리, 날짜·시간 지정, 드래그로 순서/날짜 변경
 - **캘린더** — 월간/주간 보기, 날짜별 시간표(시간대별 일정) 보기
-- **타임박스** — 일주일을 시간 블록으로 계획(할 일 끌어다 놓기), 홈 화면에 오늘 하루 막대, 블록 시작 시 웹 푸시 알림
+- **타임박스** — 일주일을 시간 블록으로 계획(할 일 끌어다 놓기), 홈 화면에 오늘 하루 막대, 블록 시작 시 웹 푸시 알림 (할 일·일정도 미리 알림 가능)
 - **저장소** — 날짜 없이 카테고리별로 보관하는 할 일 목록
 - **메모**
 - **이번 달 목표 & D-Day**
@@ -52,7 +52,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 Supabase 대시보드 → **SQL Editor**에서 실행합니다.
 
-**새 프로젝트:** [`supabase/schema.sql`](supabase/schema.sql) 하나만 실행하면 됩니다. 모든 테이블, RLS 정책, 함수, 신규 가입자 기본 카테고리까지 마이그레이션 001~016, 018, 019를 모두 실행한 것과 같은 상태가 됩니다. 실행 전에 파일 안의 관리자 계정 UUID를 본인 것으로 바꾸세요. (`017_timebox_push_cron.sql`은 아래 "타임박스 알림" 설정을 마친 뒤에 따로 실행)
+**새 프로젝트:** [`supabase/schema.sql`](supabase/schema.sql) 하나만 실행하면 됩니다. 모든 테이블, RLS 정책, 함수, 신규 가입자 기본 카테고리까지 마이그레이션 001~016, 018~025를 모두 실행한 것과 같은 상태가 됩니다. 실행 전에 파일 안의 관리자 계정 UUID를 본인 것으로 바꾸세요. (`017_timebox_push_cron.sql`은 아래 "알림" 설정을 마친 뒤에, `026_guest_cleanup_cron.sql`(30일 넘게 안 쓴 체험 계정 매일 정리)은 schema.sql 다음에 따로 실행)
 
 **이미 운영 중인 DB:** `schema.sql`은 실행하지 말고, [`supabase/migrations/`](supabase/migrations/)에서 아직 실행하지 않은 파일만 번호 순서대로 실행합니다. 예를 들어 `018_hardening.sql`은 순서 바꾸기를 요청 한 번으로 저장하는 함수, 남의 데이터를 연결하지 못하게 막는 검사, 글자 수 상한을 추가합니다. 실행하지 않아도 앱은 동작하지만(예전 방식으로 저장) 보안 검사는 빠집니다.
 
@@ -60,12 +60,13 @@ Supabase 대시보드 → **SQL Editor**에서 실행합니다.
 
 Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Providers**에서 Google을 활성화하고 OAuth 클라이언트를 등록해야 합니다.
 
-### 4. 타임박스 알림(웹 푸시) 설정 — 선택
+### 4. 알림(웹 푸시) 설정 — 선택
 
-타임박스 블록이 시작할 때 앱을 닫아둬도 알림이 오게 하려면 아래를 한 번 설정합니다.
+타임박스 블록이 시작할 때, 할 일·일정의 미리 알림 시각에 앱을 닫아둬도 알림이 오게 하려면 아래를 한 번 설정합니다.
+(설정하지 않으면 할 일·일정 창의 "미리 알림" 항목은 보이지 않습니다.)
 설정하지 않아도 앱은 그대로 동작하고, 설정 화면의 알림 스위치만 "알림 서버 설정이 아직 안 되어 있어요"로 표시됩니다.
 
-**구조:** Supabase의 pg_cron이 1분마다 Edge Function `send-timebox-push`를 부름 → 함수가 지금 알려야 할 블록을 찾아 각 기기로 웹 푸시 발송 → 서비스워커(`public/push-sw.js`)가 알림을 띄움. 모두 Supabase 서버에서 돌아가므로 내 컴퓨터를 켜둘 필요는 없습니다.
+**구조:** Supabase의 pg_cron이 1분마다 Edge Function `send-timebox-push`를 부름 → 함수가 지금 알려야 할 타임박스·할 일·일정(`claim_due_timeblock_reminders`, `claim_due_item_reminders`)을 찾아 각 기기로 웹 푸시 발송 → 서비스워커(`public/push-sw.js`)가 알림을 띄움. 모두 Supabase 서버에서 돌아가므로 내 컴퓨터를 켜둘 필요는 없습니다.
 
 1. VAPID 키 만들기 (한 번만, 터미널/PowerShell 어디서든)
 
@@ -165,7 +166,7 @@ supabase/
   schema.sql        새 프로젝트용 전체 스키마 (마이그레이션 결과와 같음)
   migrations/       스키마 변경 이력 (운영 중인 DB에는 번호 순으로 실행)
   tests/            스키마 비교·DB 동작 테스트 (npm run test:db)
-  functions/        Edge Functions (send-timebox-push: 타임박스 알림 발송)
+  functions/        Edge Functions (send-timebox-push: 타임박스·할 일·일정 알림 발송)
 public/
   push-sw.js        서비스워커에 덧붙는 웹 푸시 처리
 ```

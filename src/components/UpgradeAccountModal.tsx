@@ -69,7 +69,7 @@ export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () 
           ) : (
             <>
               <p className="text-13px text-gray-500 dark:text-gray-400 leading-relaxed">
-                지금은 이 기기에서만 쓰는 체험 계정이에요. 계정을 만들면 적어 둔 내용이 그대로 옮겨지고, 다른 기기에서도 로그인할 수 있어요.
+                지금은 이 기기에서만 쓰는 체험 계정이라 30일 동안 쓰지 않으면 자동으로 지워져요. 계정을 만들면 적어 둔 내용이 그대로 옮겨지고, 다른 기기에서도 로그인할 수 있어요.
               </p>
 
               <button onClick={handleGoogle} disabled={loading !== null} className="btn-secondary w-full h-11 gap-2.5 shadow-sm disabled:opacity-60">

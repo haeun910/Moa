@@ -1,5 +1,5 @@
 // 서비스워커에 덧붙는 웹 푸시 처리 (vite.config.ts의 workbox.importScripts로 불러옴)
-// 서버(send-timebox-push 함수)가 보낸 알림을 띄우고, 알림을 누르면 앱의 타임박스 화면을 엽니다.
+// 서버(send-timebox-push 함수)가 보낸 알림(타임박스·할 일·일정)을 띄우고, 알림을 누르면 앱의 해당 화면(타임박스/홈)을 엽니다.
 
 self.addEventListener('push', event => {
   let data = {};

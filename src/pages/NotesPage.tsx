@@ -4,6 +4,7 @@ import { format, isToday, isThisYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { clearRequestedNote, peekRequestedNote, OPEN_NOTE_EVENT } from '../lib/openNote';
 import { matches, normalizeQuery } from '../lib/search';
+import { noteHeading, notePreview } from '../lib/markdown';
 import { useApp } from '../context/AppContext';
 import NoteEditor from '../components/NoteEditor';
 import NoteFolderModal from '../components/NoteFolderModal';
@@ -28,15 +29,6 @@ function shortDate(iso: string) {
   if (isToday(d)) return format(d, 'a h:mm', { locale: ko });
   if (isThisYear(d)) return format(d, 'M월 d일', { locale: ko });
   return format(d, 'yyyy. M. d.');
-}
-
-// 제목이 없으면 내용 첫 줄을 제목처럼 보여줌
-function noteHeading(n: Note) {
-  return n.title.trim() || n.content.trim().split('\n')[0] || '새 메모';
-}
-function notePreview(n: Note) {
-  const body = n.title.trim() ? n.content : n.content.split('\n').slice(1).join(' ');
-  return body.replace(/\s+/g, ' ').trim();
 }
 
 export default function NotesPage() {

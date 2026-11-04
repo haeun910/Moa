@@ -1,7 +1,7 @@
-// 타임박스 알림 발송 함수 (Supabase Edge Function, Deno)
+// 알림 발송 함수 (Supabase Edge Function, Deno) — 타임박스 + 할 일·일정 미리 알림
 //
 // 두 가지 방식으로 불립니다.
-//  1) 1분마다 pg_cron이 호출 (헤더 x-cron-secret) → 지금 알려야 할 블록을 찾아 각 사용자 기기로 웹 푸시 발송
+//  1) 1분마다 pg_cron이 호출 (헤더 x-cron-secret) → 지금 알려야 할 타임박스·할 일·일정을 찾아 각 사용자 기기로 웹 푸시 발송
 //  2) 앱의 설정 > "테스트 알림 보내기" (로그인한 사용자의 JWT) → 그 사용자 기기들로 테스트 알림 발송
 //
 // 필요한 비밀값 (supabase secrets set ...):
@@ -50,6 +50,17 @@ interface DueBlock {
   block_remind: number;
 }
 
+interface DueItem {
+  item_kind: 'todo' | 'schedule';
+  item_id: string;
+  owner_id: string;
+  item_title: string;
+  item_date: string;
+  item_start: string | null;
+  item_end: string | null;
+  item_remind: number;
+}
+
 interface Subscription {
   id: string;
   user_id: string;
@@ -95,6 +106,35 @@ function buildPayload(block: DueBlock, timeZone: string | null): PushPayload {
   };
 }
 
+// "10분 후", "1시간 30분 후", "내일", "3일 후"
+function leadLabel(minutes: number): string {
+  if (minutes <= 0) return '지금';
+  if (minutes % 1440 === 0) return minutes === 1440 ? '내일' : `${minutes / 1440}일 후`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h && m) return `${h}시간 ${m}분 후`;
+  if (h) return `${h}시간 후`;
+  return `${m}분 후`;
+}
+
+const VALID_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+function buildItemPayload(item: DueItem): PushPayload {
+  const what = item.item_kind === 'todo' ? '할 일' : '일정';
+  const start = item.item_start && VALID_TIME.test(item.item_start) ? item.item_start : null;
+  const end = start && item.item_end && VALID_TIME.test(item.item_end) && item.item_end > start ? item.item_end : null;
+  let body: string;
+  if (!start) {
+    // 시간 없는 항목: 그날 오전 9시(0) 또는 전날 오전 9시(1440)
+    body = item.item_remind >= 1440 ? `내일 ${what}이에요` : `오늘 ${what}이에요`;
+  } else {
+    const range = end ? `${start}~${end}` : start;
+    const lead = leadLabel(item.item_remind);
+    body = lead === '지금' ? `지금 시작 · ${range}` : lead === '내일' ? `내일 ${range}` : `${lead} 시작 · ${range}`;
+  }
+  return { title: item.item_title, body, tag: `${item.item_kind}-${item.item_id}`, url: '/?screen=today' };
+}
+
 // 보내기. 기기가 구독을 해지했거나 만료됐으면(404/410) 구독 줄을 지움
 async function send(sub: Subscription, payload: PushPayload): Promise<boolean> {
   try {
@@ -125,21 +165,42 @@ async function fetchSubscriptions(userIds: string[]): Promise<Subscription[]> {
   return data ?? [];
 }
 
-async function runDueReminders() {
+async function claimDueBlocks(): Promise<DueBlock[]> {
   const { data, error } = await admin.rpc('claim_due_timeblock_reminders');
   if (error) throw error;
-  const due = (data ?? []) as DueBlock[];
-  if (due.length === 0) return { due: 0, sent: 0 };
+  return (data ?? []) as DueBlock[];
+}
 
-  const subs = await fetchSubscriptions([...new Set(due.map(b => b.owner_id))]);
+// 할 일·일정 알림 (025 마이그레이션 전이면 함수가 없으므로 타임박스 알림만 보내고 넘어감)
+async function claimDueItems(): Promise<DueItem[]> {
+  const { data, error } = await admin.rpc('claim_due_item_reminders');
+  if (error) {
+    console.error('claim_due_item_reminders failed', error.message);
+    return [];
+  }
+  return (data ?? []) as DueItem[];
+}
+
+async function runDueReminders() {
+  const [blocks, items] = await Promise.all([claimDueBlocks(), claimDueItems()]);
+  if (blocks.length === 0 && items.length === 0) return { due: 0, sent: 0 };
+
+  const owners = [...new Set([...blocks.map(b => b.owner_id), ...items.map(i => i.owner_id)])];
+  const subs = await fetchSubscriptions(owners);
   const jobs: Promise<boolean>[] = [];
-  for (const block of due) {
+  for (const block of blocks) {
     for (const sub of subs.filter(s => s.user_id === block.owner_id)) {
       jobs.push(send(sub, buildPayload(block, sub.time_zone)));
     }
   }
+  for (const item of items) {
+    const payload = buildItemPayload(item);
+    for (const sub of subs.filter(s => s.user_id === item.owner_id)) {
+      jobs.push(send(sub, payload));
+    }
+  }
   const results = await Promise.all(jobs);
-  return { due: due.length, sent: results.filter(Boolean).length };
+  return { due: blocks.length + items.length, sent: results.filter(Boolean).length };
 }
 
 async function runTest(req: Request) {
@@ -151,7 +212,7 @@ async function runTest(req: Request) {
   if (subs.length === 0) return json({ sent: 0, devices: 0 });
   const results = await Promise.all(subs.map(sub => send(sub, {
     title: '모아 알림 테스트',
-    body: '이렇게 타임박스가 시작할 때 알려드려요.',
+    body: '이렇게 할 일 · 일정 · 타임박스 시간에 맞춰 알려드려요.',
     tag: 'moa-test',
     url: '/?screen=timebox',
   })));

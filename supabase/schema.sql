@@ -61,8 +61,15 @@ create table if not exists public.todos (
   subcategory_id uuid references public.subcategories(id) on delete set null,
   series_id      uuid,                       -- 같은 반복으로 만들어진 할 일 묶음
   end_time       text,                       -- 끝나는 시간 (없으면 시작부터 1시간)
+  skipped        boolean not null default false, -- '안 하기'로 정리한 할 일 (흐리게 남고 밀린 일·진행률에서 빠짐)
+  remind_minutes integer,                    -- 미리 알림: 몇 분 전 (시간이 없으면 그날 오전 9시 기준)
+  time_zone      text,                       -- 알림 시각을 정한 기기의 시간대
+  remind_at      timestamptz,                -- 실제로 알릴 시각 (트리거가 계산)
+  notified_at    timestamptz,                -- 알림을 보낸 시각
   constraint todos_title_length check (char_length(title) <= 500),
-  constraint todos_notes_length check (char_length(notes) <= 20000)
+  constraint todos_notes_length check (char_length(notes) <= 20000),
+  constraint todos_remind_minutes_range check (remind_minutes between 0 and 10080),
+  constraint todos_time_zone_length check (char_length(time_zone) <= 64)
 );
 
 -- 메모 폴더
@@ -138,9 +145,15 @@ create table if not exists public.schedules (
   end_time    text,                          -- 끝나는 시간 (없으면 시작부터 1시간)
   end_date    date,                          -- 여러 날에 걸친 일정의 마지막 날 (없으면 하루짜리)
   completed   boolean not null default false, -- 끝낸 일정
+  remind_minutes integer,                     -- 미리 알림: 몇 분 전 (시간이 없으면 그날 오전 9시 기준)
+  time_zone   text,                           -- 알림 시각을 정한 기기의 시간대
+  remind_at   timestamptz,                    -- 실제로 알릴 시각 (트리거가 계산)
+  notified_at timestamptz,                    -- 알림을 보낸 시각
   constraint schedules_title_length check (char_length(title) <= 500),
   constraint schedules_end_date_order check (end_date is null or end_date >= date),
-  constraint schedules_notes_length check (char_length(notes) <= 20000)
+  constraint schedules_notes_length check (char_length(notes) <= 20000),
+  constraint schedules_remind_minutes_range check (remind_minutes between 0 and 10080),
+  constraint schedules_time_zone_length check (char_length(time_zone) <= 64)
 );
 
 -- 공지사항 (관리자만 작성, 로그인한 모두가 읽음)
@@ -217,6 +230,10 @@ create index if not exists idx_timeblocks_series          on public.timeblocks(s
 create index if not exists idx_timeblocks_pending_reminder on public.timeblocks(start_at)
   where notified_at is null and remind_minutes is not null;
 create index if not exists idx_push_subscriptions_user    on public.push_subscriptions(user_id);
+create index if not exists idx_todos_pending_reminder     on public.todos(remind_at)
+  where remind_at is not null and notified_at is null;
+create index if not exists idx_schedules_pending_reminder on public.schedules(remind_at)
+  where remind_at is not null and notified_at is null;
 
 -- ============================================================
 -- updated_at 자동 갱신
@@ -244,6 +261,46 @@ create or replace trigger user_settings_updated_at
 create or replace trigger notices_updated_at
   before update on public.notices
   for each row execute function public.set_updated_at();
+
+-- 날짜·시간·알림을 바꿀 때마다 알릴 시각을 다시 계산 (시각이 바뀌면 다시 보낼 수 있게 notified_at도 비움)
+create or replace function public.set_item_remind_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  base_time time;
+begin
+  if new.remind_minutes is null or new.date is null then
+    new.remind_at := null;
+  else
+    base_time := case when new.start_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then new.start_time::time else time '09:00' end;
+    begin
+      new.remind_at := ((new.date + base_time) at time zone coalesce(nullif(new.time_zone, ''), 'Asia/Seoul'))
+                       - make_interval(mins => new.remind_minutes);
+    exception when invalid_parameter_value then
+      -- 모르는 시간대 이름이면 한국 시간으로
+      new.remind_at := ((new.date + base_time) at time zone 'Asia/Seoul') - make_interval(mins => new.remind_minutes);
+    end;
+  end if;
+  if tg_op = 'INSERT' then
+    new.notified_at := null;
+  elsif new.remind_at is distinct from old.remind_at then
+    new.notified_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists todos_set_remind_at on public.todos;
+create trigger todos_set_remind_at
+  before insert or update of date, start_time, remind_minutes, time_zone on public.todos
+  for each row execute function public.set_item_remind_at();
+
+drop trigger if exists schedules_set_remind_at on public.schedules;
+create trigger schedules_set_remind_at
+  before insert or update of date, start_time, remind_minutes, time_zone on public.schedules
+  for each row execute function public.set_item_remind_at();
 
 -- ============================================================
 -- 신규 가입 시 기본 카테고리 + 설정 자동 생성
@@ -589,6 +646,52 @@ revoke all on function public.delete_guest_account(uuid) from public;
 revoke all on function public.delete_guest_account(uuid) from anon;
 grant execute on function public.delete_guest_account(uuid) to authenticated;
 
+-- 30일 넘게 쓰지 않은 체험(익명) 계정 정리 (매일 pg_cron이 부름 → 026_guest_cleanup_cron.sql)
+-- 마지막으로 쓴 때 = 가입·로그인·로그인 유지(토큰 갱신) 중 가장 최근. 앱을 열어 두기만 해도 토큰이 갱신되므로 "쓴 것"으로 봄.
+-- 계정을 지우면 할 일·메모 등 그 사람 데이터도 함께 지워짐 (모든 표가 on delete cascade).
+-- 정식 계정(이메일·구글 연결)은 절대 지우지 않음. 한 번에 최대 500개씩.
+create or replace function public.cleanup_inactive_guests(p_days integer default 30)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  removed integer;
+begin
+  if p_days is null or p_days < 7 then
+    raise exception 'p_days must be 7 or more';
+  end if;
+
+  with stale as (
+    select u.id
+      from auth.users u
+     where u.is_anonymous
+       and greatest(
+             u.created_at,
+             u.last_sign_in_at,
+             u.updated_at,
+             (select max(s.updated_at) from auth.sessions s where s.user_id = u.id),
+             (select max(r.updated_at) from auth.refresh_tokens r where r.user_id = u.id::text)
+           ) < now() - make_interval(days => p_days)
+     order by u.created_at
+     limit 500
+  ),
+  gone as (
+    delete from auth.users u
+     using stale
+     where u.id = stale.id
+       and u.is_anonymous
+    returning 1
+  )
+  select count(*) into removed from gone;
+  return removed;
+end;
+$$;
+
+revoke all on function public.cleanup_inactive_guests(integer) from public, anon, authenticated;
+grant execute on function public.cleanup_inactive_guests(integer) to service_role;
+
 -- 웹 푸시 구독 등록: 같은 브라우저에서 다른 계정으로 로그인하면 기존 줄을 지우고 새로 등록
 create or replace function public.register_push_subscription(
   p_endpoint text, p_p256dh text, p_auth text, p_time_zone text, p_user_agent text
@@ -628,6 +731,7 @@ as $$
        and b.notified_at is null
        and not b.completed
        and not coalesce(t.completed, false)
+       and not coalesce(t.skipped, false)
        -- 설정에서 타임박스를 끈 사람에게는 알림을 보내지 않음
        and not exists (
          select 1 from public.user_settings s
@@ -652,6 +756,60 @@ $$;
 
 revoke all on function public.claim_due_timeblock_reminders() from public, anon, authenticated;
 grant execute on function public.claim_due_timeblock_reminders() to service_role;
+
+-- 지금 알려야 할 할 일·일정을 가져가면서 "보냄"으로 표시 (알림 발송 함수 전용)
+-- 끝낸 일, 안 하기로 한 일은 보내지 않음. 10분 넘게 지난 알림은 버림 (서버가 잠깐 멈췄다 돌아와도 한꺼번에 쏟아지지 않게)
+create or replace function public.claim_due_item_reminders()
+returns table (
+  item_kind text, item_id uuid, owner_id uuid, item_title text,
+  item_date date, item_start text, item_end text, item_remind integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with due_todos as (
+    select t.id
+      from public.todos t
+     where t.remind_at is not null
+       and t.notified_at is null
+       and t.remind_at <= now()
+       and t.remind_at > now() - interval '10 minutes'
+       and not t.completed
+       and not t.skipped
+     for update of t skip locked
+  ),
+  sent_todos as (
+    update public.todos t
+       set notified_at = now()
+      from due_todos d
+     where t.id = d.id
+    returning 'todo'::text, t.id, t.user_id, t.title, t.date, t.start_time, t.end_time, t.remind_minutes
+  ),
+  due_schedules as (
+    select s.id
+      from public.schedules s
+     where s.remind_at is not null
+       and s.notified_at is null
+       and s.remind_at <= now()
+       and s.remind_at > now() - interval '10 minutes'
+       and not s.completed
+     for update of s skip locked
+  ),
+  sent_schedules as (
+    update public.schedules s
+       set notified_at = now()
+      from due_schedules d
+     where s.id = d.id
+    returning 'schedule'::text, s.id, s.user_id, s.title, s.date, s.start_time, s.end_time, s.remind_minutes
+  )
+  select * from sent_todos
+  union all
+  select * from sent_schedules;
+$$;
+
+revoke all on function public.claim_due_item_reminders() from public, anon, authenticated;
+grant execute on function public.claim_due_item_reminders() to service_role;
 
 -- 순서 바꾸기를 요청 한 번으로 저장 (RLS 그대로 적용 → 본인 행만 바뀜)
 create or replace function public.reorder_items(p_table text, p_ids uuid[])

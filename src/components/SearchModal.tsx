@@ -9,6 +9,7 @@ import { findMatch, search, snippet, matches, normalizeQuery } from '../lib/sear
 import { closeSearch, openSearch, subscribeSearch } from '../lib/searchStore';
 import { requestOpenNote } from '../lib/openNote';
 import { timeRangeLabel } from '../lib/timeRange';
+import { markdownToPlain, noteHeading } from '../lib/markdown';
 import type { Note, ScheduleItem, Todo } from '../types';
 import TodoModal from './TodoModal';
 import ScheduleModal from './ScheduleModal';
@@ -43,9 +44,6 @@ function dayLabel(date: string, todayKey: string) {
   return format(parseISO(date), sameYear ? 'M월 d일 (EEE)' : 'yyyy년 M월 d일', { locale: ko });
 }
 
-function noteHeading(n: Note) {
-  return n.title.trim() || n.content.trim().split('\n')[0] || '새 메모';
-}
 
 // 어느 화면에서든 띄우는 검색 창 (Layout에 하나만 둠). Ctrl/⌘+K 로도 열림.
 // 결과를 눌러 할 일·일정을 고치고 닫으면 검색 결과로 돌아옴
@@ -180,7 +178,7 @@ function SearchPanel({ query, setQuery, onPick }: { query: string; setQuery: (q:
 
   const renderNote = (n: Note, i: number) => {
     const folder = noteFolders.find(f => f.id === n.folderId);
-    const body = snippet(n.content, query, 30);
+    const body = snippet(markdownToPlain(n.content), query, 30);
     return (
       <>
         <StickyNote size={16} className="flex-shrink-0 mt-0.5 text-gray-400" aria-hidden />

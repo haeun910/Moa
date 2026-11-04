@@ -9,4 +9,4 @@ export const PRIVACY_OFFICER = {
 // 예: '대한민국(서울, ap-northeast-2)' / '미국(버지니아, us-east-1)'. 비어 있으면 지역 없이 표시됨
 export const SUPABASE_REGION = '싱가포르(ap-southeast-1)';
 
-export const PRIVACY_UPDATED_AT = '2026년 11월 2일';
+export const PRIVACY_UPDATED_AT = '2026년 11월 4일';

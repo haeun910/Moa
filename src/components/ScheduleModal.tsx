@@ -12,6 +12,7 @@ import { isValidTimeRange } from '../lib/timeRange';
 import TimeRangeInput from './TimeRangeInput';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import ReminderPicker, { normalizeRemind } from './ReminderPicker';
 
 interface Props {
   schedule?: ScheduleItem;
@@ -37,6 +38,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
   const rangeEnd = endDate && endDate > date ? endDate : null;
   const dateRangeInvalid = !!endDate && !!date && endDate < date;
   const [notes, setNotes] = useState(schedule?.notes ?? '');
+  const [remind, setRemind] = useState<number | null>(schedule?.remindMinutes ?? null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 반복으로 만든 일정을 수정/삭제할 때 적용 범위
@@ -73,7 +75,10 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
     if (!canSave) return;
     setSaving(true);
     try {
-      const fields = { title: title.trim(), startTime: startTime || null, endTime: (startTime && endTime) || null, notes: notes.trim() || null };
+      const fields = {
+        title: title.trim(), startTime: startTime || null, endTime: (startTime && endTime) || null, notes: notes.trim() || null,
+        remindMinutes: normalizeRemind(remind, !!startTime),
+      };
       if (isEdit && repeating && newRepeatCount > 0) {
         // 기존 일정을 반복으로 바꾸기: 이 일정은 내용/날짜만 저장하고 반복 묶음의 첫 회차로 사용
         await updateSchedule(schedule.id, { ...fields, date });
@@ -162,6 +167,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
               inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all" />
           </div>
+          <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} compact />
           <textarea maxLength={LIMITS.longText}
             value={notes}
             onChange={e => setNotes(e.target.value)}

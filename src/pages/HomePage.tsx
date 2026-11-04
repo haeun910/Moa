@@ -19,6 +19,7 @@ import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { isValidTimeRange, timeRangeEnd, timeRangeLabel } from '../lib/timeRange';
 import { requestOpenNote } from '../lib/openNote';
 import { openSearch } from '../lib/searchStore';
+import { noteHeading, notePreview } from '../lib/markdown';
 import TodayTimeline from '../components/TodayTimeline';
 import ScheduleCheck from '../components/ScheduleCheck';
 import { useCollapsed } from '../hooks/useCollapsed';
@@ -218,7 +219,7 @@ function MemoSection() {
       {recent.length > 0 && (
         <ul className="mt-2.5 space-y-0.5">
           {recent.map(n => {
-            const preview = n.content.split('\n').find(l => l.trim()) ?? '';
+            const preview = notePreview(n);
             return (
               <li key={n.id}>
                 <button onClick={() => open(n)} className="w-full flex items-center gap-2 text-left py-1 group">
@@ -226,7 +227,7 @@ function MemoSection() {
                     ? <Pin size={12} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
                     : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
                   <span className="min-w-0 flex-1 truncate text-13px">
-                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-gray-900 dark:group-hover:text-white">{n.title.trim() || '새 메모'}</span>
+                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-gray-900 dark:group-hover:text-white">{noteHeading(n)}</span>
                     {preview && <span className="ml-1.5 text-gray-400 dark:text-gray-500">{preview}</span>}
                   </span>
                   <span className="flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>

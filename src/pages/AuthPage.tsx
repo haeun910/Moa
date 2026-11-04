@@ -258,7 +258,7 @@ export default function AuthPage() {
                 {guestLoading ? '체험 준비 중…' : '가입 없이 둘러보기'}
               </button>
               <p className="text-11.5px text-center text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
-                이 기기에서만 쓰는 체험 계정이에요. 나중에 가입하면 적어 둔 내용이 그대로 옮겨져요.
+                이 기기에서만 쓰는 체험 계정이에요. 나중에 가입하면 적어 둔 내용이 그대로 옮겨져요. 30일 동안 쓰지 않으면 자동으로 지워져요.
               </p>
             </>
           )}

@@ -11,6 +11,7 @@ import TimeRangeInput from './TimeRangeInput';
 import { isValidTimeRange } from '../lib/timeRange';
 import { LIMITS } from '../lib/limits';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import ReminderPicker, { normalizeRemind } from './ReminderPicker';
 
 interface Props {
   todo?: Todo;
@@ -40,6 +41,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   const [addingSubcat, setAddingSubcat] = useState(false);
   const [newSubcatName, setNewSubcatName] = useState('');
   const [notes, setNotes] = useState(todo?.notes ?? '');
+  const [remind, setRemind] = useState<number | null>(todo?.remindMinutes ?? null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const isEdit = !!todo;
@@ -91,6 +93,8 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
       startTime: startTime || null,
       endTime: (startTime && endTime) || null,
       notes,
+      // 날짜가 없으면(저장소) 알림도 없음
+      remindMinutes: date ? normalizeRemind(remind, !!startTime) : null,
     };
     setSaving(true);
     try {
@@ -103,6 +107,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           // 제목/카테고리/시간/메모는 선택한 범위 전체에, 날짜·마감일·D-Day는 이 할 일에만 적용
           await updateTodoSeries(seriesId, scopeFromDate, {
             title: payload.title, categoryId, subcategoryId, startTime: payload.startTime, endTime: payload.endTime, notes,
+            remindMinutes: payload.remindMinutes,
           });
           await updateTodo(todo.id, { date: payload.date, dueDate: payload.dueDate, isDday: payload.isDday });
         } else {
@@ -188,6 +193,8 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition text-sm" />
             </div>
           </div>
+
+          <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} />
 
           {/* Due date (작업할 날짜와는 별개인 마감일) */}
           <div>
