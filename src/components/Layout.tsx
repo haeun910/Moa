@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer, LogIn } from 'lucide-react';
+import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer, LogIn, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestLoginModal from './GuestLoginModal';
 import UpgradeAccountModal from './UpgradeAccountModal';
@@ -10,6 +10,11 @@ import { useApp } from '../context/AppContext';
 import type { Screen } from '../types';
 import Logo from './Logo';
 import GuestBanner from './GuestBanner';
+import { categoriesOrigin } from '../lib/navBack';
+import SearchHost from './SearchModal';
+import { openSearch } from '../lib/searchStore';
+
+const SHORTCUT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
 
 const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }> }[] = [
   { screen: 'today', label: '홈', Icon: Home },
@@ -25,13 +30,15 @@ const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number
 const MOBILE_TABS: Screen[] = ['today', 'month', 'notes', 'settings'];
 function mobileOwner(screen: Screen): Screen {
   if (screen === 'timebox') return 'month';
-  if (screen === 'all' || screen === 'project') return 'today';
-  return navOwner(screen);
+  const owner = navOwner(screen);
+  return owner === 'all' ? 'today' : owner;
 }
 
-// 하위 화면(카테고리 관리, 약관 등)에 있을 때도 어느 메뉴 아래인지 표시되도록 묶어줌
+// 하위 화면(카테고리 관리, 약관 등)에 있을 때도 어느 메뉴 아래인지 표시되도록 묶어줌.
+// 카테고리 관리는 저장소의 바로가기로 열었으면 저장소 아래, 설정에서 열었으면 설정 아래
 function navOwner(screen: Screen): Screen {
-  if (screen === 'categories' || screen === 'terms' || screen === 'privacy') return 'settings';
+  if (screen === 'categories') return categoriesOrigin() === 'all' ? 'all' : 'settings';
+  if (screen === 'terms' || screen === 'privacy') return 'settings';
   if (screen === 'project') return 'all';
   if (screen === 'calendar') return 'month';
   return screen;
@@ -42,7 +49,7 @@ function TodaySummary() {
   const { todos } = useApp();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
-  const todayTodos = todos.filter(t => t.date === todayStr);
+  const todayTodos = todos.filter(t => t.date === todayStr && !t.skipped);
   const done = todayTodos.filter(t => t.completed).length;
   const pct = todayTodos.length ? Math.round((done / todayTodos.length) * 100) : 0;
 
@@ -87,6 +94,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <TodaySummary />
 
+        <div className="px-3 mb-3">
+          <button onClick={openSearch} title={`검색 (${SHORTCUT})`} aria-label="검색"
+            className="w-full flex items-center justify-center wide:justify-start gap-3 h-10 px-3 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white wide:bg-white wide:dark:bg-gray-900 wide:ring-1 wide:ring-gray-200 wide:dark:ring-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/60 transition-colors">
+            <Search size={18} strokeWidth={1.8} />
+            <span className="hidden wide:inline flex-1 text-left">검색</span>
+            <kbd className="hidden wide:inline font-sans text-10.5px font-semibold text-gray-400 dark:text-gray-500">{SHORTCUT}</kbd>
+          </button>
+        </div>
+
         <nav className="flex-1 flex flex-col gap-0.5 px-3" aria-label="주요 메뉴">
           {navItems.map(({ screen, label, Icon }) => {
             const active = owner === screen;
@@ -128,6 +144,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <GuestBanner />
+      <SearchHost />
       {guestModal === 'login' && <GuestLoginModal onClose={() => setGuestModal(null)} onUpgrade={() => setGuestModal('upgrade')} />}
       {guestModal === 'upgrade' && <UpgradeAccountModal onClose={() => setGuestModal(null)} onLogin={() => setGuestModal('login')} />}
 

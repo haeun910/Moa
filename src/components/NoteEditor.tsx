@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Note } from '../types';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   note?: Note; // 없으면 새 메모 (처음 글자를 쓰는 순간 만들어짐)
@@ -37,6 +38,8 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  // 폰 전체 화면 편집기는 Esc로 목록으로 돌아감 (컴퓨터의 오른쪽 칸은 창이 아니라서 그대로)
+  useEscapeKey(() => onClose?.(), !!fullscreen && !!onClose);
 
   // 새 메모는 제목부터 바로 쓸 수 있게
   useEffect(() => { if (!note) titleRef.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps

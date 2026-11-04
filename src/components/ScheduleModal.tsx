@@ -11,6 +11,7 @@ import { LIMITS } from '../lib/limits';
 import { isValidTimeRange } from '../lib/timeRange';
 import TimeRangeInput from './TimeRangeInput';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   schedule?: ScheduleItem;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function ScheduleModal({ schedule, defaultDate, onClose }: Props) {
+  useEscapeKey(onClose);
   const {
     schedules, addSchedule, updateSchedule, deleteSchedule, toggleSchedule,
     addScheduleSeries, updateScheduleSeries, deleteScheduleSeries,

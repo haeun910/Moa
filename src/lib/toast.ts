@@ -1,10 +1,16 @@
 // 화면 아래에 잠깐 뜨는 알림. 어느 파일에서든 showToast()로 띄우고, <Toaster />가 화면에 그림.
 export type ToastKind = 'error' | 'success' | 'info';
 
+export interface ToastAction {
+  label: string; // 예) 되돌리기
+  onClick: () => void;
+}
+
 export interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
 }
 
 type Listener = (toasts: ToastItem[]) => void;
@@ -28,11 +34,11 @@ export function dismissToast(id: number) {
   emit();
 }
 
-export function showToast(message: string, kind: ToastKind = 'info', durationMs = 3500) {
+export function showToast(message: string, kind: ToastKind = 'info', durationMs = 3500, action?: ToastAction) {
   // 같은 문구가 이미 떠 있으면 또 쌓지 않음 (저장 실패가 연달아 나는 경우 등)
   if (toasts.some(t => t.message === message)) return;
   const id = nextId++;
-  toasts = [...toasts.slice(-2), { id, kind, message }];
+  toasts = [...toasts.slice(-2), { id, kind, message, action }];
   emit();
   setTimeout(() => dismissToast(id), durationMs);
 }

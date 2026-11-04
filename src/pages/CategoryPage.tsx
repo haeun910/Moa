@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { CATEGORIES_BACK_KEY } from '../lib/navBack';
+import { useState } from 'react';
+import { categoriesOrigin } from '../lib/navBack';
 import { Plus, Trash2, Edit2, X, ChevronLeft, ChevronDown, ChevronUp, Check, GripVertical, Layers } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -41,15 +41,15 @@ function SortableSubcategoryRow({
           autoFocus
           value={editName}
           onChange={e => onEditName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
           className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
         />
         <textarea maxLength={LIMITS.longText}
           value={editNotes}
           onChange={e => onEditNotes(e.target.value)}
-          placeholder="메모 (저장소 화면에서만 보여요, 선택)"
-          rows={2}
-          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-gray-400 placeholder-gray-400"
+          placeholder="메모 (저장소 화면에서만 보여요, 선택) · Enter로 줄바꿈"
+          rows={3}
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white resize-y min-h-[72px] focus:outline-none focus:ring-1 focus:ring-gray-400 placeholder-gray-400"
         />
         <div className="flex gap-1.5">
           <button onClick={onCancelEdit} className="flex-1 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">취소</button>
@@ -66,7 +66,7 @@ function SortableSubcategoryRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm text-gray-600 dark:text-gray-300 truncate">{sc.name}</span>
-        {sc.notes && <span className="block text-11px text-gray-400 dark:text-gray-500 truncate">{sc.notes}</span>}
+        {sc.notes && <span className="block text-11px text-gray-400 dark:text-gray-500 whitespace-pre-line break-words line-clamp-3">{sc.notes}</span>}
       </span>
       <button onClick={onStartEdit} aria-label={`${sc.name} 편집`}
         className="text-gray-400 hover:text-gray-900 transition-colors p-1 flex-shrink-0">
@@ -155,7 +155,7 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
             value={newName}
             onChange={e => setNewName(e.target.value)}
             placeholder="하위카테고리 이름"
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); if (e.key === 'Escape') setAdding(false); }}
             onBlur={() => { if (!newName.trim()) setAdding(false); }}
             className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
           />
@@ -220,12 +220,12 @@ function SortableCategoryItem({
         <div className="space-y-3">
           <input maxLength={LIMITS.categoryName} value={editName} onChange={e => onEditName(e.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
-            onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSaveEdit(); }}
           />
           <textarea maxLength={LIMITS.longText} value={editDescription} onChange={e => onEditDescription(e.target.value)}
-            placeholder="설명 (저장소 화면에서만 보여요, 선택)"
-            rows={2}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
+            placeholder="설명 (저장소 화면에서만 보여요, 선택) · Enter로 줄바꿈"
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-y min-h-[72px] focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
           />
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map(color => (
@@ -256,7 +256,7 @@ function SortableCategoryItem({
           <span className="flex-1 min-w-0">
             <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{cat.name}</span>
             {cat.description && (
-              <span className="block text-11px text-gray-400 dark:text-gray-500 truncate">{cat.description}</span>
+              <span className="block text-11px text-gray-400 dark:text-gray-500 whitespace-pre-line break-words line-clamp-3">{cat.description}</span>
             )}
           </span>
           {cat.isDefault && (
@@ -297,10 +297,7 @@ function SortableCategoryItem({
 export default function CategoryPage() {
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories, setCurrentScreen } = useApp();
   // 저장소의 바로가기로 들어왔으면 뒤로 가기도 저장소로
-  const [backTo] = useState<'all' | 'settings'>(() => {
-    try { return sessionStorage.getItem(CATEGORIES_BACK_KEY) === 'all' ? 'all' : 'settings'; } catch { return 'settings'; }
-  });
-  useEffect(() => { try { sessionStorage.removeItem(CATEGORIES_BACK_KEY); } catch { /* 없어도 됨 */ } }, []);
+  const [backTo] = useState(categoriesOrigin);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState(PRESET_COLORS[0]);
@@ -372,12 +369,12 @@ export default function CategoryPage() {
             <input maxLength={LIMITS.categoryName} value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="카테고리 이름"
               className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
-              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
             />
             <textarea maxLength={LIMITS.longText} value={newDescription} onChange={e => setNewDescription(e.target.value)}
-              placeholder="설명 (저장소 화면에서만 보여요, 선택)"
-              rows={2}
-              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
+              placeholder="설명 (저장소 화면에서만 보여요, 선택) · Enter로 줄바꿈"
+              rows={3}
+              className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white text-sm resize-y min-h-[72px] focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 placeholder-gray-400"
             />
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (

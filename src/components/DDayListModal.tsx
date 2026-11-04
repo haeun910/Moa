@@ -3,6 +3,7 @@ import { X, Flag, Trash2, Pencil, Plus, Link2 } from 'lucide-react';
 import { parseISO, differenceInCalendarDays, format } from 'date-fns';
 import DDayModal from './DDayModal';
 import type { DDay } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   ddays: DDay[]; // 지나간 것 포함 전체 (수동 등록 + 할 일 연동 가상 항목 모두)
@@ -14,6 +15,7 @@ interface Props {
 // 메인 D-Day 위젯은 다가올 것만 보여주고, 여기서 전체 히스토리를 확인/관리함.
 export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
   const [editing, setEditing] = useState<DDay | 'new' | null>(null);
+  useEscapeKey(onClose, editing === null);
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();

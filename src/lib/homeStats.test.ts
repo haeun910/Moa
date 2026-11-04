@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completionStreak, dayProgress, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison } from './homeStats';
+import { completionStreak, dayProgress, dueSoonTodos, nextSchedule, overdueTodos, rate, splitOverdue, timeboxMinutes, weekComparison } from './homeStats';
 import { spanToRange } from './timebox';
 import type { ScheduleItem, TimeBlock, Todo } from '../types';
 
@@ -64,6 +64,38 @@ describe('overdue / dueSoon', () => {
     ];
     expect(overdueTodos(todos, '2026-10-17').map(t => t.id)).toEqual(['late']);
     expect(dueSoonTodos(todos, today).map(t => t.id)).toEqual(['due17', 'due19']);
+  });
+
+  it("'안 하기'로 정리한 할 일은 밀린 일·달성률에서 빠짐", () => {
+    const todos = [
+      todo('skip', { date: '2026-10-10', skipped: true }),
+      todo('late', { date: '2026-10-10' }),
+      todo('done', { date: '2026-10-10', completed: true }),
+    ];
+    expect(overdueTodos(todos, '2026-10-17').map(t => t.id)).toEqual(['late']);
+    expect(dayProgress(todos, '2026-10-10')).toEqual({ total: 2, done: 1 });
+  });
+
+  it('반복 할 일은 가장 최근에 놓친 회차 하나만, 오늘 회차가 있으면 하나도 안 셈', () => {
+    const daily = (id: string, date: string, extra: Partial<Todo> = {}) => todo(id, { date, seriesId: 'daily', ...extra });
+    const weekly = (id: string, date: string) => todo(id, { date, seriesId: 'weekly' });
+    const todos = [
+      // 매일 반복: 14~16일 놓쳤지만 오늘(17일) 회차가 있음 → 밀린 일 아님
+      daily('d14', '2026-10-14'), daily('d15', '2026-10-15'), daily('d16', '2026-10-16'), daily('d17', '2026-10-17'), daily('d18', '2026-10-18'),
+      // 매주 반복: 3일·10일 놓침, 다음 회차는 24일 → 가장 최근 10일 것 하나만
+      weekly('w03', '2026-10-03'), weekly('w10', '2026-10-10'), weekly('w24', '2026-10-24'),
+    ];
+    expect(overdueTodos(todos, '2026-10-17').map(t => t.id)).toEqual(['w10']);
+    // 가장 최근 회차를 끝냈으면 그 전에 놓친 것도 안 셈
+    const doneLatest = [weekly('w03', '2026-10-03'), { ...weekly('w10', '2026-10-10'), completed: true }];
+    expect(overdueTodos(doneLatest, '2026-10-17')).toEqual([]);
+  });
+
+  it('2주 넘게 지난 밀린 일은 따로 나눔', () => {
+    const todos = [todo('recent', { date: '2026-10-03' }), todo('old', { date: '2026-10-02' })];
+    const { recent, old } = splitOverdue(overdueTodos(todos, '2026-10-17'), '2026-10-17');
+    expect(recent.map(t => t.id)).toEqual(['recent']);
+    expect(old.map(t => t.id)).toEqual(['old']);
   });
 });
 

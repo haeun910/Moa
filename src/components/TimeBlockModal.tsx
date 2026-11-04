@@ -16,6 +16,7 @@ import {
 import type { TimeBlock, Todo } from '../types';
 import { LIMITS } from '../lib/limits';
 import { fetchTimeBlockSeriesStarts } from '../lib/db';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export interface TimeBlockDraft {
   dateKey: string;
@@ -50,6 +51,7 @@ const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 bor
 
 // 타임박스 블록 만들기/고치기: 무엇을(제목 또는 할 일) · 언제(날짜, 시작~끝) · 알림
 export default function TimeBlockModal({ block, draft, onClose }: Props) {
+  useEscapeKey(onClose);
   const {
     todos, categories, subcategories, timeblocks, addTodo, addTimeBlock, updateTimeBlock, deleteTimeBlock, setCurrentScreen,
     addTimeBlockSeries, updateTimeBlockSeries, deleteTimeBlockSeries,
@@ -243,7 +245,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                   autoFocus={!isEdit}
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
                   placeholder="무엇을 할까요?"
                   className={inputCls}
                 />

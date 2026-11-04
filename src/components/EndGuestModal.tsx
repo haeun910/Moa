@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { deleteGuestAccount, deleteMyAccount, isMissingGuestDeleteFunction } from '../lib/db';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 체험 끝내기: 게스트 계정은 로그아웃하면 다시 들어올 방법이 없어서, 남기지 않고 데이터째 지움
 export default function EndGuestModal({ onClose, onUpgrade }: { onClose: () => void; onUpgrade: () => void }) {
   const { user, signOut } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  useEscapeKey(onClose, !loading);
 
   async function handleEnd() {
     if (!user) return;

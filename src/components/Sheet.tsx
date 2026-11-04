@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import type React from 'react';
 import { X } from 'lucide-react';
 
@@ -12,11 +12,7 @@ export default function Sheet({ title, icon, onClose, children, footer, size = '
   footer?: React.ReactNode;
   size?: 'md' | 'lg';
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>

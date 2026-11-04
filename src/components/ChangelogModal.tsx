@@ -2,8 +2,10 @@ import { X, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANGELOG } from '../data/changelog';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function ChangelogModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }

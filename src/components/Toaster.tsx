@@ -39,6 +39,12 @@ export default function Toaster() {
               className={`pointer-events-auto w-full max-w-sm flex items-start gap-2 px-3.5 py-2.5 rounded-lg shadow-lg text-sm animate-slide-up motion-reduce:animate-none ${box}`}>
               <Icon size={16} className="flex-shrink-0 mt-0.5" />
               <p className="flex-1 leading-snug break-keep">{t.message}</p>
+              {t.action && (
+                <button onClick={() => { t.action?.onClick(); dismissToast(t.id); }}
+                  className="flex-shrink-0 -my-0.5 px-1.5 py-0.5 rounded font-semibold underline underline-offset-2">
+                  {t.action.label}
+                </button>
+              )}
               <button onClick={() => dismissToast(t.id)} aria-label="닫기" className="flex-shrink-0 opacity-70 hover:opacity-100">
                 <X size={15} />
               </button>

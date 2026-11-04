@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Sparkles, CalendarDays, Flag, Package, AlertCircle, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Step {
   Icon: typeof Sparkles;
@@ -64,6 +65,7 @@ const STEPS: Step[] = [
 
 // 처음 사용하는 사람을 위한 짧은 안내 (여러 장을 넘겨보는 형식)
 export default function OnboardingModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const [step, setStep] = useState(0);
   const { Icon, color, title, lines } = STEPS[step];
   const isLast = step === STEPS.length - 1;

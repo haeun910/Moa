@@ -1,6 +1,6 @@
 import { timeRangeLabel } from '../lib/timeRange';
 import { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Clock, Flag, StickyNote, Repeat } from 'lucide-react';
+import { Check, Trash2, Clock, Flag, StickyNote, Repeat, Minus } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
@@ -53,8 +53,13 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
     setEditingTitle(false);
   }
 
-  // 체크박스 클릭 처리: 저장소에서는 완료 체크 시 자동으로 오늘 날짜로 이동
+  // 체크박스 클릭 처리: 저장소에서는 완료 체크 시 자동으로 오늘 날짜로 이동.
+  // '안 하기'로 정리한 할 일은 누르면 다시 할 일로 되돌림
   async function handleCheckboxClick() {
+    if (todo.skipped) {
+      await updateTodo(todo.id, { skipped: false });
+      return;
+    }
     if (completeMovesToToday && !todo.completed) {
       await updateTodo(todo.id, { completed: true, date: format(new Date(), 'yyyy-MM-dd') });
       return;
@@ -72,15 +77,18 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         {/* Checkbox (카테고리 색을 테두리에 살짝 반영) */}
         <button
           onClick={handleCheckboxClick}
-          aria-label={todo.completed ? '완료 취소' : '완료 처리'}
+          aria-label={todo.skipped ? '안 하기 취소' : todo.completed ? '완료 취소' : '완료 처리'}
+          title={todo.skipped ? '안 하기로 정리한 할 일이에요. 누르면 다시 할 일로 돌아와요' : undefined}
           className={`flex-shrink-0 mt-px w-[18px] h-[18px] rounded-[6px] border-[1.5px] flex items-center justify-center transition-all duration-150 active:scale-90 ${
-            todo.completed
-              ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500'
-              : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+            todo.skipped
+              ? 'bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600'
+              : todo.completed
+                ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500'
+                : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500 hover:bg-gray-50 dark:hover:bg-gray-800'
           }`}
-          style={!todo.completed && category ? { borderColor: `${category.color}99` } : undefined}
+          style={!todo.completed && !todo.skipped && category ? { borderColor: `${category.color}99` } : undefined}
         >
-          {todo.completed && <Check size={12} className="text-white" strokeWidth={3} />}
+          {todo.skipped ? <Minus size={12} className="text-gray-400" strokeWidth={3} /> : todo.completed && <Check size={12} className="text-white" strokeWidth={3} />}
         </button>
 
         {/* Title + meta */}
@@ -93,8 +101,8 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               onChange={e => setEditTitleValue(e.target.value)}
               onClick={e => e.stopPropagation()}
               onKeyDown={e => {
-                if (e.key === 'Enter') saveTitleEdit();
-                if (e.key === 'Escape') setEditingTitle(false);
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitleEdit();
+                if (e.key === 'Escape') { e.preventDefault(); setEditingTitle(false); }
               }}
               onBlur={saveTitleEdit}
               className="block w-full text-14px leading-snug bg-transparent border-b border-gray-400 text-gray-800 dark:text-gray-100 focus:outline-none"
@@ -105,12 +113,13 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               onDoubleClick={handleTitleDoubleClick}
               title="한 번: 자세히 편집 · 두 번: 이름만 바로 수정"
               className={`block text-14px leading-[1.45] transition-colors cursor-pointer ${
-                todo.completed
+                todo.completed || todo.skipped
                   ? 'line-through decoration-gray-300 dark:decoration-gray-600 text-gray-400 dark:text-gray-500'
                   : 'text-gray-900 dark:text-gray-100'
               }`}
             >
               {todo.title}
+              {todo.skipped && <span className="ml-1.5 align-middle inline-flex items-center h-[18px] px-1.5 rounded text-10.5px font-semibold no-underline text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400">안 함</span>}
             </span>
           )}
           {(todo.startTime || todo.dueDate || todo.notes || todo.seriesId) && (

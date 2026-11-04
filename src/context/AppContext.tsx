@@ -31,6 +31,8 @@ function toTodo(t: DbTodo): Todo {
     notes: t.notes ?? '',
     createdAt: t.created_at,
     seriesId: t.series_id ?? null,
+    skipped: t.skipped ?? false,
+    remindMinutes: t.remind_minutes ?? null,
   };
 }
 
@@ -59,7 +61,10 @@ function toDDay(d: DbDDay): DDay {
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
-  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null, completed: s.completed ?? false };
+  return {
+    id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes,
+    createdAt: s.created_at, seriesId: s.series_id ?? null, completed: s.completed ?? false, remindMinutes: s.remind_minutes ?? null,
+  };
 }
 
 function toTimeBlock(b: DbTimeBlock): TimeBlock {
@@ -179,8 +184,15 @@ interface AppContextType {
 // 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
 export type NoteUpdates = Partial<Pick<Note, 'title' | 'content' | 'folderId' | 'pinned'>>;
 
-export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes'>>;
-export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null };
+export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes' | 'remindMinutes'>>;
+export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null; remindMinutes?: number | null };
+
+// 알림은 정했을 때(또는 있던 걸 끌 때)만 DB로 보냄 (025 마이그레이션 전 DB에서도 알림 없는 저장은 그대로 되게).
+// 알림 시각은 DB가 날짜·시간과 이 기기 시간대로 계산함 (반복 회차를 한꺼번에 고쳐도 회차마다 맞게)
+function remindFields(next: number | null | undefined, had: boolean): { remind_minutes?: number | null; time_zone?: string } {
+  if (next === undefined || (next === null && !had)) return {};
+  return { remind_minutes: next, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul' };
+}
 
 // 끝 시간은 있을 때(또는 있던 걸 지울 때)만 DB로 보냄.
 // 021 마이그레이션(end_time 칸)을 실행하기 전 DB에서도 끝 시간을 안 쓰는 저장은 그대로 되게 하기 위함
@@ -467,6 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
@@ -499,6 +512,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
       sort_order: firstSort + i,
     })), seriesId);
@@ -513,6 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if ('subcategoryId' in updates) dbUpdates.subcategory_id = updates.subcategoryId ?? null;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.endTime)));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.remindMinutes != null)));
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
     setTodos(prev => prev.map(t => inSeries(t, seriesId, fromDate) ? { ...t, ...updates } : t));
     await db.updateTodoSeries(seriesId, fromDate, dbUpdates);
@@ -544,7 +559,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const before = todosRef.current.find(t => t.id === id);
     if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
+    // '안 하기'는 켤 때(또는 켜져 있던 걸 풀 때)만 보냄 (025 전 DB 대비). 완료하면 '안 하기'는 풀림
+    const nextUpdates = { ...updates };
+    if (updates.completed === true && before?.skipped) nextUpdates.skipped = false;
+    if (nextUpdates.skipped !== undefined && (nextUpdates.skipped || before?.skipped)) dbUpdates.skipped = nextUpdates.skipped;
+    if (nextUpdates.skipped === true && before?.completed) { nextUpdates.completed = false; dbUpdates.completed = false; }
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, ...nextUpdates } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...nextUpdates } : t));
     await db.updateTodo(id, dbUpdates);
     if (before && followBlocks) await followTodoWithBlocks(before, updates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -607,10 +629,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const todo = todosRef.current.find(t => t.id === id);
     if (!todo) return;
     const completed = !todo.completed;
+    // 끝냈으면 '안 하기'는 풀림
+    const unskip = completed && !!todo.skipped;
     // 다음 렌더 전에 또 눌려도 방금 바꾼 값을 기준으로 뒤집도록 참조도 바로 갱신
-    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed } : t);
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed }));
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t));
+    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed, ...(unskip ? { skipped: false } : {}) }));
   }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
@@ -783,6 +807,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const row = await db.createSchedule(user.id, {
       title: fields.title, date: fields.date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false),
       ...(fields.endDate ? { end_date: fields.endDate } : {}), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
     });
     setSchedules(prev => sortSchedules([...prev, toSchedule(row)]));
   }, [user]);
@@ -798,6 +823,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.date !== undefined) dbUpdates.date = updates.date;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
     await db.updateSchedule(id, dbUpdates);
   }, []);
 
@@ -828,6 +854,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (dates.length === 0) return;
     const rows = await db.createSchedules(user.id, dates.map(date => ({
       title: fields.title, date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
     })), seriesId);
     setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
   }, [user]);
@@ -838,6 +865,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, schedulesRef.current.some(s => inSeries(s, seriesId, fromDate) && s.remindMinutes != null)));
     setSchedules(prev => sortSchedules(prev.map(s => inSeries(s, seriesId, fromDate) ? { ...s, ...updates } : s)));
     await db.updateScheduleSeries(seriesId, fromDate, dbUpdates);
   }, []);

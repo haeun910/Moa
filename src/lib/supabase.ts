@@ -64,6 +64,9 @@ export interface DbTodo {
   notes: string | null;
   sort_order: number;
   series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
+  skipped?: boolean;              // 025 마이그레이션 전에는 컬럼이 없을 수 있음
+  remind_minutes?: number | null; // 025
+  time_zone?: string | null;      // 025: 알림 시각을 계산할 기기 시간대
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +121,8 @@ export interface DbSchedule {
   notes: string | null;
   series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
   completed?: boolean; // 022 마이그레이션 전에는 컬럼이 없을 수 있음
+  remind_minutes?: number | null; // 025 마이그레이션 전에는 컬럼이 없을 수 있음
+  time_zone?: string | null;      // 025: 알림 시각을 계산할 기기 시간대
   created_at: string;
 }
 

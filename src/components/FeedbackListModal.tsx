@@ -4,9 +4,11 @@ import { format, parseISO } from 'date-fns';
 import * as db from '../lib/db';
 import type { DbFeedback } from '../lib/db';
 import { showToast } from '../lib/toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 관리자 전용: 사용자들이 보낸 의견 목록 (보낸 사람은 개인정보 보호를 위해 표시하지 않음)
 export default function FeedbackListModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const [items, setItems] = useState<DbFeedback[] | null>(null);
   const [error, setError] = useState('');
 

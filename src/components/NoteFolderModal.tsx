@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { X, FolderPlus, Folder, Pencil, Trash2, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 메모 폴더 관리: 추가 / 이름 바꾸기 / 삭제 (삭제해도 메모는 "폴더 없음"으로 남음)
 export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const { noteFolders, notes, addNoteFolder, renameNoteFolder, deleteNoteFolder } = useApp();
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
                 {editingId === f.id ? (
                   <>
                     <input maxLength={LIMITS.folderName} autoFocus value={editName} onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveRename(); if (e.key === 'Escape') setEditingId(null); }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveRename(); if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); } }}
                       className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500" />
                     <button onClick={saveRename} aria-label="이름 저장" className="w-7 h-7 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 flex items-center justify-center"><Check size={14} /></button>
                   </>

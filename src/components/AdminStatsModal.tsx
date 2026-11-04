@@ -3,6 +3,7 @@ import type React from 'react';
 import { X, RefreshCw, AlertTriangle } from 'lucide-react';
 import { fetchAdminStats } from '../lib/db';
 import type { AdminDailyStat, AdminFeatureUsage, AdminStats } from '../lib/supabase';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const num = (n: number | undefined) => (n ?? 0).toLocaleString('ko-KR');
 const pct = (part: number | undefined, whole: number | undefined) =>
@@ -257,11 +258,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>

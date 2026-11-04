@@ -29,14 +29,15 @@ export default function HelpTip({ text, label }: { text: string; label: string }
     function close(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    // 팝업 창 안의 물음표면 Esc 한 번에 말풍선만 닫히고 창은 그대로 (창의 Esc보다 먼저 받음)
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
     }
     document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKey, true);
     };
   }, [open]);
 

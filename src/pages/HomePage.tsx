@@ -3,7 +3,7 @@ import type React from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  Archive, ChevronDown, CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
+  Archive, Search, ChevronDown, CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -11,13 +11,14 @@ import { applyListDisplaySettings } from '../lib/listDisplay';
 import { todoDdays } from '../lib/agenda';
 import { blockDone, durationLabel } from '../lib/timebox';
 import {
-  completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, timeboxMinutes, weekComparison,
+  completionStreak, dayProgress, daysUntil, dueSoonTodos, nextSchedule, overdueTodos, rate, splitOverdue, timeboxMinutes, weekComparison,
 } from '../lib/homeStats';
 import { LIMITS } from '../lib/limits';
 import { isMultiDay, scheduleEndDate, scheduleOnDate } from '../lib/scheduleDates';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { isValidTimeRange, timeRangeEnd, timeRangeLabel } from '../lib/timeRange';
 import { requestOpenNote } from '../lib/openNote';
+import { openSearch } from '../lib/searchStore';
 import TodayTimeline from '../components/TodayTimeline';
 import ScheduleCheck from '../components/ScheduleCheck';
 import { useCollapsed } from '../hooks/useCollapsed';
@@ -245,7 +246,7 @@ function MemoSection() {
 export default function HomePage() {
   const {
     todos, schedules, ddays, timeblocks, monthlyGoals, notices, settings,
-    updateTodo, toggleMonthlyGoal, setCurrentScreen, setSelectedDate,
+    toggleMonthlyGoal, setCurrentScreen, setSelectedDate,
   } = useApp();
   const now = useNow(60_000);
   const todayKey = format(now, 'yyyy-MM-dd');
@@ -285,7 +286,8 @@ export default function HomePage() {
   const weekRate = rate(thisWeek);
   const lastWeekRate = rate(lastWeek);
   const weekDiff = weekRate !== null && lastWeekRate !== null ? weekRate - lastWeekRate : null;
-  const overdue = overdueTodos(todos, todayKey);
+  // 2주 넘은 밀린 일은 "오래된 할 일"로 접어 두고 숫자에는 안 셈 (한동안 안 쓰다 와도 숫자에 겁먹지 않게)
+  const { recent: overdue, old: oldOverdue } = splitOverdue(overdueTodos(todos, todayKey), todayKey);
   const dueSoon = dueSoonTodos(todos, now);
   const todosById = new Map(todos.map(t => [t.id, t]));
   const box = timeboxMinutes(timeblocks, todayKey, b => blockDone(b, todosById));
@@ -342,6 +344,10 @@ export default function HomePage() {
             </h1>
           </div>
           <div className="flex items-center gap-2 pt-1">
+            {/* 폰·태블릿 검색 (PC는 왼쪽 메뉴의 검색이나 Ctrl/⌘+K) */}
+            <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
+              <Search size={15} />
+            </button>
             {/* 폰·태블릿은 하단 탭에 저장소가 없어서 여기서 들어감 */}
             {!hidden.has('all') && (
               <button onClick={() => setCurrentScreen('all')} className="lg:hidden btn-secondary h-8 px-3 text-13px">
@@ -399,9 +405,11 @@ export default function HomePage() {
             value={overdue.length}
             unit="개"
             tone={overdue.length > 0 ? 'warn' : 'default'}
-            sub={dueSoon.length > 0 ? `3일 안에 마감 ${dueSoon.length}개` : overdue.length > 0 ? '눌러서 오늘로 옮기기' : '밀린 일 없이 깔끔해요'}
+            sub={dueSoon.length > 0 ? `3일 안에 마감 ${dueSoon.length}개`
+              : overdue.length > 0 ? '눌러서 오늘로 옮기거나 정리하기'
+                : oldOverdue.length > 0 ? `2주 넘은 할 일 ${oldOverdue.length}개는 접어 뒀어요` : '밀린 일 없이 깔끔해요'}
             icon={<span className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${overdue.length > 0 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}><AlertCircle size={20} /></span>}
-            onClick={overdue.length > 0 ? () => setShowOverdue(true) : undefined}
+            onClick={overdue.length > 0 || oldOverdue.length > 0 ? () => setShowOverdue(true) : undefined}
           />
         </section>
 
@@ -612,21 +620,7 @@ export default function HomePage() {
       {scheduleModal && <ScheduleModal schedule={scheduleModal.schedule} defaultDate={todayKey} onClose={() => setScheduleModal(null)} />}
       {ddayModal && <DDayModal dday={ddayModal} onClose={() => setDdayModal(null)} />}
       {showOverdue && (
-        <OverdueModal
-          todos={overdue}
-          onEdit={todo => setTodoModal({ todo })}
-          getActions={todo => (
-            <button
-              onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: todayKey }); }}
-              className="row-action !bg-gray-100 !text-gray-800 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-100 dark:hover:!bg-gray-700"
-              title="오늘 할 일로 옮기기"
-            >
-              <CalendarCheck size={11} />
-              오늘로
-            </button>
-          )}
-          onClose={() => setShowOverdue(false)}
-        />
+        <OverdueModal onEdit={todo => setTodoModal({ todo })} onClose={() => setShowOverdue(false)} />
       )}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
       {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}

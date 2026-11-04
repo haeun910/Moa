@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 게스트(체험) 계정을 정식 계정으로: 지금까지 적은 내용은 같은 계정이라 그대로 남음
 export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () => void; onLogin?: () => void }) {
@@ -9,6 +10,7 @@ export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () 
   const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState<'email' | 'google' | null>(null);
+  useEscapeKey(onClose, !loading);
 
   // 구글 화면에서 뒤로 가기로 돌아오면 "이동 중" 상태가 그대로 복원되므로 풀어 줌
   useEffect(() => {

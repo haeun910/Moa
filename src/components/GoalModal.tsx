@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   month: string;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function GoalModal({ month, goal, onClose }: Props) {
+  useEscapeKey(onClose);
   const { addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal } = useApp();
   const isEdit = !!goal;
   const [title, setTitle] = useState(goal?.title ?? '');
@@ -72,7 +74,7 @@ export default function GoalModal({ month, goal, onClose }: Props) {
             onChange={e => setTitle(e.target.value)}
             placeholder="이번 달 목표를 입력하세요"
             className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 text-sm transition-all"
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
           />
           <div className="flex gap-2">
             {isEdit && (

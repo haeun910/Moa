@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // recovery: 비밀번호 재설정 메일 링크로 들어온 경우 (새 비밀번호를 정해야 함)
 export default function ChangePasswordModal({ onClose, recovery = false }: { onClose: () => void; recovery?: boolean }) {
@@ -10,6 +11,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  useEscapeKey(onClose, !loading);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

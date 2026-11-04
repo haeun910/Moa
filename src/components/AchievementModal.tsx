@@ -3,9 +3,13 @@ import { X, ChevronLeft, ChevronRight, TrendingUp, Target, CheckCircle2 } from '
 import { format, addMonths, subMonths, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function AchievementModal({ onClose }: { onClose: () => void }) {
-  const { todos, categories, monthlyGoals } = useApp();
+  useEscapeKey(onClose);
+  const { todos: allTodos, categories, monthlyGoals } = useApp();
+  // '안 하기'로 정리한 할 일은 할 일 개수·달성률에서 뺌
+  const todos = allTodos.filter(t => !t.skipped);
   const [viewMonth, setViewMonth] = useState(new Date());
 
   const monthStr = format(viewMonth, 'yyyy-MM');

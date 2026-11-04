@@ -5,8 +5,10 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Notice } from '../types';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function NoticeModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const { notices, isAdmin, addNotice, updateNotice, deleteNotice } = useApp();
   const [editing, setEditing] = useState<Notice | 'new' | null>(null);
   const [title, setTitle] = useState('');

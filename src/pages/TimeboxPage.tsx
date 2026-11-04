@@ -23,6 +23,7 @@ import {
 import type { BlockSpan } from '../lib/timebox';
 import { timeRangeEnd } from '../lib/timeRange';
 import type { DDay, ScheduleItem, TimeBlock, Todo } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const HOUR_PX = 52;
 const MIN_PX = HOUR_PX / 60;
@@ -66,6 +67,7 @@ export default function TimeboxPage() {
     try { return localStorage.getItem(PANEL_PREF_KEY) !== '0'; } catch { return true; }
   });
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEscapeKey(() => setSheetOpen(false), sheetOpen);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [sourceModal, setSourceModal] = useState<SourceModal | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);

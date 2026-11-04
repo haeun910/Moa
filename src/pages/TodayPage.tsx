@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, CalendarCheck, Repeat } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -14,6 +14,7 @@ import Sheet from '../components/Sheet';
 import ScheduleCheck from '../components/ScheduleCheck';
 import CalendarViewTabs from '../components/CalendarViewTabs';
 import { savedCalendarView } from '../lib/calendarView';
+import { openSearch } from '../lib/searchStore';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { GUIDES } from '../data/guides';
 import {
@@ -33,6 +34,7 @@ import { todoDdays } from '../lib/agenda';
 import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
 import { timeRangeLabel } from '../lib/timeRange';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
+import { overdueTodos as findOverdue, progressOf, rate, splitOverdue } from '../lib/homeStats';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -164,6 +166,7 @@ export default function TodayPage() {
   const [calView, setCalView] = useState<'month' | 'week'>(savedCalendarView);
   // 컴퓨터는 오른쪽 패널, 폰·태블릿은 날짜를 누르면 팝업
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isPhone = useMediaQuery('(max-width: 767px)');
   // 폰·태블릿: 목표·D-Day·일정을 위에 다 펼치지 않고 눌러서 팝업으로
   const [overviewSheet, setOverviewSheet] = useState<'goal' | 'dday' | 'schedule' | null>(null);
   const [weekRef, setWeekRef] = useState(new Date());
@@ -188,6 +191,7 @@ export default function TodayPage() {
     end: endOfWeek(endOfMonth(viewMonth)),
   });
   const weekCount = Math.ceil(days.length / 7);
+  const weekDays = eachDayOfInterval({ start: startOfWeek(weekRef, { weekStartsOn: 0 }), end: endOfWeek(weekRef, { weekStartsOn: 0 }) });
   const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
   // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
   const holidayRange = [
@@ -200,11 +204,12 @@ export default function TodayPage() {
   // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
   // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
   const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
-  const selectedDoneCount = selectedTodos.filter(t => t.completed).length;
+  // 진행 막대는 '안 하기'로 정리한 할 일을 빼고 셈
+  const selectedProgress = progressOf(selectedTodos);
 
   const selectedSchedules = schedules.filter(s => scheduleOnDate(s, selectedDate));
-  // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
-  const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
+  // 지난 날짜에 못 끝낸 할 일 (홈과 같은 기준: 반복은 최근 회차만, 2주 넘은 것은 접어 둬서 숫자에 안 셈)
+  const overdueTodos = splitOverdue(findOverdue(todos, todayStr), todayStr).recent;
 
   function handleDayClick(dateStr: string) {
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
@@ -262,23 +267,6 @@ export default function TodayPage() {
           저장소로
         </button>
         <MoveToDateButton todo={todo} onMove={date => updateTodo(todo.id, { date })} />
-      </>
-    );
-  }
-
-  // 미완료 모아보기에서는 "오늘로" 버튼을 맨 앞에 추가
-  function getOverdueActions(todo: Todo) {
-    return (
-      <>
-        <button
-          onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: todayStr }); }}
-          className="row-action !bg-gray-100 !text-gray-800 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-100 dark:hover:!bg-gray-700"
-          title="오늘 할 일로 옮기기"
-        >
-          <CalendarCheck size={11} />
-          오늘로
-        </button>
-        {getTodoActions(todo)}
       </>
     );
   }
@@ -370,7 +358,7 @@ export default function TodayPage() {
 
   // 선택한 날 패널의 머리글 (데스크톱/모바일 공통)
   function renderPanelHeader(compact: boolean) {
-    const pct = selectedTodos.length ? Math.round((selectedDoneCount / selectedTodos.length) * 100) : 0;
+    const pct = rate(selectedProgress) ?? 0;
     const isTodaySelected = selectedDate === todayStr;
     return (
       <div className={compact ? 'px-4 pt-4 pb-3 flex-shrink-0' : 'px-6 pt-6 pb-4 flex-shrink-0'}>
@@ -404,13 +392,13 @@ export default function TodayPage() {
             </button>
           </div>
         </div>
-        {selectedTodos.length > 0 && (
+        {selectedProgress.total > 0 && (
           <div className="flex items-center gap-3 mt-3">
             <div className="flex-1 h-1 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
               <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedDoneCount}</span> / {selectedTodos.length} 완료
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProgress.done}</span> / {selectedProgress.total} 완료
             </span>
           </div>
         )}
@@ -587,12 +575,12 @@ export default function TodayPage() {
             <div className="flex items-center gap-2">
               {/* 월/주(/타임박스) 전환 */}
               <CalendarViewTabs value={calView} onChange={setCalView} />
-              <button onClick={() => setShowOverdue(true)} aria-label="미완료 할 일" title="지난 날짜의 미완료 할 일 모아보기"
+              <button onClick={() => setShowOverdue(true)} aria-label="밀린 할 일" title="지난 날짜에 못 끝낸 할 일 정리하기"
                 className={`btn-secondary relative h-8 w-8 sm:w-auto sm:px-3 text-13px ${
                   overdueTodos.length > 0 ? '!text-amber-700 dark:!text-amber-400 !ring-amber-200 dark:!ring-amber-800/70' : ''
                 }`}>
                 <AlertCircle size={15} />
-                <span className="hidden sm:inline">미완료</span>
+                <span className="hidden sm:inline">밀린 일</span>
                 {overdueTodos.length > 0 && <span className="hidden sm:inline tabular-nums font-semibold">{overdueTodos.length}</span>}
                 {/* 모바일은 아이콘만: 개수는 모서리 배지로 */}
                 {overdueTodos.length > 0 && (
@@ -600,6 +588,9 @@ export default function TodayPage() {
                     {overdueTodos.length > 99 ? '99+' : overdueTodos.length}
                   </span>
                 )}
+              </button>
+              <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
+                <Search size={15} />
               </button>
               <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
                 <Megaphone size={15} />
@@ -672,8 +663,9 @@ export default function TodayPage() {
                   ];
                   const visibleChips = chips.slice(0, chipStyle.maxChips);
                   const overflowCount = chips.length - visibleChips.length;
-                  const todoDots = Array.from(new Set(dayTodos.map(t => t.categoryId))).slice(0, 8);
-                  const allDone = dayTodos.length > 0 && dayTodos.every(t => t.completed);
+                  const dayCounted = dayTodos.filter(t => !t.skipped);
+                  const todoDots = Array.from(new Set(dayCounted.map(t => t.categoryId))).slice(0, 8);
+                  const allDone = dayCounted.length > 0 && dayCounted.every(t => t.completed);
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
@@ -753,6 +745,80 @@ export default function TodayPage() {
                 })}
               </div>
             </div>
+          ) : isPhone ? (
+            /* ── 폰 주간 보기: 7칸으로 나누면 제목이 한두 글자씩 잘려서, 날짜별로 위아래로 쌓은 목록으로 ── */
+            <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800" aria-label="이번 주 목록">
+              {weekDays.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const dayTodos = todos.filter(t => t.date === dateStr);
+                const dayCount = progressOf(dayTodos);
+                const dayDdayList = allDdays.filter(d => d.targetDate === dateStr);
+                const daySchedules = schedules.filter(sc => scheduleOnDate(sc, dateStr))
+                  .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+                const dow = day.getDay();
+                const isToday = dateStr === todayStr;
+                const holiday = holidayLabel(holidays, dateStr);
+                const empty = dayTodos.length === 0 && daySchedules.length === 0 && dayDdayList.length === 0;
+                return (
+                  <div key={dateStr} className={`flex gap-3 px-3 py-3 ${isToday ? 'bg-gray-50/80 dark:bg-gray-800/30' : ''}`}>
+                    <button onClick={() => handleDayClick(dateStr)} aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })} 열기`}
+                      className="w-10 flex-shrink-0 flex flex-col items-center pt-0.5">
+                      <span className={`text-11px font-semibold ${dow === 0 || holiday ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{DAY_LABELS[dow]}</span>
+                      <span className={`mt-0.5 w-8 h-8 flex items-center justify-center rounded-full text-base font-bold tabular-nums ${
+                        isToday ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : weekdayTone(holiday ? 0 : dow)
+                      }`}>{format(day, 'd')}</span>
+                      {dayCount.total > 0 && <span className="mt-1 text-10.5px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</span>}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-1 py-0.5">
+                      {holiday && <p className="text-11px font-medium text-red-500 dark:text-red-400 truncate">{holiday}</p>}
+                      {dayDdayList.map(d => (
+                        <button key={`dday-${d.id}`} onClick={() => openDday(d)} className="w-full flex items-center gap-1.5 text-left text-13px text-gray-800 dark:text-gray-100">
+                          <Flag size={12} className="flex-shrink-0 text-leaf-600 dark:text-leaf-400" />
+                          <span className="truncate font-medium">{d.title}</span>
+                        </button>
+                      ))}
+                      {daySchedules.map(sc => (
+                        <div key={`sch-${sc.id}`} className="flex items-center gap-2">
+                          <ScheduleCheck schedule={sc} size="sm" />
+                          <button onClick={() => setScheduleModalState({ schedule: sc })} className="flex-1 min-w-0 flex items-center gap-1.5 text-left">
+                            <span className="flex-shrink-0 text-11.5px tabular-nums font-medium text-gray-500 dark:text-gray-400">
+                              {isMultiDay(sc) ? '기간' : sc.startTime ? timeRangeLabel(sc.startTime, sc.endTime) : '종일'}
+                            </span>
+                            <span className={`truncate text-13px ${sc.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{sc.title}</span>
+                          </button>
+                        </div>
+                      ))}
+                      {dayTodos.map(todo => {
+                        const cat = categories.find(c => c.id === todo.categoryId);
+                        return (
+                          <div key={todo.id} className="flex items-center gap-2">
+                            <button onClick={() => toggleTodo(todo.id)} aria-label={todo.completed ? '완료 취소' : '완료'} aria-pressed={todo.completed}
+                              className="flex-shrink-0 -m-1.5 p-1.5">
+                              <span className={`w-4 h-4 rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
+                                todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'
+                              }`}>
+                                {todo.completed && <Check size={10} className="text-white" strokeWidth={3.2} />}
+                              </span>
+                            </button>
+                            <button onClick={() => openEdit(todo)} className="flex-1 min-w-0 flex items-center gap-1.5 text-left">
+                              {cat && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />}
+                              <span className={`truncate text-13px ${todo.completed || todo.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{todo.title}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {empty && (
+                        <button onClick={() => handleDayClick(dateStr)} className="text-13px text-gray-300 dark:text-gray-600 py-0.5">비어 있어요</button>
+                      )}
+                    </div>
+                    <button onClick={() => handleDayClick(dateStr)} aria-label={`${format(day, 'M월 d일')}에 추가`}
+                      className="btn-icon w-8 h-8 flex-shrink-0 -mr-1">
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             /* ── 주간 뷰 (인라인) ── */
             <div className="rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
@@ -764,7 +830,7 @@ export default function TodayPage() {
                   }).map(day => {
                     const dateStr = format(day, 'yyyy-MM-dd');
                     const dayTodos = todos.filter(t => t.date === dateStr);
-                    const completedCount = dayTodos.filter(t => t.completed).length;
+                    const dayCount = progressOf(dayTodos);
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
                     const holiday = holidayLabel(holidays, dateStr);
@@ -780,8 +846,8 @@ export default function TodayPage() {
                           <p className={`text-10px font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-gray-400' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
                             <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-gray-900 dark:text-white' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
-                            {dayTodos.length > 0 && (
-                              <p className="text-10px tabular-nums text-gray-400">{completedCount}/{dayTodos.length}</p>
+                            {dayCount.total > 0 && (
+                              <p className="text-10px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</p>
                             )}
                           </div>
                           {holiday && <p className="text-10px font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
@@ -810,7 +876,7 @@ export default function TodayPage() {
                                 {todo.completed && <Check size={7} className="text-white" strokeWidth={3.5} />}
                               </div>
                               <span className={`text-11px leading-snug break-words ${
-                                todo.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
+                                todo.completed || todo.skipped ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
                               }`}>{todo.title}</span>
                             </div>
                           ))}
@@ -824,7 +890,7 @@ export default function TodayPage() {
                               placeholder="추가..."
                               className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-gray-500"
                               onKeyDown={async e => {
-                                if (e.key === 'Enter') {
+                                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                                   const t = weekAddTitle.trim();
                                   if (t) await addTodo({ title: t, completed: false, categoryId: null, subcategoryId: null, date: dateStr, startTime: null, notes: '' });
                                   setWeekAddTitle(''); setWeekAddDate(null);
@@ -889,7 +955,7 @@ export default function TodayPage() {
       )}
 
       {showOverdue && (
-        <OverdueModal todos={overdueTodos} onEdit={openEdit} getActions={getOverdueActions} onClose={() => setShowOverdue(false)} />
+        <OverdueModal onEdit={openEdit} onClose={() => setShowOverdue(false)} />
       )}
       {showModal && (
         <TodoModal

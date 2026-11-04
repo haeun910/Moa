@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag } from 'lucide-react';
-import { CATEGORIES_BACK_KEY } from '../lib/navBack';
+import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag, Search } from 'lucide-react';
+import { setCategoriesOrigin } from '../lib/navBack';
+import { openSearch } from '../lib/searchStore';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -73,7 +74,7 @@ function SubcategorySection({
         <span className="count-pill">{group.todos.length}</span>
       </button>
       {subcat.notes && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1 leading-relaxed">{subcat.notes}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1 leading-relaxed whitespace-pre-line break-words">{subcat.notes}</p>
       )}
       {!collapsed && (
         <>
@@ -141,7 +142,7 @@ function CategoryQuickAdd({ categoryId, subcategoryId, onAdd, placeholder = '할
         onChange={e => setTitle(e.target.value)}
         placeholder={placeholder}
         className="flex-1 min-w-0 text-13px bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
-        onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit(); }}
       />
       {title.trim() && (
         <button onClick={submit} disabled={loading} aria-label="추가" className="btn-primary w-6 h-6 rounded-md">
@@ -181,7 +182,7 @@ function CategoryBlock({ cat, subGroups, bare, onEdit, actions, onAdd }: Categor
       </button>
       {/* 카테고리 설명은 저장소 화면에서만 노출 */}
       {cat.description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 pl-5 leading-relaxed">{cat.description}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 pl-5 leading-relaxed whitespace-pre-line break-words">{cat.description}</p>
       )}
       <div className="h-3" />
 
@@ -323,8 +324,8 @@ export default function AllTodosPage() {
     );
   }
 
-  const repoTodoCount = repoTodos.length;
-  const completedCount = repoTodos.filter(t => t.completed).length;
+  const repoTodoCount = repoTodos.filter(t => !t.skipped).length;
+  const completedCount = repoTodos.filter(t => t.completed && !t.skipped).length;
 
   // ── 그룹 구성 헬퍼 ──────────────────────────────────────────
   function subcatGroupsOf(catId: string) {
@@ -394,7 +395,7 @@ export default function AllTodosPage() {
   const completedPct = repoTodoCount ? Math.round((completedCount / repoTodoCount) * 100) : 0;
 
   function openCategories() {
-    try { sessionStorage.setItem(CATEGORIES_BACK_KEY, 'all'); } catch { /* 뒤로 가기가 설정으로 갈 뿐 */ }
+    setCategoriesOrigin('all');
     setCurrentScreen('categories');
   }
 
@@ -408,11 +409,16 @@ export default function AllTodosPage() {
             <ListDisplayBadges settings={settings} />
           </div>
           <div className="flex flex-col items-end gap-3 mb-1 flex-shrink-0">
-            {/* 카테고리 관리 바로가기 (예전엔 설정 안에서 찾아 들어가야 했음) */}
-            <button onClick={openCategories} className="btn-secondary h-8 px-3 text-13px">
-              <Tag size={14} />
-              카테고리 관리
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
+                <Search size={15} />
+              </button>
+              {/* 카테고리 관리 바로가기 (예전엔 설정 안에서 찾아 들어가야 했음) */}
+              <button onClick={openCategories} className="btn-secondary h-8 px-3 text-13px">
+                <Tag size={14} />
+                카테고리 관리
+              </button>
+            </div>
             {repoTodoCount > 0 && (
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -441,7 +447,7 @@ export default function AllTodosPage() {
               onChange={e => setQuickTitle(e.target.value)}
               placeholder={placeholder}
               className="flex-1 min-w-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5 px-1.5"
-              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleQuickAdd(); }} />
             <button onClick={openNewDetail} aria-label="상세 옵션으로 추가" title="날짜·시간·마감일·반복 등 상세 옵션으로 추가"
               className="btn-icon w-auto px-2.5 gap-1 text-xs font-semibold whitespace-nowrap">
               <SlidersHorizontal size={14} />

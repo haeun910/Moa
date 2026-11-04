@@ -1,4 +1,5 @@
 import { X, Share, Menu, MonitorSmartphone } from 'lucide-react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 function detectPlatform(): 'ios' | 'ios-non-safari' | 'android' | 'desktop' {
   const ua = navigator.userAgent;
@@ -12,6 +13,7 @@ function detectPlatform(): 'ios' | 'ios-non-safari' | 'android' | 'desktop' {
 }
 
 export default function InstallInstructionsModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const platform = detectPlatform();
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {

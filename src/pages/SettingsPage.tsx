@@ -28,6 +28,7 @@ import { exportAllUserData } from '../lib/db';
 import { showToast } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import type { OptionalFeature, Settings } from '../types';
+import { setCategoriesOrigin } from '../lib/navBack';
 
 // ── 설정 화면 구성 ─────────────────────────────────────────
 // 휴대폰: 분류별로 묶인 한 줄 목록 (아이폰 설정처럼). "일반"은 현재 값만 보여주고 누르면 상세 화면으로
@@ -329,7 +330,7 @@ export default function SettingsPage() {
 
   const organizeRows = (
     <>
-      <Row Icon={Tag} label="카테고리 관리" value={`${categories.length}개`} onClick={() => setCurrentScreen('categories')} />
+      <Row Icon={Tag} label="카테고리 관리" value={`${categories.length}개`} onClick={() => { setCategoriesOrigin('settings'); setCurrentScreen('categories'); }} />
       <Row Icon={Milestone} label="프로젝트 로드맵" desc="카테고리 하나를 골라 타임라인으로 보기" onClick={() => setCurrentScreen('project')} />
       <PushRows onEnabledChange={on => updateSettings({ notifications: on })} />
     </>

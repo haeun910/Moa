@@ -5,6 +5,7 @@ import * as db from '../lib/db';
 import { APP_VERSION } from '../data/changelog';
 import { showToast } from '../lib/toast';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const MAX_LENGTH = 2000;
 
@@ -13,6 +14,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
+  useEscapeKey(onClose, !sending);
   const [error, setError] = useState('');
 
   async function handleSend() {

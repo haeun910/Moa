@@ -10,6 +10,7 @@ import type { SeriesScope } from './SeriesScopePicker';
 import TimeRangeInput from './TimeRangeInput';
 import { isValidTimeRange } from '../lib/timeRange';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   todo?: Todo;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function TodoModal({ todo, defaultDate, defaultTime, defaultCategoryId, defaultSubcategoryId, defaultTitle, onClose }: Props) {
+  useEscapeKey(onClose);
   const {
     todos, addTodo, updateTodo, deleteTodo, categories, subcategories, addSubcategory,
     addTodoSeries, updateTodoSeries, deleteTodoSeries,
@@ -292,7 +294,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                       value={newSubcatName}
                       onChange={e => setNewSubcatName(e.target.value)}
                       placeholder="이름"
-                      onKeyDown={e => { if (e.key === 'Enter') handleCreateSubcategory(); if (e.key === 'Escape') setAddingSubcat(false); }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleCreateSubcategory(); if (e.key === 'Escape') { e.preventDefault(); setAddingSubcat(false); } }}
                       onBlur={() => { if (!newSubcatName.trim()) setAddingSubcat(false); }}
                       className="w-24 px-2.5 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400"
                     />

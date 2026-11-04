@@ -7,8 +7,10 @@ import {
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function WeeklyModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const { todos, toggleTodo, addTodo } = useApp();
   const [weekRef, setWeekRef] = useState(new Date());
   const [addingDate, setAddingDate] = useState<string | null>(null);
@@ -121,7 +123,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                         onChange={e => setAddTitle(e.target.value)}
                         placeholder="할 일..."
                         className="flex-1 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400"
-                        onKeyDown={e => { if (e.key === 'Enter') handleAdd(dateStr); if (e.key === 'Escape') { setAddingDate(null); setAddTitle(''); } }}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(dateStr); if (e.key === 'Escape') { e.preventDefault(); setAddingDate(null); setAddTitle(''); } }}
                         onBlur={() => { if (!addTitle.trim()) setAddingDate(null); }}
                       />
                       <button onClick={() => handleAdd(dateStr)} aria-label="추가"

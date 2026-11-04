@@ -3,6 +3,7 @@ import type React from 'react';
 import { X, Mail, Lock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 체험 중에 "이미 계정이 있어요": 바로 그 계정으로 로그인.
 // 체험 데이터는 기존 계정으로 합칠 수 없어서 지워지므로, 남기고 싶으면 계정 만들기를 안내함
@@ -13,6 +14,7 @@ export default function GuestLoginModal({ onClose, onUpgrade }: { onClose: () =>
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState<'email' | 'google' | null>(null);
+  useEscapeKey(onClose, !loading);
 
   // 구글 화면에서 뒤로 가기로 돌아오면 "이동 중" 상태가 그대로 복원되므로 풀어 줌
   useEffect(() => {

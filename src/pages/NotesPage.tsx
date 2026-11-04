@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, FileText, Search, Folder, FolderOpen, Inbox, Pin, Settings2, X } from 'lucide-react';
 import { format, isToday, isThisYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { clearRequestedNote, peekRequestedNote } from '../lib/openNote';
+import { clearRequestedNote, peekRequestedNote, OPEN_NOTE_EVENT } from '../lib/openNote';
+import { matches, normalizeQuery } from '../lib/search';
 import { useApp } from '../context/AppContext';
 import NoteEditor from '../components/NoteEditor';
 import NoteFolderModal from '../components/NoteFolderModal';
@@ -48,7 +49,18 @@ export default function NotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(peekRequestedNote);
   // 편집기를 다시 만들지 결정하는 키 (새 메모가 저장돼 id가 생겨도 편집기가 새로 뜨지 않게 따로 관리)
   const [editorKey, setEditorKey] = useState<string | null>(peekRequestedNote);
-  useEffect(() => { clearRequestedNote(); }, []);
+  useEffect(() => {
+    clearRequestedNote();
+    function onOpen(e: Event) {
+      const id = (e as CustomEvent<string>).detail;
+      clearRequestedNote();
+      setFolder('all');
+      setSelectedId(id);
+      setEditorKey(id);
+    }
+    window.addEventListener(OPEN_NOTE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_NOTE_EVENT, onOpen);
+  }, []);
   const [newCount, setNewCount] = useState(0);
   const [showFolderModal, setShowFolderModal] = useState(false);
 
@@ -57,10 +69,11 @@ export default function NotesPage() {
     if (folder !== 'all' && folder !== 'none' && !noteFolders.some(f => f.id === folder)) setFolder('all');
   }, [folder, noteFolders]);
 
-  const q = query.trim().toLowerCase();
+  // 한글 초성으로도 찾음 (예: ㅎㅇㄹ → 회의록)
+  const q = normalizeQuery(query);
   const visible = useMemo(() => notes
     .filter(n => folder === 'all' || (folder === 'none' ? !n.folderId : n.folderId === folder))
-    .filter(n => !q || n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+    .filter(n => !q || matches(n.title, q) || matches(n.content, q))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
   [notes, folder, q]);
   const pinnedNotes = visible.filter(n => n.pinned);

@@ -12,6 +12,8 @@ export interface Todo {
   createdAt: string;
   notes?: string;
   seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
+  skipped?: boolean; // '안 하기'로 정리한 할 일 (밀린 일·달성률에서 빠지고, 그 날짜에 흐리게 남음)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (시간이 없으면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
 }
 
 export interface Category {
@@ -89,6 +91,7 @@ export interface ScheduleItem {
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
   completed: boolean; // 끝낸 일정 (완료 체크하면 위쪽 일정 목록에서 빠짐)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (하루 종일이면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
 }
 
 // 타임박스: "이 시간엔 이걸 하겠다"는 시간 블록. 정해진 약속(일정)과 달리 자유롭게 옮기고 늘리고 줄임.

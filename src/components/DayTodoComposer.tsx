@@ -5,14 +5,27 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const LAST_CATEGORY_KEY = 'day-composer-last-category';
+const LAST_SUBCATEGORY_KEY = 'day-composer-last-subcategory';
 
 function readLastCategory(): string | null {
   try { return localStorage.getItem(LAST_CATEGORY_KEY); } catch { return null; }
 }
 function writeLastCategory(id: string) {
   try { localStorage.setItem(LAST_CATEGORY_KEY, id); } catch { /* 저장 못 해도 동작에는 지장 없음 */ }
+}
+// 마지막에 고른 하위카테고리 (카테고리별로 기억. 없음 = "미정")
+function readLastSubcategory(categoryId: string): string | null {
+  try { return (JSON.parse(localStorage.getItem(LAST_SUBCATEGORY_KEY) ?? '{}') as Record<string, string | null>)[categoryId] ?? null; } catch { return null; }
+}
+function writeLastSubcategory(categoryId: string, id: string | null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LAST_SUBCATEGORY_KEY) ?? '{}') as Record<string, string | null>;
+    all[categoryId] = id;
+    localStorage.setItem(LAST_SUBCATEGORY_KEY, JSON.stringify(all));
+  } catch { /* 저장 못 해도 동작에는 지장 없음 */ }
 }
 
 interface Props {
@@ -22,8 +35,9 @@ interface Props {
 }
 
 // 홈 화면에서 날짜를 고른 뒤 할 일을 추가하는 입력창.
-// 패널에는 입력칸 하나만 보이고, 누르면 따로 뜨는 창에서 카테고리 → 하위카테고리 → 제목 순서로 고름.
-// (예전엔 패널 아래에 카테고리/하위카테고리 칩이 가로로 줄지어 있어서 좁은 화면에서 고르기 불편했음)
+// 패널에는 입력칸 하나만 보이고, 누르면 따로 뜨는 창에서 바로 제목을 씀.
+// 카테고리는 마지막에 쓴 것으로 미리 골라 두고, 바꿀 때만 "바꾸기"를 누름
+// (처음 쓸 때만 카테고리 → 하위카테고리를 먼저 고름. 예전엔 매번 골라야 해서 누르는 횟수가 많았음)
 export default function DayTodoComposer({ date, onOpenDetail }: Props) {
   const [open, setOpen] = useState(false);
   const dateLabel = format(parseISO(date), 'M월 d일');
@@ -58,14 +72,20 @@ type Step = 'category' | 'subcategory' | 'write';
 function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => void }) {
   const { categories, subcategories, addTodo } = useApp();
   const lastCategoryId = readLastCategory();
-  // 카테고리가 하나도 없는 사용자는 바로 제목 쓰기로
-  const [step, setStep] = useState<Step>(categories.length ? 'category' : 'write');
-  const [category, setCategory] = useState<Category | null>(null);
-  const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
+  // 마지막에 쓴 카테고리가 아직 있으면 그걸로 바로 제목 쓰기. 카테고리가 하나도 없는 사용자도 바로 제목 쓰기로
+  const [initialCategory] = useState(() => categories.find(c => c.id === lastCategoryId) ?? null);
+  const [step, setStep] = useState<Step>(initialCategory || !categories.length ? 'write' : 'category');
+  const [category, setCategory] = useState<Category | null>(initialCategory);
+  const [subcategoryId, setSubcategoryId] = useState<string | null>(() => {
+    if (!initialCategory) return null;
+    const last = readLastSubcategory(initialCategory.id);
+    return subcategories.some(s => s.id === last && s.categoryId === initialCategory.id) ? last : null;
+  });
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [added, setAdded] = useState<string[]>([]); // 이 창에서 방금 추가한 할 일 (연달아 추가할 때 확인용)
   const inputRef = useRef<HTMLInputElement>(null);
+  useEscapeKey(onClose);
 
   const categorySubcats = category ? subcategories.filter(s => s.categoryId === category.id) : [];
   const subcategory = categorySubcats.find(s => s.id === subcategoryId) ?? null;
@@ -79,12 +99,14 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
     setCategory(cat);
     setSubcategoryId(null);
     writeLastCategory(cat.id);
+    writeLastSubcategory(cat.id, null);
     // 하위카테고리가 없으면 고를 게 없으니 바로 제목 쓰기로
     setStep(subcategories.some(s => s.categoryId === cat.id) ? 'subcategory' : 'write');
   }
 
   function pickSubcategory(id: string | null) {
     setSubcategoryId(id);
+    if (category) writeLastSubcategory(category.id, id);
     setStep('write');
   }
 
@@ -106,12 +128,14 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
     } finally { setSaving(false); }
   }
 
+  // 카테고리 고르기 → (바꾸던 중이면) 원래 고른 카테고리로 제목 쓰기, 하위카테고리 → 카테고리
   function goBack() {
-    if (step === 'write') setStep(categorySubcats.length ? 'subcategory' : 'category');
-    else setStep('category');
+    if (step === 'subcategory') setStep('category');
+    else if (step === 'category') setStep('write');
   }
 
-  const canGoBack = step !== 'category' && categories.length > 0;
+  // 제목 쓰기 화면은 처음부터 열리므로 뒤로 가기 대신 위의 "바꾸기"로 카테고리를 고름
+  const canGoBack = step === 'subcategory' || (step === 'category' && !!category);
   const heading = step === 'category' ? '어떤 카테고리인가요?' : step === 'subcategory' ? `${category?.name} · 하위 카테고리` : '할 일 추가';
   const rowCls = 'w-full flex items-center gap-3 px-4 min-h-[52px] py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors';
 
