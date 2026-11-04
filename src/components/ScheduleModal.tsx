@@ -124,15 +124,15 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
       >
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CalendarClock size={16} className="text-gray-500 dark:text-gray-400" />
+            <CalendarClock size={16} className="text-blue-500" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? '일정 수정' : '일정 추가'}</h2>
           </div>
           {liveSchedule && (
             <button onClick={() => toggleSchedule(liveSchedule.id)} aria-pressed={liveSchedule.completed}
               className={`ml-auto mr-1 h-8 px-3 rounded-full flex items-center gap-1 text-12.5px font-semibold transition-colors ${
                 liveSchedule.completed
-                  ? 'bg-ink-500 text-white dark:bg-ink-400 dark:text-gray-900'
-                  : 'bg-ink-50 text-ink-700 hover:bg-ink-100 dark:bg-ink-900/30 dark:text-ink-300'
+                  ? 'bg-blue-500 text-white dark:bg-blue-400 dark:text-gray-900'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300'
               }`}>
               <Check size={13} strokeWidth={3} />
               {liveSchedule.completed ? '완료함' : '완료'}
@@ -151,22 +151,22 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="일정 제목"
-            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all"
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
           />
           <div>
             <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">날짜 <span className="font-normal text-gray-400">(여러 날이면 끝 날짜도)</span></p>
             <div className="flex items-center gap-1.5">
-              <input type="date" value={date} onChange={e => changeDate(e.target.value)} aria-label="시작 날짜" className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all" />
+              <input type="date" value={date} onChange={e => changeDate(e.target.value)} aria-label="시작 날짜" className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
               <span className="flex-shrink-0 text-gray-400 text-sm">~</span>
-              <input type="date" value={endDate} min={date || undefined} onChange={e => setEndDate(e.target.value)} aria-label="끝 날짜" aria-invalid={dateRangeInvalid} className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all" />
+              <input type="date" value={endDate} min={date || undefined} onChange={e => setEndDate(e.target.value)} aria-label="끝 날짜" aria-invalid={dateRangeInvalid} className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
             </div>
             {dateRangeInvalid && <p className="mt-1 text-11.5px text-red-600">끝 날짜는 시작 날짜와 같거나 늦어야 해요</p>}
           </div>
           <div>
             <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">시간 <span className="font-normal text-gray-400">(비우면 하루 종일, 끝 시간은 선택)</span></p>
             <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
-              inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm transition-all" />
+              inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
           </div>
           <ReminderPicker value={remind} onChange={setRemind} hasDate={!!date} hasTime={!!startTime} onLeave={onClose} compact accent="blue" />
           <textarea maxLength={LIMITS.longText}
@@ -174,7 +174,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             onChange={e => setNotes(e.target.value)}
             placeholder="메모 (선택)"
             rows={2}
-            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ink-400 text-sm resize-none transition-all"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm resize-none transition-all"
           />
 
           {canRepeat && (
@@ -214,7 +214,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             취소
           </button>
           <button onClick={handleSave} disabled={!canSave}
-            className="flex-1 py-2.5 rounded-lg bg-ink-500 hover:bg-ink-600 disabled:opacity-40 text-white text-sm font-semibold transition-colors whitespace-nowrap">
+            className="flex-1 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-semibold transition-colors whitespace-nowrap">
             {saving ? '저장 중...'
               : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
               : isEdit ? '저장' : '추가'}

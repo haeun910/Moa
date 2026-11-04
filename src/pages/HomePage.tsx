@@ -185,7 +185,7 @@ function MemoSection() {
   return (
     <section className="surface rounded-xl p-4">
       <SectionHeader
-        icon={<StickyNote size={15} className="text-gray-500 dark:text-gray-400" />}
+        icon={<StickyNote size={15} className="text-amber-500" />}
         title="메모"
         help={GUIDES.memo}
         meta={notes.length > 0 && <span className="count-pill">{notes.length}</span>}
@@ -224,7 +224,7 @@ function MemoSection() {
               <li key={n.id}>
                 <button onClick={() => open(n)} className="w-full flex items-center gap-2 text-left py-1 group">
                   {n.pinned
-                    ? <Pin size={12} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                    ? <Pin size={12} className="flex-shrink-0 text-amber-500" />
                     : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
                   <span className="min-w-0 flex-1 truncate text-13px">
                     <span className="text-gray-800 dark:text-gray-100 group-hover:text-leaf-700 dark:group-hover:text-leaf-300">{noteHeading(n)}</span>
@@ -383,7 +383,7 @@ export default function HomePage() {
             value={streak}
             unit="일"
             sub={streak > 0 ? '하루 1개 이상 완료한 날' : '오늘 하나 끝내면 시작돼요'}
-            icon={<span className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${streak > 0 ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}><Flame size={20} /></span>}
+            icon={<span className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${streak > 0 ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}><Flame size={20} /></span>}
             onClick={() => setShowAchievement(true)}
           />
           <StatCard
@@ -446,7 +446,7 @@ export default function HomePage() {
                       return (
                         <li key={t.id}>
                           <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-13px text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
-                            <span className={`flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-leaf-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                            <span className={`flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                               {diff === 0 ? '오늘' : `${diff}일 뒤`}
                             </span>
                             <span className="truncate">{t.title}</span>
@@ -475,7 +475,7 @@ export default function HomePage() {
             {/* ── 오늘 일정 ── */}
             <section className="surface rounded-xl p-4">
               <SectionHeader
-                icon={<CalendarClock size={15} className="text-gray-500 dark:text-gray-400" />}
+                icon={<CalendarClock size={15} className="text-blue-500" />}
                 title="오늘 일정"
                 help={GUIDES.schedule}
                 meta={todaySchedules.length > 0 && <span className="count-pill">{todaySchedules.length}</span>}
@@ -500,7 +500,7 @@ export default function HomePage() {
                         <ScheduleTime s={s} />
                         <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
                         {isMultiDay(s) && <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
-                        {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-10.5px font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-0.5"><Clock size={10} />다음</span>}
+                        {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-10.5px font-semibold text-blue-500 dark:text-blue-400 flex items-center gap-0.5"><Clock size={10} />다음</span>}
                       </button>
                     </li>
                   ))}
@@ -534,7 +534,7 @@ export default function HomePage() {
             {/* ── 다가오는 D-Day ── */}
             <section className="surface rounded-xl p-4">
               <SectionHeader
-                icon={<Flag size={15} className="text-gray-500 dark:text-gray-400" />}
+                icon={<Flag size={15} className="text-rose-500" />}
                 title="다가오는 D-Day"
                 help={GUIDES.dday}
                 actionLabel="달력"
@@ -551,7 +551,7 @@ export default function HomePage() {
                     return (
                       <li key={d.id}>
                         <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
-                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-12px font-bold tabular-nums ${diff <= 3 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
+                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-12px font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
                           <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
                           <span className="ml-auto flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
                         </button>

@@ -309,7 +309,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
           </button>
         )}
         <button onClick={togglePin} aria-label={pinned ? '고정 해제' : '맨 위에 고정'} title={pinned ? '고정 해제' : '맨 위에 고정'}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${pinned ? 'text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-800' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
           {pinned ? <PinOff size={16} /> : <Pin size={16} />}
         </button>
         {confirmDelete ? (

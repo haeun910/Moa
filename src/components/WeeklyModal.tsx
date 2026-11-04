@@ -82,12 +82,12 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
                   {/* Day header */}
                   <div className="text-center mb-3 flex-shrink-0">
                     <p className={`text-10px font-bold tracking-wide ${
-                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-leaf-500' : 'text-gray-400 dark:text-gray-500'
+                      dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
                     }`}>{DAY_EN[dow]}</p>
                     <p className={`text-xl font-bold leading-tight ${
                       isToday ? 'text-leaf-600'
                       : dow === 0 ? 'text-red-500'
-                      : dow === 6 ? 'text-leaf-500'
+                      : dow === 6 ? 'text-blue-500'
                       : 'text-gray-800 dark:text-gray-100'
                     }`}>{format(day, 'd')}</p>
                     {dayTodos.length > 0 && (

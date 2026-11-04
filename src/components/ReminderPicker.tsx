@@ -38,7 +38,7 @@ export default function ReminderPicker({ value, onChange, hasDate, hasTime, onLe
                 // 반복 고르기(RepeatPicker)와 같은 모양
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   on
-                    ? (accent === 'blue' ? 'bg-ink-500 border-ink-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white')
+                    ? (accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white')
                     : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}>
                 {opt.label}

@@ -16,8 +16,8 @@ export default function ScheduleCheck({ schedule, size = 'md' }: { schedule: Sch
     >
       <span className={`${box} rounded-full border-[1.5px] flex items-center justify-center transition-colors ${
         schedule.completed
-          ? 'bg-ink-500 border-ink-500 dark:bg-ink-400 dark:border-ink-400'
-          : 'border-ink-300 dark:border-ink-700 group-hover/check:border-ink-500'
+          ? 'bg-blue-500 border-blue-500 dark:bg-blue-400 dark:border-blue-400'
+          : 'border-blue-300 dark:border-blue-700 group-hover/check:border-blue-500'
       }`}>
         {schedule.completed && <Check size={size === 'sm' ? 10 : 11} className="text-white" strokeWidth={3.2} />}
       </span>

@@ -286,7 +286,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
 
           {!loading && error && (
             <div className="flex flex-col items-center text-center gap-2 py-8">
-              <AlertTriangle size={24} className="text-gray-500 dark:text-gray-400" />
+              <AlertTriangle size={24} className="text-amber-500" />
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{error}</p>
             </div>
           )}
