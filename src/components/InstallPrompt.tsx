@@ -42,7 +42,7 @@ export default function InstallPrompt() {
         <p className="font-semibold text-sm">앱으로 설치하기</p>
         <p className="text-xs text-gray-400 mt-0.5">홈 화면에 추가하면 더 편리해요</p>
       </div>
-      <button onClick={install} className="bg-white hover:bg-gray-100 text-gray-900 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
+      <button onClick={install} className="bg-leaf-500 hover:bg-leaf-400 text-leaf-950 text-xs font-bold px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
         설치
       </button>
       <button onClick={dismiss} aria-label="닫기" className="text-white/50 hover:text-white flex-shrink-0">

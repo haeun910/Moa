@@ -76,7 +76,7 @@ function StatCard({ label, shortLabel, value, unit, sub, icon, onClick, tone = '
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag onClick={onClick}
-      className={`surface rounded-xl px-2.5 py-2.5 lg:p-4 flex items-center justify-between gap-3 text-left min-w-0 ${onClick ? 'hover:ring-1 hover:ring-gray-300 dark:hover:ring-gray-700 transition-shadow' : ''}`}>
+      className={`surface rounded-xl px-2.5 py-2.5 lg:p-4 flex items-center justify-between gap-3 text-left min-w-0 ${onClick ? 'hover:ring-1 hover:ring-leaf-200 dark:hover:ring-leaf-800 transition-shadow' : ''}`}>
       <div className="min-w-0">
         <p className="text-11px lg:text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
           <span className="lg:hidden">{shortLabel}</span>
@@ -131,7 +131,7 @@ function SectionHeader({ icon, title, help, meta, actionLabel, onAction, collaps
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         {onAction && !collapsed && (
-          <button onClick={onAction} className="flex items-center text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors py-1">
+          <button onClick={onAction} className="flex items-center text-xs font-medium text-gray-500 hover:text-leaf-700 dark:text-gray-400 dark:hover:text-leaf-300 transition-colors py-1">
             {actionLabel}<ChevronRight size={14} />
           </button>
         )}
@@ -195,7 +195,7 @@ function MemoSection() {
         onToggle={toggleCollapsed}
       />
       {!collapsed && <>
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-gray-500 dark:focus-within:border-gray-500 transition-colors">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-leaf-400 dark:focus-within:border-leaf-600 transition-colors">
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
@@ -211,7 +211,7 @@ function MemoSection() {
             {error ? '저장하지 못했어요. 다시 눌러 주세요.' : '첫 줄이 제목이 돼요'}
           </span>
           <button onClick={save} disabled={!text.trim() || saving}
-            className="h-7 px-3 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 disabled:opacity-40 disabled:hover:bg-gray-900 text-white text-12px font-medium transition-colors">
+            className="h-7 px-3 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 disabled:hover:bg-leaf-600 text-white text-12px font-medium transition-colors">
             {saving ? '저장 중' : '저장'}
           </button>
         </div>
@@ -227,7 +227,7 @@ function MemoSection() {
                     ? <Pin size={12} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
                     : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
                   <span className="min-w-0 flex-1 truncate text-13px">
-                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-gray-900 dark:group-hover:text-white">{noteHeading(n)}</span>
+                    <span className="text-gray-800 dark:text-gray-100 group-hover:text-leaf-700 dark:group-hover:text-leaf-300">{noteHeading(n)}</span>
                     {preview && <span className="ml-1.5 text-gray-400 dark:text-gray-500">{preview}</span>}
                   </span>
                   <span className="flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>
@@ -338,7 +338,7 @@ export default function HomePage() {
         {/* ── 인사 + 날짜 ── */}
         <header className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <p className="text-13px font-medium text-gray-500 dark:text-gray-400">{greeting(now.getHours())}</p>
+            <p className="text-13px font-medium text-leaf-700 dark:text-leaf-400">{greeting(now.getHours())}</p>
             <h1 className="page-title mt-0.5">
               {format(now, 'M월 d일 EEEE', { locale: ko })}
               {todayHoliday && <span className="ml-2 align-middle inline-flex items-center h-6 px-2 rounded-full bg-red-50 dark:bg-red-900/30 text-12px font-semibold text-red-600 dark:text-red-300">{todayHoliday}</span>}
@@ -361,7 +361,7 @@ export default function HomePage() {
               {hasUnreadNotice && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />}
             </button>
             <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
-              <BarChart3 size={15} className="text-gray-500 dark:text-gray-400" />
+              <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
               <span className="hidden sm:inline">성취 리포트</span>
             </button>
           </div>
@@ -395,7 +395,7 @@ export default function HomePage() {
               ? (weekRate === null ? '이번 주 할 일이 아직 없어요' : '지난주 같은 때와 비교할 기록이 없어요')
               : weekDiff === 0 ? '지난주 이맘때와 같아요'
                 : <span className={weekDiff > 0 ? 'text-leaf-700 dark:text-leaf-400' : 'text-amber-700 dark:text-amber-400'}>지난주보다 {Math.abs(weekDiff)}%p {weekDiff > 0 ? '높아요' : '낮아요'}</span>}
-            icon={<span className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white">
+            icon={<span className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400">
               {weekDiff !== null && weekDiff < 0 ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
             </span>}
             onClick={() => setShowAchievement(true)}
@@ -419,7 +419,7 @@ export default function HomePage() {
             {/* ── 오늘 할 일 ── */}
             <section className="surface rounded-xl p-4">
               <SectionHeader
-                icon={<CalendarCheck size={15} className="text-gray-500 dark:text-gray-400" />}
+                icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title="오늘 할 일"
                 help={GUIDES.todo}
                 meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
@@ -445,8 +445,8 @@ export default function HomePage() {
                       const diff = daysUntil(t.dueDate as string, now);
                       return (
                         <li key={t.id}>
-                          <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-13px text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white">
-                            <span className={`flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                          <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-13px text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
+                            <span className={`flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-leaf-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                               {diff === 0 ? '오늘' : `${diff}일 뒤`}
                             </span>
                             <span className="truncate">{t.title}</span>
@@ -550,7 +550,7 @@ export default function HomePage() {
                     const diff = daysUntil(d.targetDate, now);
                     return (
                       <li key={d.id}>
-                        <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-gray-900 dark:hover:text-white">
+                        <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
                           <span className={`w-14 flex-shrink-0 whitespace-nowrap text-12px font-bold tabular-nums ${diff <= 3 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
                           <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
                           <span className="ml-auto flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
@@ -565,7 +565,7 @@ export default function HomePage() {
             {/* ── 이번 달 목표 ── */}
             <section className="surface rounded-xl p-4">
               <SectionHeader
-                icon={<Target size={15} className="text-gray-500 dark:text-gray-400" />}
+                icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title={`${format(now, 'M월')} 목표`}
                 help={GUIDES.goal}
                 meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}

@@ -119,7 +119,7 @@ export default function NotesPage() {
     return (
       <li key={n.id}>
         <button onClick={() => openNote(n)}
-          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-white dark:bg-gray-800 ring-1 ring-inset ring-gray-300 dark:ring-gray-700' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
+          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-inset ring-leaf-200/80 dark:ring-leaf-800/50' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{noteHeading(n)}</p>
           <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
             <span className="text-gray-700 dark:text-gray-300 mr-1.5 tabular-nums">{shortDate(n.updatedAt)}</span>
@@ -164,7 +164,7 @@ export default function NotesPage() {
     <div className="relative">
       <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="검색"
-        className="w-full h-9 pl-9 pr-8 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-800 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition-shadow" />
+        className="w-full h-9 pl-9 pr-8 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-800 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition-shadow" />
       {query && (
         <button onClick={() => setQuery('')} aria-label="검색어 지우기" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"><X size={14} /></button>
       )}
@@ -279,7 +279,7 @@ export default function NotesPage() {
       <div className="rounded-xl surface p-1.5">{list}</div>
 
       <button onClick={newNote} aria-label="새 메모"
-        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20">
+        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
         <Plus size={24} strokeWidth={2.5} />
       </button>
 

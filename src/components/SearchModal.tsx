@@ -29,7 +29,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, hit[0])}
-      <mark className="bg-transparent text-gray-900 dark:text-white font-bold underline decoration-gray-300 dark:decoration-gray-600 underline-offset-2">{text.slice(hit[0], hit[1])}</mark>
+      <mark className="bg-transparent text-leaf-700 dark:text-leaf-300 font-bold">{text.slice(hit[0], hit[1])}</mark>
       {text.slice(hit[1])}
     </>
   );

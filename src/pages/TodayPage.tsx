@@ -67,7 +67,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
           type="date"
           autoFocus
           defaultValue={todo.date ?? ''}
-          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
+          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
           onChange={e => { if (e.target.value) onMove(e.target.value); setOpen(false); }}
           onBlur={() => setOpen(false)}
         />
@@ -101,7 +101,7 @@ function OverviewColumn({
           {icon}
           {onTitleClick ? (
             <button onClick={onTitleClick} title={titleHint}
-              className="text-13px font-semibold text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
+              className="text-13px font-semibold text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
               {title}
             </button>
           ) : (
@@ -289,7 +289,7 @@ export default function TodayPage() {
         {selectedDdays.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-2 px-0.5">
-              <Flag size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+              <Flag size={13} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">D-Day</span>
               <span className="count-pill">{selectedDdays.length}</span>
             </div>
@@ -367,7 +367,7 @@ export default function TodayPage() {
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               {format(parseISO(selectedDate), 'EEEE', { locale: ko })}
               {holidayLabel(holidays, selectedDate) && <span className="ml-1.5 text-red-500 dark:text-red-400 font-semibold">{holidayLabel(holidays, selectedDate)}</span>}
-              {isTodaySelected && <span className="ml-1.5 text-gray-900 dark:text-white font-semibold">오늘</span>}
+              {isTodaySelected && <span className="ml-1.5 text-leaf-600 dark:text-leaf-400 font-semibold">오늘</span>}
             </p>
             <h2 className={`${compact ? 'text-lg' : 'text-22px'} font-bold tracking-[-0.03em] text-gray-900 dark:text-white tabular-nums mt-0.5`}>
               {format(parseISO(selectedDate), 'M월 d일', { locale: ko })}
@@ -415,7 +415,7 @@ export default function TodayPage() {
     {/* 이번달 목표 */}
     <OverviewColumn
       inSheet={inSheet}
-      icon={<Target size={15} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+      icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
       title={`${format(viewMonth, 'M월')} 목표`}
       help={GUIDES.goal}
       meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
@@ -436,7 +436,7 @@ export default function TodayPage() {
           <button
             onClick={() => setGoalModalState({ goal: g })}
             title="눌러서 수정"
-            className={`flex-1 min-w-0 truncate text-left text-13px hover:text-gray-900 dark:hover:text-white transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
+            className={`flex-1 min-w-0 truncate text-left text-13px hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
           >
             {g.title}
           </button>
@@ -455,7 +455,7 @@ export default function TodayPage() {
     {/* D-Day */}
     <OverviewColumn
       inSheet={inSheet}
-      icon={<Flag size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+      icon={<Flag size={14} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
       title="D-Day"
       help={GUIDES.dday}
       onTitleClick={() => setShowDdayListModal(true)}
@@ -599,7 +599,7 @@ export default function TodayPage() {
                 )}
               </button>
               <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
-                <BarChart3 size={15} className="text-gray-500 dark:text-gray-400" />
+                <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
                 <span className="hidden sm:inline">성취 리포트</span>
               </button>
             </div>
@@ -617,8 +617,8 @@ export default function TodayPage() {
             /* 폰·태블릿: 개수만 보이는 버튼 세 개, 누르면 팝업으로 목록 */
             <section className="flex-shrink-0 grid grid-cols-3 gap-2 mb-3" aria-label="이번 달 요약">
               {([
-                { key: 'goal', icon: <Target size={15} className="text-gray-500 dark:text-gray-400" />, label: `${format(viewMonth, 'M월')} 목표`, value: monthGoals.length ? `${completedGoals}/${monthGoals.length}` : '없음' },
-                { key: 'dday', icon: <Flag size={14} className="text-gray-500 dark:text-gray-400" />, label: 'D-Day', value: upcomingDdays.length ? (upcomingDdays[0] && ddayLabel(upcomingDdays[0].targetDate)) : '없음' },
+                { key: 'goal', icon: <Target size={15} className="text-leaf-600 dark:text-leaf-400" />, label: `${format(viewMonth, 'M월')} 목표`, value: monthGoals.length ? `${completedGoals}/${monthGoals.length}` : '없음' },
+                { key: 'dday', icon: <Flag size={14} className="text-leaf-600 dark:text-leaf-400" />, label: 'D-Day', value: upcomingDdays.length ? (upcomingDdays[0] && ddayLabel(upcomingDdays[0].targetDate)) : '없음' },
                 { key: 'schedule', icon: <CalendarClock size={14} className="text-gray-500 dark:text-gray-400" />, label: `${format(viewMonth, 'M월')} 일정`, value: monthSchedules.length ? `${monthSchedules.length}개` : '없음' },
               ] as const).map(item => (
                 <button key={item.key} onClick={() => setOverviewSheet(item.key)}
@@ -676,9 +676,9 @@ export default function TodayPage() {
                       } ${!isLastRow ? 'border-b border-gray-100 dark:border-gray-800' : ''} ${
                         // 오늘: 초록 테두리 + 연한 초록 배경으로 한눈에 보이게 / 고른 날: 진한 회색 테두리 (오늘과 구분)
                         isToday
-                          ? `bg-gray-50 dark:bg-gray-800/40 ${isSelected
-                              ? 'shadow-[inset_0_0_0_1.5px_theme(colors.gray.900)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.200)]'
-                              : 'hover:bg-gray-100/70 dark:hover:bg-gray-800/60'}`
+                          ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
+                              ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
+                              : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
                           : isSelected
                             ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
                             : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
@@ -687,7 +687,7 @@ export default function TodayPage() {
                       <div className="w-full min-w-0 flex items-center gap-1 mb-1">
                         <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-12px tabular-nums ${
                           isToday
-                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold'
+                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
                             : !inMonth
                               ? 'text-gray-300 dark:text-gray-600 font-medium'
                               : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
@@ -760,12 +760,12 @@ export default function TodayPage() {
                 const holiday = holidayLabel(holidays, dateStr);
                 const empty = dayTodos.length === 0 && daySchedules.length === 0 && dayDdayList.length === 0;
                 return (
-                  <div key={dateStr} className={`flex gap-3 px-3 py-3 ${isToday ? 'bg-gray-50/80 dark:bg-gray-800/30' : ''}`}>
+                  <div key={dateStr} className={`flex gap-3 px-3 py-3 ${isToday ? 'bg-leaf-50/60 dark:bg-leaf-900/15' : ''}`}>
                     <button onClick={() => handleDayClick(dateStr)} aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })} 열기`}
                       className="w-10 flex-shrink-0 flex flex-col items-center pt-0.5">
                       <span className={`text-11px font-semibold ${dow === 0 || holiday ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{DAY_LABELS[dow]}</span>
                       <span className={`mt-0.5 w-8 h-8 flex items-center justify-center rounded-full text-base font-bold tabular-nums ${
-                        isToday ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : weekdayTone(holiday ? 0 : dow)
+                        isToday ? 'bg-leaf-600 text-white' : weekdayTone(holiday ? 0 : dow)
                       }`}>{format(day, 'd')}</span>
                       {dayCount.total > 0 && <span className="mt-1 text-10.5px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</span>}
                     </button>
@@ -838,14 +838,14 @@ export default function TodayPage() {
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
                           isToday
-                            ? 'bg-white dark:bg-gray-800 ring-1 ring-gray-900 dark:ring-gray-200'
+                            ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-leaf-500 dark:ring-leaf-400'
                             : 'bg-gray-50 dark:bg-gray-800/40'
                         }`}
                       >
                         <div className="mb-2 flex-shrink-0 px-0.5">
                           <p className={`text-10px font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-gray-400' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
-                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-gray-900 dark:text-white' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
+                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
                             {dayCount.total > 0 && (
                               <p className="text-10px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</p>
                             )}
@@ -888,7 +888,7 @@ export default function TodayPage() {
                               value={weekAddTitle}
                               onChange={e => setWeekAddTitle(e.target.value)}
                               placeholder="추가..."
-                              className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                              className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-500"
                               onKeyDown={async e => {
                                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                                   const t = weekAddTitle.trim();
@@ -904,7 +904,7 @@ export default function TodayPage() {
                           <button
                             onClick={() => { setWeekAddDate(dateStr); setWeekAddTitle(''); }}
                             aria-label="이 날에 할 일 추가"
-                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-gray-900 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
+                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-leaf-600 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
                           >
                             <Plus size={12} />
                           </button>

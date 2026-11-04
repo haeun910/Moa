@@ -50,7 +50,7 @@ html {
   }
   /* 키보드로 이동할 때만 또렷한 초록 포커스 링 */
   :focus-visible {
-    outline: 2px solid theme('colors.gray.500');
+    outline: 2px solid theme('colors.leaf.500');
     outline-offset: 2px;
   }
   input:focus-visible, textarea:focus-visible, select:focus-visible {
@@ -88,7 +88,7 @@ html {
     @apply bg-white dark:bg-gray-900 shadow-card dark:shadow-none dark:ring-1 dark:ring-gray-800;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 active:bg-gray-950 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 active:bg-leaf-800 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-40;
@@ -161,16 +161,16 @@ html {
   .md input[type='checkbox'] {
     @apply appearance-none w-[1.1em] h-[1.1em] rounded-[0.32em] border-[1.5px] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 cursor-pointer transition-colors align-[-0.15em];
   }
-  .md input[type='checkbox']:hover { @apply border-gray-500; }
+  .md input[type='checkbox']:hover { @apply border-leaf-500; }
   .md input[type='checkbox']:checked {
     @apply bg-leaf-500 border-leaf-500;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
     background-size: 100% 100%;
   }
-  .md input[type='checkbox']:focus-visible { @apply outline-none ring-2 ring-gray-400/50 ring-offset-1; }
+  .md input[type='checkbox']:focus-visible { @apply outline-none ring-2 ring-leaf-500/50 ring-offset-1; }
   .md li.is-done { @apply text-gray-400 dark:text-gray-500 line-through decoration-gray-300 dark:decoration-gray-600; }
   .md a {
-    @apply text-gray-900 dark:text-white font-medium underline decoration-gray-300 dark:decoration-gray-600 underline-offset-[3px] hover:decoration-gray-900 dark:hover:decoration-white break-all;
+    @apply text-leaf-700 dark:text-leaf-400 font-medium underline decoration-leaf-300 dark:decoration-leaf-700 underline-offset-[3px] hover:decoration-leaf-600 dark:hover:decoration-leaf-400 break-all;
   }
   .md strong { @apply font-bold text-gray-900 dark:text-white; }
   .md del { @apply text-gray-400 dark:text-gray-500; }

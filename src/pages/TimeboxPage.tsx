@@ -486,7 +486,7 @@ export default function TimeboxPage() {
               </button>
             ) : (
               <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-13px">
-                <ListChecks size={15} className="text-gray-500 dark:text-gray-400" />
+                <ListChecks size={15} className="text-leaf-600 dark:text-leaf-400" />
                 할 일 넣기
               </button>
             )}
@@ -504,17 +504,17 @@ export default function TimeboxPage() {
               return (
                 <button key={dateKey} role="tab" aria-selected={selected} onClick={() => setFocusDay(dateKey)}
                   className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
-                    selected ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    selected ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}>
                   <span className={`text-10.5px font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                     {format(day, 'EEEEE', { locale: ko })}
                   </span>
                   <span className={`text-15px font-bold tabular-nums leading-tight ${
-                    selected ? 'text-white dark:text-gray-900' : isToday ? 'text-gray-900 dark:text-white underline underline-offset-4 decoration-2' : weekdayTone(day.getDay())
+                    selected ? 'text-white' : isToday ? 'text-leaf-600 dark:text-leaf-400' : weekdayTone(day.getDay())
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white dark:bg-gray-900' : 'bg-gray-400') : 'bg-transparent'}`} />
+                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white' : 'bg-leaf-500') : 'bg-transparent'}`} />
                 </button>
               );
             })}
@@ -537,11 +537,11 @@ export default function TimeboxPage() {
                 return (
                   <div key={dateKey} className="flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 px-2 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-11px font-semibold ${isToday ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <span className={`text-11px font-semibold ${isToday ? 'text-leaf-700 dark:text-leaf-300' : 'text-gray-400 dark:text-gray-500'}`}>
                         {format(day, 'EEE', { locale: ko })}
                       </span>
                       <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-13px font-bold tabular-nums ${
-                        isToday ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : weekdayTone(day.getDay())
+                        isToday ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : weekdayTone(day.getDay())
                       }`}>
                         {format(day, 'd')}
                       </span>
@@ -605,7 +605,7 @@ export default function TimeboxPage() {
                     ref={el => { if (el) colRefs.current.set(dateKey, el); else colRefs.current.delete(dateKey); }}
                     onPointerDown={e => handleColumnPointerDown(e, dateKey)}
                     onClick={e => handleColumnClick(e, dateKey)}
-                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-gray-50/70 dark:bg-gray-800/20' : ''}`}
+                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-leaf-50/40 dark:bg-leaf-900/10' : ''}`}
                   >
                     {items.map(({ block, span }) => (
                       <BlockView
@@ -640,9 +640,9 @@ export default function TimeboxPage() {
                     ))}
 
                     {ghost && (
-                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-gray-500 bg-gray-100/70 dark:bg-gray-800/60 pointer-events-none px-1.5 py-0.5"
+                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-leaf-500 bg-leaf-100/60 dark:bg-leaf-900/30 pointer-events-none px-1.5 py-0.5"
                         style={{ top: ghost.lo * MIN_PX, height: (ghost.hi - ghost.lo) * MIN_PX }}>
-                        <span className="text-10.5px font-semibold tabular-nums text-gray-800 dark:text-gray-200">
+                        <span className="text-10.5px font-semibold tabular-nums text-leaf-800 dark:text-leaf-200">
                           {formatMinutes(ghost.lo)} – {formatMinutes(ghost.hi)}
                         </span>
                       </div>
@@ -678,7 +678,7 @@ export default function TimeboxPage() {
       {/* 새 블록 버튼 (데스크톱은 머리글의 "추가" 버튼) */}
       {!isDesktop && (
         <button onClick={openNewBlock} aria-label="타임박스 추가"
-          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20">
+          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
           <Plus size={24} />
         </button>
       )}

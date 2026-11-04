@@ -118,7 +118,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2 text-center grid">
           {STEPS.map(({ Icon, title, lines }, i) => (
             <div key={title} className={`[grid-area:1/1] ${i === current ? '' : 'invisible'}`} aria-hidden={i !== current}>
-              <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800">
+              <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 text-leaf-600 bg-leaf-100 dark:text-leaf-400 dark:bg-leaf-900/40">
                 <Icon size={26} />
               </div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
@@ -134,7 +134,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
         <div className="flex-shrink-0 flex justify-center gap-1.5 py-3">
           {STEPS.map((_, i) => (
             <button key={i} onClick={() => setStep(i)} aria-label={`${i + 1}번째 안내`}
-              className={`h-1.5 rounded-full transition-all ${i === current ? 'w-5 bg-gray-900 dark:bg-white' : 'w-1.5 bg-gray-200 dark:bg-gray-700'}`} />
+              className={`h-1.5 rounded-full transition-all ${i === current ? 'w-5 bg-leaf-500' : 'w-1.5 bg-gray-200 dark:bg-gray-700'}`} />
           ))}
         </div>
 
@@ -146,7 +146,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
           <button onClick={() => (isLast ? onClose() : setStep(s => s + 1))}
-            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold">
+            className="flex-1 flex items-center justify-center gap-0.5 py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold">
             {isLast ? '시작하기' : <>다음 <ChevronRight size={15} /></>}
           </button>
         </div>

@@ -47,7 +47,7 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-2 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg hover:ring-gray-400 dark:hover:ring-gray-500 transition-shadow pl-3.5 pr-1.5 py-1.5 text-left"
+        className="w-full flex items-center gap-2 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg hover:ring-leaf-400 dark:hover:ring-leaf-600 transition-shadow pl-3.5 pr-1.5 py-1.5 text-left"
       >
         <Plus size={16} className="text-gray-400 flex-shrink-0" />
         <span className="flex-1 min-w-0 text-sm text-gray-400 py-1.5 truncate">{dateLabel}에 할 일 추가</span>
@@ -164,7 +164,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                   <span className="flex-1 min-w-0 text-15px font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
                   {cat.id === lastCategoryId && (
-                    <span className="flex-shrink-0 text-10.5px font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded">최근</span>
+                    <span className="flex-shrink-0 text-10.5px font-semibold text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">최근</span>
                   )}
                   {subCount > 0 && <span className="flex-shrink-0 text-xs tabular-nums text-gray-400">하위 {subCount}</span>}
                   <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
@@ -203,7 +203,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
               </button>
             )}
 
-            <div className="flex items-center gap-1 bg-white dark:bg-gray-800/60 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-gray-500 pl-3 pr-1.5 py-1.5">
+            <div className="flex items-center gap-1 bg-white dark:bg-gray-800/60 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-leaf-500 pl-3 pr-1.5 py-1.5">
               <input maxLength={LIMITS.title}
                 ref={inputRef}
                 type="text"

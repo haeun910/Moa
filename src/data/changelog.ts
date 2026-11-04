@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.1',
+    date: '2026-11-04',
+    changes: [
+      '메인 색(초록)을 다시 적용: 주요 버튼, 고른 항목 표시, 오늘 날짜, 입력칸 테두리, 링크, 메뉴 아이콘 (그 밖의 장식 색은 차분한 무채색 유지)',
+    ],
+  },
+  {
     version: '2.12.0',
     date: '2026-11-04',
     changes: [

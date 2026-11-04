@@ -17,9 +17,9 @@ interface Props {
 
 // 반복 설정 UI (할 일/일정 공용): 매일/매주/격주/매월 + (매주·격주면) 요일 + 종료일
 export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false, defaultUntil = defaultRepeatUntil }: Props) {
-  const on = 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900';
+  const on = accent === 'blue' ? 'bg-ink-500 border-ink-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white';
   const off = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
-  const ring = accent === 'blue' ? 'focus:ring-ink-400' : 'focus:ring-gray-400';
+  const ring = accent === 'blue' ? 'focus:ring-ink-400' : 'focus:ring-leaf-400';
 
   function selectFreq(freq: RepeatFreq) {
     if (freq === rule.freq) return;

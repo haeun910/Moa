@@ -11,10 +11,11 @@ interface Props {
   hasTime: boolean;
   onLeave: () => void; // "설정에서 켜기"를 누르면 창을 닫고 설정으로
   compact?: boolean; // 일정 창처럼 작은 제목 모양
+  accent?: 'leaf' | 'blue'; // 반복 고르기와 같은 색 (할 일 = 초록, 일정 = 파랑)
 }
 
 // 할 일·일정의 미리 알림 고르기 (알림 서버가 준비된 앱에서만 보임)
-export default function ReminderPicker({ value, onChange, hasDate, hasTime, onLeave, compact }: Props) {
+export default function ReminderPicker({ value, onChange, hasDate, hasTime, onLeave, compact, accent = 'leaf' }: Props) {
   const push = usePushNotifications();
   const { setCurrentScreen } = useApp();
   if (!isPushConfigured) return null;
@@ -37,7 +38,7 @@ export default function ReminderPicker({ value, onChange, hasDate, hasTime, onLe
                 // 반복 고르기(RepeatPicker)와 같은 모양
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   on
-                    ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
+                    ? (accent === 'blue' ? 'bg-ink-500 border-ink-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white')
                     : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}>
                 {opt.label}
