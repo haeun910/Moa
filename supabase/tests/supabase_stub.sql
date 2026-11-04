@@ -10,9 +10,11 @@ end $$;
 
 create schema if not exists auth;
 create table if not exists auth.users (
-  id         uuid primary key default gen_random_uuid(),
-  email      text,
-  created_at timestamptz not null default now()
+  id                uuid primary key default gen_random_uuid(),
+  email             text,
+  created_at        timestamptz not null default now(),
+  is_anonymous      boolean not null default false, -- 체험(익명) 계정
+  raw_app_meta_data jsonb                           -- {"provider": "email", "providers": ["email", "google"]}
 );
 
 -- 요청한 사용자 id: set_config('request.jwt.claim.sub', '<uuid>', ...)로 흉내

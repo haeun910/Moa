@@ -373,7 +373,7 @@ export default function SettingsPage() {
   const adminRows = (
     <>
       <Row Icon={Inbox} label="받은 의견" desc="사용자들이 보낸 의견" onClick={() => setShowFeedbackList(true)} />
-      <Row Icon={BarChart3} label="관리자 통계" desc="가입자 · 활성 사용자 등" onClick={() => setShowAdminStats(true)} />
+      <Row Icon={BarChart3} label="관리자 통계" desc="회원·사용자 추이, 기능별 사용" onClick={() => setShowAdminStats(true)} />
     </>
   );
 

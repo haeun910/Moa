@@ -140,6 +140,22 @@ begin
   assert ok, '관리자가 아니면 통계를 볼 수 없어야 함';
 end $$;
 
+-- 7-1) 관리자는 통계를 받음 (숫자만, 회원/체험 구분, 14일 추이)
+select set_config('request.jwt.claim.sub', '17478ff6-7e7a-419e-ba64-7bb9db8bbcea', false);
+do $$
+declare
+  s json := public.get_admin_stats();
+begin
+  assert (s->>'version')::int = 2, '통계 버전 2';
+  assert (s->>'registeredUsers')::int = 2, '회원 2명 (A, B)';
+  assert (s->>'guestUsers')::int = 0, '체험 계정 0명';
+  assert json_array_length(s->'daily') = 14, '최근 14일 추이';
+  assert (s->'daily'->13->>'signups')::int = 2, '오늘 가입 2명';
+  assert (s->'features'->>'todos')::int >= 1, '할 일 쓴 사용자 수';
+  assert s::text not like '%@test.local%', '이메일이 통계에 섞이면 안 됨';
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
 -- 8) 회원 탈퇴: 계정과 데이터가 모두 지워지고, B는 그대로
 select public.delete_my_account();
 reset role;

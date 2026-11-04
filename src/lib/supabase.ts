@@ -170,4 +170,40 @@ export interface AdminStats {
   completedTodos: number;
   totalNotes: number;
   totalCategories: number;
+  // 023_admin_stats_v2.sql 이후에만 옴 (version: 2). 날짜는 모두 한국 시간 기준
+  version?: number;
+  registeredUsers?: number; // 회원 (체험 계정 제외)
+  guestUsers?: number; // 체험(익명) 계정
+  googleUsers?: number; // 구글 계정을 연결한 회원
+  newUsers30d?: number;
+  newGuestsToday?: number;
+  newGuests7d?: number;
+  activeUsersToday?: number; // 오늘 기록을 남기거나 고친 사용자
+  cohortSize?: number; // 지난주(8~14일 전) 가입한 회원 수
+  cohortRetained?: number; // 그중 최근 7일에 다시 쓴 사람
+  features?: AdminFeatureUsage; // 최근 30일 기능별 사용자 수
+  daily?: AdminDailyStat[]; // 최근 14일 (오래된 날부터)
+  totalSchedules?: number;
+  totalTimeblocks?: number;
+  totalDdays?: number;
+  feedbackTotal?: number;
+  feedback7d?: number;
+  pushUsers?: number; // 푸시 알림을 켠 사용자
+  hiddenFeatures?: { timebox: number; all: number; notes: number }; // 메뉴에서 기능을 숨긴 사용자 수
+}
+
+export interface AdminFeatureUsage {
+  todos: number;
+  schedules: number;
+  timeblocks: number;
+  notes: number;
+  ddays: number;
+  goals: number;
+}
+
+export interface AdminDailyStat {
+  day: string; // YYYY-MM-DD
+  signups: number; // 회원 가입
+  guests: number; // 체험 시작
+  active: number; // 기록을 남긴 사용자
 }
