@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
+import { deleteMyAccount } from '../lib/db';
+import { reportError } from '../lib/monitoring';
 import { setMonitoringUser } from '../lib/monitoring';
 import { disablePush } from '../lib/push';
 
@@ -16,6 +19,9 @@ interface AuthContextType {
   signInAsGuest: () => Promise<{ error: string | null }>;
   upgradeWithEmail: (email: string) => Promise<{ error: string | null }>;
   linkGoogle: () => Promise<{ error: string | null }>;
+  // 체험 중에 이미 있는 계정으로 로그인 (체험 데이터는 옮기지 않고 지움)
+  loginFromGuest: (email: string, password: string) => Promise<{ error: string | null }>;
+  googleLoginFromGuest: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -92,6 +98,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  // 체험 계정을 지움 (실패해도 로그인은 계속: 남은 체험 데이터는 본인만 볼 수 있고 다시 들어올 방법이 없을 뿐)
+  async function dropGuest() {
+    if (!user?.is_anonymous) return;
+    try { await deleteMyAccount(user.id); } catch (e) { reportError(e, 'delete guest before login'); }
+  }
+
+  // 체험 중 → 이메일 계정으로 로그인. 비밀번호가 틀려도 체험 데이터가 지워지지 않도록,
+  // 따로 만든 임시 연결로 먼저 로그인해 보고 성공했을 때만 체험 계정을 지우고 그 계정으로 바꿈
+  async function loginFromGuest(email: string, password: string) {
+    const probe = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'moa-guest-login-probe' } });
+    const { data, error } = await probe.auth.signInWithPassword({ email, password });
+    if (error || !data.session) return { error: error?.message ?? 'login failed' };
+    await dropGuest();
+    const { error: setError } = await supabase.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+    return { error: setError?.message ?? null };
+  }
+
+  // 체험 중 → 구글 계정으로 로그인 (구글 화면으로 넘어가므로 넘어가기 전에 체험 계정을 지움)
+  async function googleLoginFromGuest() {
+    await dropGuest();
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    return signInWithGoogle();
+  }
+
   async function signOut() {
     // 이 기기로 이전 계정의 타임박스 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
     await disablePush().catch(() => {});
@@ -116,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, loading, signUp, signIn, signInWithGoogle, signOut, resetPassword, updatePassword,
-      isGuest: user?.is_anonymous ?? false, signInAsGuest, upgradeWithEmail, linkGoogle,
+      isGuest: user?.is_anonymous ?? false, signInAsGuest, upgradeWithEmail, linkGoogle, loginFromGuest, googleLoginFromGuest,
       passwordRecovery, endPasswordRecovery: () => setPasswordRecovery(false),
     }}>
       {children}

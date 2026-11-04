@@ -3,7 +3,7 @@ import { X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 // 게스트(체험) 계정을 정식 계정으로: 지금까지 적은 내용은 같은 계정이라 그대로 남음
-export default function UpgradeAccountModal({ onClose }: { onClose: () => void }) {
+export default function UpgradeAccountModal({ onClose, onLogin }: { onClose: () => void; onLogin?: () => void }) {
   const { upgradeWithEmail, linkGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -27,7 +27,7 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
     setLoading(null);
     if (!error) { setSentTo(value); return; }
     setError(/already|registered|exists/i.test(error)
-      ? '이미 가입된 이메일이에요. 다른 이메일을 쓰거나, 데이터를 내보낸 뒤 그 계정으로 로그인해 주세요.'
+      ? '이미 가입된 이메일이에요. 다른 이메일을 쓰거나, 아래 "기존 계정으로 로그인"으로 그 계정에 들어가 주세요.'
       : '메일을 보내지 못했어요. 이메일 주소를 확인하고 잠시 후 다시 시도해 주세요.');
   }
 
@@ -85,6 +85,13 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
                   {loading === 'email' ? '보내는 중…' : '확인 메일 받기'}
                 </button>
               </form>
+
+              {onLogin && (
+                <p className="text-center text-12.5px text-gray-500 dark:text-gray-400">
+                  이미 계정이 있나요?{' '}
+                  <button onClick={onLogin} className="font-semibold text-leaf-700 dark:text-leaf-400 underline underline-offset-2">기존 계정으로 로그인</button>
+                </p>
+              )}
 
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-3.5 py-2.5">

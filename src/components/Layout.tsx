@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import type React from 'react';
-import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer } from 'lucide-react';
+import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer, LogIn } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import GuestLoginModal from './GuestLoginModal';
+import UpgradeAccountModal from './UpgradeAccountModal';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -62,6 +66,8 @@ function TodaySummary() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { currentScreen, setCurrentScreen, settings } = useApp();
+  const { isGuest } = useAuth();
+  const [guestModal, setGuestModal] = useState<'login' | 'upgrade' | null>(null);
   // 설정에서 끈 기능은 메뉴에서 뺌 (저장소를 꺼도 설정에서 여는 프로젝트 로드맵은 설정 아래로 표시)
   const navItems = NAV_ITEMS.filter(({ screen }) => !(settings.hiddenFeatures as Screen[]).includes(screen));
   const rawOwner = navOwner(currentScreen);
@@ -104,6 +110,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* 체험 중: 아래 안내를 닫아도 언제든 기존 계정으로 로그인할 수 있게 */}
+        {isGuest && (
+          <div className="px-3 pb-4 -mt-2">
+            <button onClick={() => setGuestModal('login')} title="기존 계정으로 로그인"
+              className="w-full flex items-center justify-center wide:justify-start gap-3 h-10 px-3 rounded-lg text-sm font-semibold text-leaf-700 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/30 transition-colors">
+              <LogIn size={18} strokeWidth={2} />
+              <span className="hidden wide:inline">로그인</span>
+            </button>
+          </div>
+        )}
       </aside>
 
       <main className="flex-1 min-w-0 overflow-hidden">
@@ -111,6 +128,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <GuestBanner />
+      {guestModal === 'login' && <GuestLoginModal onClose={() => setGuestModal(null)} onUpgrade={() => setGuestModal('upgrade')} />}
+      {guestModal === 'upgrade' && <UpgradeAccountModal onClose={() => setGuestModal(null)} onLogin={() => setGuestModal('login')} />}
 
       {/* ── 모바일/태블릿 하단 탭 ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-gray-950/85 backdrop-blur-xl border-t border-gray-200/70 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]" aria-label="주요 메뉴">

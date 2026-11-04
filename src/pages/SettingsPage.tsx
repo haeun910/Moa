@@ -5,7 +5,7 @@ import {
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
   UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
   UserPlus,
-  ALargeSmall,
+  ALargeSmall, LogIn,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +16,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import UpgradeAccountModal from '../components/UpgradeAccountModal';
 import EndGuestModal from '../components/EndGuestModal';
+import GuestLoginModal from '../components/GuestLoginModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import ChangelogModal from '../components/ChangelogModal';
 import AdminStatsModal from '../components/AdminStatsModal';
@@ -197,6 +198,7 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showEndGuestModal, setShowEndGuestModal] = useState(false);
+  const [showGuestLogin, setShowGuestLogin] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAdminStats, setShowAdminStats] = useState(false);
@@ -337,6 +339,7 @@ export default function SettingsPage() {
   const accountRows = isGuest ? (
     <>
       <Row Icon={UserPlus} label="계정 만들기" desc="적어 둔 내용을 그대로 옮기고 다른 기기에서도 로그인" onClick={() => setShowUpgradeModal(true)} />
+      <Row Icon={LogIn} label="기존 계정으로 로그인" desc="이미 모아 계정이 있다면 바로 로그인 (체험 내용은 지워져요)" onClick={() => setShowGuestLogin(true)} />
       <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
       <Row Icon={LogOut} label="체험 끝내기" desc="체험 중에 적은 내용이 모두 지워져요" onClick={() => setShowEndGuestModal(true)} danger chevron={false} />
     </>
@@ -487,7 +490,8 @@ export default function SettingsPage() {
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
       {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
-      {showUpgradeModal && <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} />}
+      {showUpgradeModal && <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} onLogin={() => { setShowUpgradeModal(false); setShowGuestLogin(true); }} />}
+      {showGuestLogin && <GuestLoginModal onClose={() => setShowGuestLogin(false)} onUpgrade={() => { setShowGuestLogin(false); setShowUpgradeModal(true); }} />}
       {showEndGuestModal && (
         <EndGuestModal onClose={() => setShowEndGuestModal(false)}
           onUpgrade={() => { setShowEndGuestModal(false); setShowUpgradeModal(true); }} />

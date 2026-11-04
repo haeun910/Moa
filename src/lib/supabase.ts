@@ -11,9 +11,12 @@ export const isSupabaseConfigured = Boolean(url && key);
 // supabase/migrations/003_notices.sql의 RLS 정책과 반드시 같은 값이어야 합니다.
 export const ADMIN_USER_ID = '17478ff6-7e7a-419e-ba64-7bb9db8bbcea';
 
+export const supabaseUrl = url || 'https://placeholder.supabase.co';
+export const supabaseAnonKey = key || 'placeholder-anon-key';
+
 export const supabase = createClient(
-  url || 'https://placeholder.supabase.co',
-  key || 'placeholder-anon-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
