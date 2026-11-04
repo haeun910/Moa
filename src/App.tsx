@@ -34,8 +34,8 @@ function SetupNeededScreen() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
       <div className="max-w-md w-full rounded-xl surface p-6 text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 bg-gray-100 dark:bg-gray-800">
-          <AlertTriangle size={26} className="text-gray-500 dark:text-gray-400" />
+        <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/40">
+          <AlertTriangle size={26} className="text-amber-500" />
         </div>
         <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-2">환경설정이 필요해요</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
@@ -91,7 +91,7 @@ function LoadErrorScreen({ onRetry }: { onRetry: () => void }) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center">
         <div className="inline-flex w-14 h-14 rounded-xl items-center justify-center mb-4 surface">
-          <WifiOff size={26} className="text-gray-500 dark:text-gray-400" />
+          <WifiOff size={26} className="text-amber-500" />
         </div>
         <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-2">내용을 불러오지 못했어요</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-5">

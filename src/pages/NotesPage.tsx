@@ -146,7 +146,7 @@ export default function NotesPage() {
       <div className="space-y-4">
         {pinnedNotes.length > 0 && (
           <div>
-            <p className="flex items-center gap-1 px-4 mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"><Pin size={11} /> 고정됨</p>
+            <p className="flex items-center gap-1 px-4 mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"><Pin size={11} className="text-amber-500" /> 고정됨</p>
             <ul className="space-y-0.5">{pinnedNotes.map(renderItem)}</ul>
           </div>
         )}

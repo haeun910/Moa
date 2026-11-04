@@ -45,7 +45,7 @@ export default function NoteFolderModal({ onClose }: { onClose: () => void }) {
             const count = notes.filter(n => n.folderId === f.id).length;
             return (
               <div key={f.id} className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <Folder size={16} className="flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                <Folder size={16} className="flex-shrink-0 text-amber-500" />
                 {editingId === f.id ? (
                   <>
                     <input maxLength={LIMITS.folderName} autoFocus value={editName} onChange={e => setEditName(e.target.value)}

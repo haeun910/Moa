@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.2',
+    date: '2026-11-04',
+    changes: [
+      '일정 색을 다시 하늘색(파랑)으로',
+      '달력에서 일정에도 디데이처럼 아이콘 표시 (태블릿·컴퓨터)',
+      '뜻이 있는 색 되살림: 토요일 파랑, 임박한 D-Day·마감 빨강, 메모 노랑, 연속 기록 주황, 경고 아이콘 주황',
+    ],
+  },
+  {
     version: '2.12.1',
     date: '2026-11-04',
     changes: [

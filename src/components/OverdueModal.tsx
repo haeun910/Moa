@@ -98,7 +98,7 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div>
             <div className="flex items-center gap-2">
-              <AlertCircle size={16} className="text-gray-500 dark:text-gray-400" />
+              <AlertCircle size={16} className="text-amber-500" />
               <h2 className="text-base font-bold text-gray-900 dark:text-white">밀린 할 일</h2>
               {recent.length > 0 && <span className="count-pill">{recent.length}</span>}
             </div>

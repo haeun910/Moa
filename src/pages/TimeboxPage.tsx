@@ -48,7 +48,7 @@ type SourceModal = { schedule: ScheduleItem } | { dday: DDay } | { todo: Todo };
 
 function weekdayTone(dow: number) {
   if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-gray-500 dark:text-gray-400';
+  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
   return 'text-gray-700 dark:text-gray-200';
 }
 
@@ -827,7 +827,7 @@ function AllDayChips({ items, onClick, compact }: { items: AgendaAllDay[]; onCli
             className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-10.5px font-medium text-left ${
               isDday
                 ? 'bg-leaf-50 text-leaf-800 dark:bg-leaf-900/30 dark:text-leaf-300'
-                : 'bg-ink-50 text-ink-700 dark:bg-ink-900/30 dark:text-ink-300'
+                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
             }`}>
             {isDday ? <Flag size={10} className="flex-shrink-0" /> : <CalendarDays size={10} className="flex-shrink-0" />}
             <span className="truncate">{item.title}</span>
