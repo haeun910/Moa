@@ -5,6 +5,7 @@ import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
 import { deleteGuestAccount } from '../lib/db';
 import { reportError } from '../lib/monitoring';
 import { setMonitoringUser } from '../lib/monitoring';
+import { clearOfflineData } from '../lib/offlineData';
 import { disablePush } from '../lib/push';
 
 interface AuthContextType {
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 함수가 아직 없는 DB(024 전)면 지우지 않고 넘어감 (회원 계정을 지울 위험이 있는 예전 방식은 쓰지 않음)
   async function dropGuest(guestId: string) {
     try { await deleteGuestAccount(guestId); } catch (e) { reportError(e, 'delete guest before login'); }
+    await clearOfflineData(guestId);
   }
 
   // 체험 → 회원 계정 전환은 한 번에 하나만 (창을 닫았다 다시 열어 두 번 눌러도 겹치지 않게)
@@ -138,9 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    // 이 기기로 이전 계정의 타임박스 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
+    const userId = user?.id;
+    // 이 기기로 이전 계정의 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
     await disablePush().catch(() => {});
     await supabase.auth.signOut();
+    // 같은 기기를 다른 사람이 쓸 수 있으므로, 이 기기에 남겨 둔 내용(오프라인용)도 지움
+    if (userId) await clearOfflineData(userId);
   }
 
   async function resetPassword(email: string) {

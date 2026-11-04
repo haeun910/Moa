@@ -6,7 +6,10 @@ import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
-import { showSaveError, markSaveErrorHandled } from '../lib/toast';
+import { showSaveError, markSaveErrorHandled, showToast } from '../lib/toast';
+import { drainOutbox, loadOutbox, onOutboxDrained, pendingFor, setOutboxUser } from '../lib/outbox';
+import { offlineStore } from '../lib/offlineStore';
+import { snapshotKey } from '../lib/offlineData';
 import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
 import { timeRangeEnd } from '../lib/timeRange';
@@ -206,6 +209,20 @@ function inSeries(item: { seriesId?: string | null; date: string | null }, serie
   return fromDate ? !!item.date && item.date >= fromDate : true;
 }
 
+// 오프라인으로 앱을 열어도 보이도록 이 기기에 남겨 두는 마지막 화면 내용
+interface Snapshot {
+  savedAt: string;
+  todos: Todo[]; categories: Category[]; subcategories: Subcategory[]; notes: Note[]; noteFolders: NoteFolder[];
+  settings: Settings; monthlyGoals: MonthlyGoal[]; ddays: DDay[]; schedules: ScheduleItem[]; timeblocks: TimeBlock[]; notices: Notice[];
+}
+
+// 서버에 닿지 못한 오류인지 (오프라인, 연결 끊김)
+function isNetworkError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = err instanceof Error ? err.message : typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : '';
+  return err instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(msg);
+}
+
 // 서버에서 다시 불러올 수 있는 데이터 종류
 type Resource = 'todos' | 'categories' | 'subcategories' | 'notes' | 'noteFolders' | 'settings' | 'monthlyGoals' | 'ddays' | 'schedules' | 'timeblocks' | 'notices';
 
@@ -288,10 +305,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 같은 종류를 짧은 시간에 여러 번 요청하면 한 번만 불러옴
   // (예: 반복으로 한 번에 100개를 만들면 실시간 알림도 100번 오기 때문)
   const resyncTimersRef = useRef<Partial<Record<Resource, ReturnType<typeof setTimeout>>>>({});
+  // 오프라인이거나 아직 보내지 못한 변경이 있으면 서버 내용으로 덮지 않음 (그러면 방금 바꾼 게 사라져 보임).
+  // 대신 표시해 두었다가 다 보낸 뒤(onOutboxDrained) 한꺼번에 다시 불러옴
+  const deferredResyncRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = user?.id ?? null;
   const resync = useCallback((kind: Resource, delayMs = 300) => {
     clearTimeout(resyncTimersRef.current[kind]);
     resyncTimersRef.current[kind] = setTimeout(() => {
-      fetchersRef.current?.[kind]().catch(err => reportError(err, `resync ${kind}`));
+      if ((typeof navigator !== 'undefined' && navigator.onLine === false) || pendingFor(userIdRef.current) > 0) {
+        deferredResyncRef.current = true;
+        return;
+      }
+      fetchersRef.current?.[kind]().catch(err => { if (!isNetworkError(err)) reportError(err, `resync ${kind}`); });
     }, delayMs);
   }, []);
   const resyncAll = useCallback(() => {
@@ -305,6 +331,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
   const didSetInitialScreenRef = useRef(false);
+  // 처음 불러오기가 끝난 계정 (끝나기 전의 빈 목록을 "마지막 내용"으로 저장하지 않기 위함)
+  const loadedUserRef = useRef<string | null>(null);
 
   // 최신 목록을 렌더 사이에도 바로 읽기 위한 참조.
   // 완료 토글처럼 "지금 값의 반대"를 저장해야 하는 함수가 이전 렌더의 목록을 보면,
@@ -339,53 +367,131 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setDataLoading(true);
     setLoadError(false);
-    Promise.all([
-      db.fetchTodos(user.id),
-      db.fetchCategories(user.id),
-      db.fetchSubcategories(user.id),
-      db.fetchNotes(user.id),
-      db.fetchSettings(user.id),
-      db.fetchMonthlyGoals(user.id),
-      db.fetchDDays(user.id),
-      db.fetchSchedules(user.id).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-      db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-      db.fetchNoteFolders(user.id).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
-      db.fetchTimeBlocks(user.id, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks 테이블이 아직 없어도(016 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders, rawTimeBlocks]) => {
-      setTodos(rawTodos.map(toTodo));
-      setCategories(rawCats.map(toCategory));
-      setSubcategories(rawSubcats.map(toSubcategory));
-      setNotes(rawNotes.map(toNote));
-      setNoteFolders(rawNoteFolders.map(toNoteFolder));
-      setMonthlyGoals(rawGoals.map(toMonthlyGoal));
-      setDDays(rawDDays.map(toDDay));
-      setSchedules(rawSchedules.map(toSchedule));
-      setNotices(rawNotices.map(toNotice));
-      setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+    loadedUserRef.current = null;
+    let cancelled = false;
+    const userId = user.id;
+    setOutboxUser(userId);
+
+    function applyScreenAfterLoad(s: Settings | null) {
       const urlScreen = screenFromUrl();
       if (urlScreen) {
         window.history.replaceState(null, '', window.location.pathname);
         setCurrentScreen(urlScreen);
         didSetInitialScreenRef.current = true;
       }
-      if (rawSettings) {
-        const s = toSettings(rawSettings);
-        setSettings(s);
-        if (!didSetInitialScreenRef.current) {
-          setCurrentScreen(s.defaultScreen as Screen);
-          didSetInitialScreenRef.current = true;
-        }
+      if (s && !didSetInitialScreenRef.current) {
+        setCurrentScreen(s.defaultScreen as Screen);
+        didSetInitialScreenRef.current = true;
       }
-    }).catch(err => {
-      // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
-      reportError(err, 'initial load');
-      setLoadError(true);
-    }).finally(() => setDataLoading(false));
+    }
+
+    // 오프라인으로 열었거나 서버에 닿지 못하면, 이 기기에 남겨 둔 마지막 내용으로 엶
+    async function loadSnapshot(): Promise<boolean> {
+      const snap = await offlineStore.get<Snapshot>('kv', snapshotKey(userId));
+      if (!snap || cancelled) return false;
+      setTodos(snap.todos); setCategories(snap.categories); setSubcategories(snap.subcategories);
+      setNotes(snap.notes); setNoteFolders(snap.noteFolders); setMonthlyGoals(snap.monthlyGoals);
+      setDDays(snap.ddays); setSchedules(snap.schedules); setNotices(snap.notices ?? []);
+      setTimeblocks(snap.timeblocks); setSettings(snap.settings);
+      applyScreenAfterLoad(snap.settings);
+      loadedUserRef.current = userId;
+      deferredResyncRef.current = true; // 다시 연결되면 서버 내용으로 맞춤
+      return true;
+    }
+
+    (async () => {
+      // 지난번에 보내지 못한 변경이 있으면 먼저 보냄 (안 그러면 서버에서 불러온 내용에 그 변경이 빠져 보임)
+      await loadOutbox();
+      if (pendingFor(userId) > 0) await drainOutbox();
+      if (cancelled) return;
+      if (pendingFor(userId) > 0 && await loadSnapshot()) return;
+
+      try {
+        const [rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders, rawTimeBlocks] = await Promise.all([
+          db.fetchTodos(userId),
+          db.fetchCategories(userId),
+          db.fetchSubcategories(userId),
+          db.fetchNotes(userId),
+          db.fetchSettings(userId),
+          db.fetchMonthlyGoals(userId),
+          db.fetchDDays(userId),
+          db.fetchSchedules(userId).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNoteFolders(userId).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
+          db.fetchTimeBlocks(userId, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks 테이블이 아직 없어도(016 전) 나머지는 정상 로드되도록
+        ]);
+        if (cancelled) return;
+        setTodos(rawTodos.map(toTodo));
+        setCategories(rawCats.map(toCategory));
+        setSubcategories(rawSubcats.map(toSubcategory));
+        setNotes(rawNotes.map(toNote));
+        setNoteFolders(rawNoteFolders.map(toNoteFolder));
+        setMonthlyGoals(rawGoals.map(toMonthlyGoal));
+        setDDays(rawDDays.map(toDDay));
+        setSchedules(rawSchedules.map(toSchedule));
+        setNotices(rawNotices.map(toNotice));
+        setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+        const s = rawSettings ? toSettings(rawSettings) : null;
+        if (s) setSettings(s);
+        applyScreenAfterLoad(s);
+        loadedUserRef.current = userId;
+      } catch (err) {
+        if (cancelled) return;
+        if (isNetworkError(err) && await loadSnapshot()) return;
+        // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
+        if (!isNetworkError(err)) reportError(err, 'initial load');
+        setLoadError(true);
+      }
+    })().finally(() => { if (!cancelled) setDataLoading(false); });
+    return () => { cancelled = true; };
     // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
     // 실제 로그인 계정은 그대로인 경우에는 이 무거운 재조회 + 화면 이동이 일어나지 않게 함
     // (reloadKey는 "다시 시도" 버튼용)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, reloadKey]);
+
+  // ── 오프라인 대비 ──────────────────────────────────────
+  // 보관 중인 변경은 지금 로그인한 사람 것만 보냄
+  useEffect(() => {
+    setOutboxUser(user?.id ?? null);
+    if (user) void loadOutbox().then(() => drainOutbox());
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 보관했던 변경을 다 보내면: 서버 내용으로 다시 맞추고 결과를 알려 줌
+  useEffect(() => onOutboxDrained(({ sent, failed }) => {
+    if (failed > 0) showToast(`오프라인에서 바꾼 내용 중 ${failed}개는 저장하지 못했어요 (다른 기기에서 지운 항목 등)`, 'error', 7000);
+    else if (sent > 0) showToast('오프라인에서 바꾼 내용을 모두 저장했어요', 'success');
+    deferredResyncRef.current = false;
+    resyncAll();
+  }), [resyncAll]);
+
+  // 다시 연결됐는데 보낼 변경이 없으면, 미뤄 둔 다시 불러오기를 바로
+  useEffect(() => {
+    function onOnline() {
+      setTimeout(() => {
+        if (deferredResyncRef.current && pendingFor(userIdRef.current) === 0 && navigator.onLine) {
+          deferredResyncRef.current = false;
+          resyncAll();
+        }
+      }, 1500);
+    }
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [resyncAll]);
+
+  // 지금 화면 내용을 이 기기에 저장 (오프라인으로 열 때 사용). 바뀐 뒤 1초 모아서 한 번
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId || loadedUserRef.current !== userId) return;
+    const timer = setTimeout(() => {
+      const snap: Snapshot = {
+        savedAt: new Date().toISOString(),
+        todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices,
+      };
+      void offlineStore.put('kv', snap, snapshotKey(userId));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [user?.id, todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices]);
 
   // ── 테마 적용 ───────────────────────────────────────────
   useEffect(() => {

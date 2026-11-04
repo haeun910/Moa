@@ -274,7 +274,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
   const updatedLabel = note ? format(new Date(note.updatedAt), 'yyyy년 M월 d일 a h:mm', { locale: ko }) : '새 메모';
 
   return (
-    <div className={`flex flex-col h-full min-h-0 bg-white dark:bg-gray-900 ${fullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <div className={`flex flex-col h-full min-h-0 bg-white dark:bg-gray-900 ${fullscreen ? 'fixed inset-0 top-[var(--strip-h,0px)] z-50' : ''}`}>
       {/* 도구 줄 */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 sm:px-5 h-14 border-b border-gray-100 dark:border-gray-800">
         {onClose && (

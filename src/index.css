@@ -18,6 +18,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 오프라인·저장 대기 안내 띠(Toaster)가 떠 있으면 그 높이만큼 화면을 내려서 맨 위 버튼을 가리지 않게 */
+body {
+  padding-top: var(--strip-h, 0px);
+}
+
 /* 모바일에서 앱처럼 고정: 두 번 탭 확대 방지 + 화면 끝에서 튕기거나 당겨서 새로고침 방지.
    주의: html/body에 overflow-x: hidden을 주면 body의 세로 overflow가 auto로 바뀌어 body 자체가
    스크롤 영역이 되는데, 아이폰(WebKit)에서는 이 때문에 페이지 전체 스크롤(저장소/설정 등)이

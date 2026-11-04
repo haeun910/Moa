@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { configureOutbox, createOfflineFetch } from './outbox';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -22,8 +23,35 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
     },
+    // 인터넷이 끊겨도 추가·수정·삭제를 이 기기에 보관했다가 다시 연결되면 보냄 (outbox.ts)
+    global: { fetch: createOfflineFetch() },
   }
 );
+
+// 오프라인일 때는 로그인 갱신(토큰 새로 받기)을 시도하지 않고 저장된 토큰을 그대로 씀.
+// 갱신을 시도하면 Supabase가 25초 가까이 다시 시도하느라 추가·수정이 그만큼 늦게 끝났음.
+// (어차피 오프라인 요청은 보관했다가 다시 연결되면 새 토큰으로 보냄)
+const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+function storedAccessToken(): string | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    return raw ? (JSON.parse(raw) as { access_token?: string }).access_token ?? null : null;
+  } catch {
+    return null;
+  }
+}
+(supabase as unknown as { accessToken?: () => Promise<string | null> }).accessToken = async () => {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    const stored = storedAccessToken();
+    if (stored) return stored;
+  }
+  return (await supabase.auth.getSession()).data.session?.access_token ?? null;
+};
+
+configureOutbox({
+  apiKey: supabaseAnonKey,
+  getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+});
 
 // ────────────────────────────────────────────────
 // DB 타입 (Supabase 반환 행 기준)

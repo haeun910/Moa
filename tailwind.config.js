@@ -27,6 +27,9 @@ export default {
         '5xl': [fs('3rem'), { lineHeight: '1' }],
         ...Object.fromEntries(PX_SIZES.map(n => [`${n}px`, fs(`${n}px`)])),
       },
+      // 오프라인·저장 대기 안내 띠가 위에 떠 있을 때는 그 높이(--strip-h, Toaster가 정함)만큼 뺀 화면 높이
+      height: { screen: 'calc(100vh - var(--strip-h, 0px))' },
+      minHeight: { screen: 'calc(100vh - var(--strip-h, 0px))' },
       // 사이드바를 이름까지 펼쳐도 달력이 답답하지 않은 너비 (14인치 노트북 이상)
       screens: { wide: '1400px' },
       fontFamily: {

@@ -193,7 +193,7 @@ function SearchPanel({ query, setQuery, onPick }: { query: string; setQuery: (q:
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-center bg-gray-950/40 backdrop-blur-[3px] animate-fade-in sm:p-4 sm:pt-[10vh]"
+    <div className="fixed inset-0 top-[var(--strip-h,0px)] z-[60] flex justify-center bg-gray-950/40 backdrop-blur-[3px] animate-fade-in sm:p-4 sm:pt-[10vh]"
       onClick={e => { if (e.target === e.currentTarget) closeSearch(); }}>
       <div role="dialog" aria-modal="true" aria-label="검색"
         className="w-full sm:max-w-xl h-full sm:h-auto sm:max-h-[75vh] flex flex-col bg-white dark:bg-gray-900 sm:rounded-2xl shadow-2xl ring-1 ring-gray-900/5 dark:ring-white/10 overflow-hidden pt-[env(safe-area-inset-top)] sm:pt-0">
@@ -201,7 +201,7 @@ function SearchPanel({ query, setQuery, onPick }: { query: string; setQuery: (q:
           <Search size={17} className="text-gray-400 flex-shrink-0" aria-hidden />
           <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={onKeyDown}
             type="search" enterKeyHint="search" autoComplete="off" spellCheck={false}
-            placeholder={notesHidden ? '할 일 · 일정 검색 (초성도 돼요: ㅂㄱㅅ)' : '할 일 · 일정 · 메모 검색 (초성도 돼요: ㅂㄱㅅ)'}
+            placeholder={notesHidden ? '할 일 · 일정 검색' : '할 일 · 일정 · 메모 검색'}
             aria-label="검색어" aria-controls="search-results" aria-activedescendant={flat[active] ? `search-hit-${active}` : undefined}
             className="flex-1 min-w-0 h-full bg-transparent text-15px text-gray-900 dark:text-white placeholder:text-gray-400 outline-none [&::-webkit-search-cancel-button]:hidden" />
           {query && (
@@ -215,12 +215,12 @@ function SearchPanel({ query, setQuery, onPick }: { query: string; setQuery: (q:
           {!q && (
             <div className="px-3 py-10 text-center">
               <p className="text-14px text-gray-500 dark:text-gray-400">찾을 말을 입력하세요</p>
-              <p className="mt-1 text-12px text-gray-400 dark:text-gray-500">제목과 메모 내용에서 찾아요. 지난 일, 끝낸 일, 저장소의 일도 모두 찾아요</p>
+              <p className="mt-1 text-12px text-gray-400 dark:text-gray-500">제목과 메모 내용에서 찾아요. 지난 일, 끝낸 일, 저장소의 일도 모두 찾고, 초성(ㅂㄱㅅ)으로도 찾을 수 있어요</p>
             </div>
           )}
           {q && total === 0 && (
             <div className="px-3 py-10 text-center">
-              <p className="text-14px text-gray-500 dark:text-gray-400">‘{query.trim()}’와(과) 맞는 결과가 없어요</p>
+              <p className="text-14px text-gray-500 dark:text-gray-400">‘{query.trim()}’ 검색 결과가 없어요</p>
               <p className="mt-1 text-12px text-gray-400 dark:text-gray-500">다른 말이나 더 짧은 말로 찾아보세요</p>
             </div>
           )}

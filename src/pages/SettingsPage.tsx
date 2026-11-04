@@ -10,6 +10,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
+import { pendingFor } from '../lib/outbox';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import type { PushState } from '../hooks/usePushNotifications';
 import ChangePasswordModal from '../components/ChangePasswordModal';
@@ -211,7 +212,14 @@ export default function SettingsPage() {
   const [mobileGeneralOpen, setMobileGeneralOpen] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
-  async function handleSignOut() { setSigningOut(true); await signOut(); }
+  // 아직 서버에 보내지 못한 변경(오프라인에서 바꾼 것)이 있으면 한 번 더 확인
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const unsent = pendingFor(user?.id ?? null);
+  async function handleSignOut() {
+    if (unsent > 0 && !confirmSignOut) { setConfirmSignOut(true); return; }
+    setSigningOut(true);
+    await signOut();
+  }
 
   async function handleInstallClick() {
     if (canPromptDirectly) await promptInstall();
@@ -348,7 +356,9 @@ export default function SettingsPage() {
     <>
       {hasEmailPassword && <Row Icon={KeyRound} label="비밀번호 변경" onClick={() => setShowPasswordModal(true)} />}
       <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
-      <Row Icon={LogOut} label={signingOut ? '로그아웃 중...' : '로그아웃'} onClick={handleSignOut} chevron={false} />
+      <Row Icon={LogOut} label={signingOut ? '로그아웃 중...' : confirmSignOut ? '그래도 로그아웃' : '로그아웃'}
+        desc={confirmSignOut ? `저장 안 된 변경 ${unsent}개가 사라져요` : undefined}
+        onClick={handleSignOut} danger={confirmSignOut} chevron={false} />
       <Row Icon={UserX} label="계정 삭제" onClick={() => setShowDeleteModal(true)} danger chevron={false} />
     </>
   );
