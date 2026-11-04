@@ -72,6 +72,10 @@ async function mockSupabase(page, seen, settingsOverride = {}) {
       seen.todoPages.push(offset);
       return route.fulfill({ json: todos.slice(offset, offset + limit) });
     }
+    if (table === 'schedules' && route.request().method() === 'PATCH') {
+      seen.scheduleUpdates?.push(`${url.searchParams.get('id')} ${route.request().postData()}`);
+      return route.fulfill({ json: [] });
+    }
     if (table === 'timeblocks' && route.request().method() === 'POST') {
       seen.timeblockInserts.push(JSON.parse(route.request().postData() ?? '[]'));
       return route.fulfill({ json: [] });
@@ -161,8 +165,8 @@ try {
   }
 
   // 로그인한 상태의 새 브라우저 창
-  async function loggedInContext({ settings, fixedTime } = {}) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'Asia/Seoul' });
+  async function loggedInContext({ settings, fixedTime, viewport = { width: 1280, height: 900 } } = {}) {
+    const context = await browser.newContext({ viewport, timezoneId: 'Asia/Seoul', hasTouch: viewport.width < 1024 });
     const exp = Math.floor(Date.now() / 1000) + 3600;
     const session = {
       access_token: fakeJwt({ sub: USER_ID, role: 'authenticated', exp, aud: 'authenticated' }),
@@ -177,7 +181,7 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const seen = { todoPages: [], timeblockInserts: [] };
+    const seen = { todoPages: [], timeblockInserts: [], scheduleUpdates: [] };
     if (fixedTime) await page.clock.setFixedTime(fixedTime);
     await mockSupabase(page, seen, settings);
     return { context, page, errors, seen };
@@ -296,6 +300,36 @@ try {
       fail(`끈 기능은 숨겨지고 공휴일이 보여야 함 (${e.message})`);
     }
     if (errors.length) fail(`설정 테스트 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 7) 폰: 하단 메뉴 4칸, 날짜를 누르면 팝업, 일정 완료 체크 저장, 글자 크기 '크게'가 앱 전체에 적용
+  {
+    const { context, page, errors, seen } = await loggedInContext({ settings: { calendar_text_size: 'large' }, viewport: { width: 390, height: 844 } });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      const fs = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fs').trim());
+      if (fs !== '1.15') throw new Error(`글자 크기 배율이 1.15가 아님: ${fs}`);
+      const bottomNav = page.locator('nav[aria-label="주요 메뉴"]').last();
+      const labels = (await bottomNav.getByRole('button').allTextContents()).map(t => t.trim());
+      if (labels.join(',') !== '홈,달력,메모,설정') throw new Error(`하단 메뉴: ${labels.join(',')}`);
+      await bottomNav.getByRole('button', { name: '달력' }).click();
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+      await page.getByRole('button', { name: new RegExp(`^${Number(today.slice(5, 7))}월 ${Number(today.slice(8, 10))}일`) }).first().click();
+      const sheet = page.getByRole('dialog');
+      await sheet.getByRole('button', { name: '일정', exact: false }).first().waitFor({ timeout: 5000 }); // 팝업 안 "+ 일정"
+      await sheet.getByText('치과 예약').waitFor({ timeout: 5000 });
+      await sheet.getByRole('button', { name: '일정 완료', exact: true }).first().click();
+      for (let i = 0; i < 20 && seen.scheduleUpdates.length === 0; i++) await page.waitForTimeout(100);
+      if (!seen.scheduleUpdates.some(w => w.includes('"completed":true'))) throw new Error(`일정 완료가 저장되지 않음: ${seen.scheduleUpdates.join(' / ')}`);
+      await sheet.getByRole('button', { name: '일정 완료 취소' }).first().waitFor({ timeout: 5000 });
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-day-sheet-mobile.png` });
+      console.log('✅ 폰: 하단 메뉴 4칸, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
+    } catch (e) {
+      fail(`폰 달력 팝업·일정 완료·글자 크기 (${e.message})`);
+    }
+    if (errors.length) fail(`폰 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 
