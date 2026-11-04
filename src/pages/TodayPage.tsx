@@ -133,10 +133,19 @@ function OverviewColumn({
   );
 }
 
+// 월 달력 칸에 한 줄씩 보이는 것: 디데이·일정은 제목, 할 일은 하위 카테고리(없으면 카테고리) 이름으로 묶음
+interface CalendarChip {
+  key: string;
+  title: string;
+  kind: 'dday' | 'schedule' | 'todo';
+  done: boolean; // 할 일 묶음은 그 안의 할 일을 모두 끝냈을 때
+  color?: string; // 할 일 묶음의 카테고리 색
+}
+
 // 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
 export default function TodayPage() {
   const {
-    todos, categories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, schedules, notices, setCurrentScreen,
   } = useApp();
@@ -654,18 +663,28 @@ export default function TodayPage() {
                   const isLastRow = idx >= days.length - 7;
                   const holiday = holidayLabel(holidays, dateStr);
 
-                  // 달력 칸에는 디데이/일정(날짜·시간이 정해진 것)만 제목이 보이는 칩으로 미리 보여주고,
-                  // 할 일(날짜만 있고 시간표는 아닌 것)은 예전처럼 카테고리별 색깔 점으로만 표시.
-                  // 칩이 좁아 최대 몇 개만 보여주고 나머지는 "+N개"로 요약(자세히 보려면 칸을 눌러 확인)
-                  const chips = [
-                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, isDday: true, done: false })),
-                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, isDday: false, done: s.completed })),
+                  // 달력 칸: 디데이·일정은 제목 칩으로, 할 일은 제목 대신 "하위 카테고리 이름"으로 묶어서 한 줄씩
+                  // (하위 카테고리가 없으면 카테고리 이름). 예: 자격증 > 토익에 할 일이 있으면 "토익"만 보임.
+                  // 칸이 좁아 최대 몇 줄만 보여주고 나머지는 "+N개 더"로 요약 (자세히 보려면 칸을 눌러 확인)
+                  const todoGroups = new Map<string, CalendarChip>();
+                  for (const t of dayTodos) {
+                    if (t.skipped) continue;
+                    const sub = t.subcategoryId ? subcategories.find(s => s.id === t.subcategoryId) : undefined;
+                    const cat = categories.find(c => c.id === t.categoryId);
+                    const key = sub ? `sub-${sub.id}` : `cat-${t.categoryId ?? 'none'}`;
+                    const group = todoGroups.get(key);
+                    if (group) group.done = group.done && t.completed;
+                    else todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '할 일', kind: 'todo', done: t.completed, color: cat?.color });
+                  }
+                  const chips: CalendarChip[] = [
+                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, kind: 'dday' as const, done: false })),
+                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, kind: 'schedule' as const, done: s.completed })),
+                    ...todoGroups.values(),
                   ];
-                  const visibleChips = chips.slice(0, chipStyle.maxChips);
+                  // 넘치면 마지막 줄을 "+N개 더"에 내줘서 칸 높이가 늘 같은 줄 수 안에 들어가게
+                  const lineLimit = chipStyle.maxChips + 1;
+                  const visibleChips = chips.length > lineLimit ? chips.slice(0, lineLimit - 1) : chips;
                   const overflowCount = chips.length - visibleChips.length;
-                  const dayCounted = dayTodos.filter(t => !t.skipped);
-                  const todoDots = Array.from(new Set(dayCounted.map(t => t.categoryId))).slice(0, 8);
-                  const allDone = dayCounted.length > 0 && dayCounted.every(t => t.completed);
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
@@ -705,44 +724,32 @@ export default function TodayPage() {
                             key={chip.key}
                             title={chip.title}
                             className={`w-full flex items-center gap-1 ${chipStyle.chip} leading-[1.35] px-0.5 sm:px-1.5 py-px rounded-[4px] font-medium ${
-                              chip.isDday
-                                ? 'bg-leaf-100 text-leaf-800 dark:bg-leaf-900/50 dark:text-leaf-200'
-                                : chip.done
-                                  ? 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800 dark:text-gray-500'
-                                  : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+                              chip.kind === 'todo'
+                                ? (chip.done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200')
+                                : chip.kind === 'dday'
+                                  ? 'bg-leaf-100 text-leaf-800 dark:bg-leaf-900/50 dark:text-leaf-200'
+                                  : chip.done
+                                    ? 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800 dark:text-gray-500'
+                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
                             }`}
                           >
-                            {/* 디데이는 깃발, 일정은 달력 아이콘 (폰은 칸이 좁아 색으로만 구분) */}
-                            {chip.isDday
-                              ? <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />
-                              : <CalendarDays size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.6} />}
+                            {/* 디데이는 깃발, 일정은 달력 아이콘 (폰은 칸이 좁아 색으로만 구분), 할 일은 카테고리 색 점 */}
+                            {chip.kind === 'todo'
+                              ? <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${chip.done ? 'opacity-40' : ''}`} style={{ backgroundColor: chip.color ?? '#9DA397' }} />
+                              : chip.kind === 'dday'
+                                ? <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />
+                                : <CalendarDays size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.6} />}
                             {/* 폰은 칸이 좁아서 말줄임표(…) 없이 들어가는 만큼 글자를 보여줌 (전체는 눌러서 팝업으로) */}
-                            <span className={`overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.isDday ? 'font-semibold' : ''}`}>{chip.title}</span>
+                            <span className={`overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.kind === 'dday' ? 'font-semibold' : ''}`}>{chip.title}</span>
                           </div>
                         ))}
                         {overflowCount > 0 && (
                           <p className={`${chipStyle.chip} leading-tight px-1.5 text-gray-400 dark:text-gray-500 font-medium`}>
-                            +{overflowCount}개 더
+                            {/* 폰 칸은 좁아서 "+N"만 */}
+                            <span className="sm:hidden">+{overflowCount}</span><span className="hidden sm:inline">+{overflowCount}개 더</span>
                           </p>
                         )}
                       </div>
-                      {/* 할 일은 제목 대신 카테고리 색깔 점으로만 요약 (자세한 목록은 칸을 눌러 확인) */}
-                      {todoDots.length > 0 && (
-                        <div className={`w-full flex flex-wrap items-center gap-[3px] mt-auto pt-1 pl-0.5 ${inMonth ? '' : 'opacity-40'}`}>
-                          {allDone ? (
-                            <Check size={11} className="text-leaf-500" strokeWidth={3} aria-label="모두 완료" />
-                          ) : todoDots.map(catId => {
-                            const cat = categories.find(c => c.id === catId);
-                            return (
-                              <span
-                                key={catId ?? '__none__'}
-                                className="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                                style={{ backgroundColor: cat?.color ?? '#9DA397' }}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
                     </button>
                   );
                 })}
