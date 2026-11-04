@@ -58,7 +58,7 @@ export default function HelpTip({ text, label }: { text: string; label: string }
       </button>
       {open && (
         <span id={tipId} role="tooltip"
-          className={`absolute ${alignRight ? '-right-1' : '-left-1'} top-full mt-1.5 z-30 w-60 px-3 py-2 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-[12px] leading-snug font-normal shadow-lg text-left whitespace-normal`}>
+          className={`absolute ${alignRight ? '-right-1' : '-left-1'} top-full mt-1.5 z-30 w-60 px-3 py-2 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-12px leading-snug font-normal shadow-lg text-left whitespace-normal`}>
           {text}
         </span>
       )}

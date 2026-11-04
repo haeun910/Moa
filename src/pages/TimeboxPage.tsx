@@ -372,9 +372,9 @@ export default function TimeboxPage() {
           <div className="flex items-center gap-1.5">
             <button onClick={() => shiftWeek(-1)} aria-label="이전 주" className="btn-icon"><ChevronLeft size={18} /></button>
             <button onClick={() => shiftWeek(1)} aria-label="다음 주" className="btn-icon"><ChevronRight size={18} /></button>
-            <button onClick={goToday} className="btn-secondary h-8 px-3 text-[13px]">오늘</button>
+            <button onClick={goToday} className="btn-secondary h-8 px-3 text-13px">오늘</button>
             {isDesktop && (
-              <button onClick={openNewBlock} className="btn-primary h-8 px-3 text-[13px]">
+              <button onClick={openNewBlock} className="btn-primary h-8 px-3 text-13px">
                 <Plus size={15} strokeWidth={2.4} />
                 추가
               </button>
@@ -385,7 +385,7 @@ export default function TimeboxPage() {
                 {panelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
               </button>
             ) : (
-              <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-[13px]">
+              <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-13px">
                 <ListChecks size={15} className="text-leaf-600 dark:text-leaf-400" />
                 할 일 넣기
               </button>
@@ -406,10 +406,10 @@ export default function TimeboxPage() {
                   className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
                     selected ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}>
-                  <span className={`text-[10.5px] font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <span className={`text-10.5px font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                     {format(day, 'EEEEE', { locale: ko })}
                   </span>
-                  <span className={`text-[15px] font-bold tabular-nums leading-tight ${
+                  <span className={`text-15px font-bold tabular-nums leading-tight ${
                     selected ? 'text-white' : isToday ? 'text-leaf-600 dark:text-leaf-400' : weekdayTone(day.getDay())
                   }`}>
                     {format(day, 'd')}
@@ -437,16 +437,16 @@ export default function TimeboxPage() {
                 return (
                   <div key={dateKey} className="flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 px-2 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[11px] font-semibold ${isToday ? 'text-leaf-700 dark:text-leaf-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <span className={`text-11px font-semibold ${isToday ? 'text-leaf-700 dark:text-leaf-300' : 'text-gray-400 dark:text-gray-500'}`}>
                         {format(day, 'EEE', { locale: ko })}
                       </span>
-                      <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-[13px] font-bold tabular-nums ${
+                      <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-13px font-bold tabular-nums ${
                         isToday ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : weekdayTone(day.getDay())
                       }`}>
                         {format(day, 'd')}
                       </span>
                     </div>
-                    <p className="text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                    <p className="text-10.5px tabular-nums text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                       {planned ? durationLabel(planned) : ' '}
                     </p>
                     <AllDayChips items={agenda.get(dateKey)?.allDay ?? []} onClick={handleAllDayClick} compact />
@@ -469,7 +469,7 @@ export default function TimeboxPage() {
               {/* 시간 눈금 */}
               <div className="relative w-12 flex-shrink-0">
                 {HOURS.slice(1).map(h => (
-                  <span key={h} className="absolute right-2 -translate-y-1/2 text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500"
+                  <span key={h} className="absolute right-2 -translate-y-1/2 text-10.5px tabular-nums text-gray-400 dark:text-gray-500"
                     style={{ top: h * HOUR_PX }}>
                     {formatMinutes(h * 60)}
                   </span>
@@ -541,7 +541,7 @@ export default function TimeboxPage() {
                     {ghost && (
                       <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-leaf-500 bg-leaf-100/60 dark:bg-leaf-900/30 pointer-events-none px-1.5 py-0.5"
                         style={{ top: ghost.lo * MIN_PX, height: (ghost.hi - ghost.lo) * MIN_PX }}>
-                        <span className="text-[10.5px] font-semibold tabular-nums text-leaf-800 dark:text-leaf-200">
+                        <span className="text-10.5px font-semibold tabular-nums text-leaf-800 dark:text-leaf-200">
                           {formatMinutes(ghost.lo)} – {formatMinutes(ghost.hi)}
                         </span>
                       </div>
@@ -564,8 +564,8 @@ export default function TimeboxPage() {
         {showPanel && (
           <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-2xl surface p-3.5 flex flex-col min-h-0">
             <div className="flex-shrink-0 mb-2.5">
-              <p className="text-[13px] font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
-              <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>
+              <p className="text-13px font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
+              <p className="text-11.5px text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>
             </div>
             <div className="flex-1 min-h-0">
               <TodoPicker rangeFrom={days[0]} rangeTo={days[6]} rangeLabel="이번 주" onPick={handleTodoPick} onDragStart={handleTodoDragStart} />
@@ -684,11 +684,11 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
           )}
         </button>
         <div className="min-w-0 flex-1">
-          <p className={`text-[11.5px] leading-[1.3] font-semibold text-gray-900 dark:text-white ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+          <p className={`text-11.5px leading-[1.3] font-semibold text-gray-900 dark:text-white ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
             {title}
           </p>
           {roomy && (
-            <p className="flex items-center gap-1 text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300 truncate">
+            <p className="flex items-center gap-1 text-10.5px tabular-nums text-gray-600 dark:text-gray-300 truncate">
               {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
               {block.seriesId && <Repeat size={9} className="flex-shrink-0" aria-label="반복" />}
             </p>
@@ -717,7 +717,7 @@ function AllDayChips({ items, onClick, compact }: { items: AgendaAllDay[]; onCli
         const isDday = item.kind === 'dday';
         return (
           <button key={item.key} onClick={() => onClick(item)} title={`${isDday ? 'D-Day' : '일정'} · ${item.title}`}
-            className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-[10.5px] font-medium text-left ${
+            className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-10.5px font-medium text-left ${
               isDday
                 ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
                 : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
@@ -793,11 +793,11 @@ function AgendaView({ item, layout, isPast, onPointerDown, onClick, onToggle }: 
           <CalendarDays size={11} className={`flex-shrink-0 mt-px ${roomy ? '' : 'hidden sm:block'}`} style={{ color }} />
         )}
         <div className="min-w-0 flex-1">
-          <p className={`text-[11.5px] leading-[1.3] font-medium text-gray-800 dark:text-gray-100 ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+          <p className={`text-11.5px leading-[1.3] font-medium text-gray-800 dark:text-gray-100 ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
             {item.title}
           </p>
           {roomy && (
-            <p className="text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400 truncate">
+            <p className="text-10.5px tabular-nums text-gray-500 dark:text-gray-400 truncate">
               {formatMinutes(item.startMin)} · {label}
             </p>
           )}

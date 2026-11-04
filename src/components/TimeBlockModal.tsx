@@ -250,7 +250,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
                 {!noTodoLink && <button onClick={() => setPicking(v => !v)} title="할 일에서 고르기" aria-label="할 일에서 고르기" aria-expanded={picking}
                   className={`btn-secondary flex-shrink-0 px-3 ${picking ? 'ring-leaf-500 text-leaf-700 dark:text-leaf-300' : ''}`}>
                   <ListChecks size={15} />
-                  <span className="hidden sm:inline text-[13px]">할 일</span>
+                  <span className="hidden sm:inline text-13px">할 일</span>
                 </button>}
               </div>
             )}
@@ -264,7 +264,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
             {!todo && !picking && !noTodoLink && (
               <div className="mt-2.5">
                 <button type="button" role="checkbox" aria-checked={addToList} onClick={toggleAddToList}
-                  className="flex items-center gap-2 text-[13px] text-gray-700 dark:text-gray-200">
+                  className="flex items-center gap-2 text-13px text-gray-700 dark:text-gray-200">
                   <span className={`w-4 h-4 rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
                     addToList ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500' : 'border-gray-300 dark:border-gray-600'
                   }`}>
@@ -386,7 +386,7 @@ export default function TimeBlockModal({ block, draft, onClose }: Props) {
               <div className="flex-1 grid grid-cols-4 gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800" role="radiogroup" aria-label="알림">
                 {REMIND_OPTIONS.map(opt => (
                   <button key={String(opt.value)} role="radio" aria-checked={remind === opt.value} onClick={() => setRemind(opt.value)}
-                    className={`h-7 rounded-md text-[12.5px] transition-all ${
+                    className={`h-7 rounded-md text-12.5px transition-all ${
                       remind === opt.value
                         ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-semibold shadow-sm'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'

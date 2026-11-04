@@ -5,6 +5,7 @@ import {
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
   UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
   UserPlus,
+  ALargeSmall,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -76,7 +77,7 @@ const labelOf = <T,>(opts: { value: T; label: string }[], v: T) => opts.find(o =
 function Group({ title, children, footer }: { title?: string; children: React.ReactNode; footer?: string }) {
   return (
     <div>
-      {title && <p className="px-1 mb-2 text-[13px] font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
+      {title && <p className="px-1 mb-2 text-13px font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
       <div className="rounded-xl surface overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
         {children}
       </div>
@@ -109,7 +110,7 @@ function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, r
         <span className={`block text-sm font-medium ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{label}</span>
         {desc && <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{desc}</span>}
       </span>
-      {value && <span className="flex-shrink-0 text-[13px] tabular-nums text-gray-500 dark:text-gray-400">{value}</span>}
+      {value && <span className="flex-shrink-0 text-13px tabular-nums text-gray-500 dark:text-gray-400">{value}</span>}
       {right}
       {chevron && <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />}
     </>
@@ -135,7 +136,7 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
     <div className="p-3"><div role="radiogroup" className="grid gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map(({ value: v, label, Icon }) => (
         <button key={v} onClick={() => onChange(v)} role="radio" aria-checked={value === v}
-          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] transition-all ${
+          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-13px transition-all ${
             value === v
               ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-semibold shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
@@ -270,6 +271,9 @@ export default function SettingsPage() {
       <Group title="테마">
         <Segmented options={THEME_OPTS} value={settings.theme} onChange={v => updateSettings({ theme: v })} />
       </Group>
+      <Group title="글자 크기" footer="앱 전체 글자 크기예요. 달력 칸의 일정 글자도 함께 바뀌어요.">
+        <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
+      </Group>
       <Group title="시작 화면" footer="앱을 열었을 때 처음 보이는 화면이에요.">
         <Segmented options={screenOpts} value={settings.defaultScreen} onChange={v => updateSettings({ defaultScreen: v })} />
       </Group>
@@ -294,7 +298,7 @@ export default function SettingsPage() {
                         : [...settings.hiddenCategoryIds, cat.id],
                     })}
                     aria-pressed={!hidden}
-                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-[13px] font-medium transition-all ${
+                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-13px font-medium transition-all ${
                       hidden
                         ? 'border-dashed border-gray-300 dark:border-gray-700 text-gray-400 line-through'
                         : 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900'
@@ -308,13 +312,9 @@ export default function SettingsPage() {
           </div>
         )}
       </Group>
-      <Group title="달력 표시" footer="글자 크기는 월 달력 칸에 보이는 일정·D-Day 글자 크기예요.">
+      <Group title="달력 표시">
         <Row Icon={CalendarHeart} label="공휴일 표시" desc="설날·추석 같은 빨간 날을 달력과 홈에 보여줘요"
           right={<Toggle checked={settings.showHolidays} onChange={() => updateSettings({ showHolidays: !settings.showHolidays })} label="공휴일 표시" />} />
-        <div>
-          <p className="px-4 pt-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">글자 크기</p>
-          <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
-        </div>
       </Group>
       <Group title="사용할 기능" footer="끈 기능은 메뉴와 홈에서 숨겨져요. 적어 둔 내용은 지워지지 않고, 다시 켜면 그대로 보여요. 타임박스를 끄면 타임박스 알림도 오지 않아요.">
         {FEATURE_OPTS.map(({ value, label, desc, Icon }) => (
@@ -385,7 +385,7 @@ export default function SettingsPage() {
             <div className="px-4 py-4 flex items-center gap-3">
               {avatar('lg')}
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                <p className="text-15px font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
               </div>
             </div>
@@ -423,7 +423,7 @@ export default function SettingsPage() {
                 <div className="px-4 py-3.5 flex items-center gap-3">
                   {avatar('lg')}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                    <p className="text-15px font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
                   </div>
                 </div>
@@ -432,10 +432,11 @@ export default function SettingsPage() {
               {/* 일반: 현재 값만 보여주고 누르면 상세 화면 */}
               <Group title="일반">
                 <Row Icon={Palette} label="테마" value={labelOf(THEME_OPTS, settings.theme)} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={ALargeSmall} label="글자 크기" value={labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={House} label="시작 화면" value={labelOf(SCREEN_OPTS, settings.defaultScreen)} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={LayoutGrid} label="사용할 기능" value={`${FEATURE_OPTS.length - settings.hiddenFeatures.length}/${FEATURE_OPTS.length}개 켬`} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={ListFilter} label="목록 표시" value={labelOf(SORT_OPTS, settings.listSortBy)} onClick={() => setMobileGeneralOpen(true)} />
-                <Row Icon={CalendarDays} label="달력 표시" value={`공휴일 ${settings.showHolidays ? '켬' : '끔'} · ${labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)}`} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={CalendarDays} label="달력 표시" value={`공휴일 ${settings.showHolidays ? '켬' : '끔'}`} onClick={() => setMobileGeneralOpen(true)} />
               </Group>
               <Group title="할 일 정리">{organizeRows}</Group>
               <Group title="계정 · 데이터">{accountRows}</Group>

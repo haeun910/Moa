@@ -5,8 +5,10 @@ import App from './App.tsx'
 import { isSaveErrorHandled } from './lib/toast'
 import { initMonitoring, reportError } from './lib/monitoring'
 import ErrorBoundary from './components/ErrorBoundary'
+import { applySavedFontScale } from './lib/fontScale'
 
 initMonitoring()
+applySavedFontScale()
 
 // 저장 실패는 이미 화면에 알림으로 보여줬으므로 "처리 안 된 오류"로 한 번 더 기록하지 않음
 window.addEventListener('unhandledrejection', e => {

@@ -72,7 +72,7 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
     <div className="modal-overlay">
       <div className="modal-panel max-w-sm" role="dialog" aria-label="사용 가이드">
         <div className="flex-shrink-0 flex items-center justify-between px-5 pt-4">
-          <span className="text-[11px] font-semibold text-gray-400">{step + 1} / {STEPS.length}</span>
+          <span className="text-11px font-semibold text-gray-400">{step + 1} / {STEPS.length}</span>
           <button onClick={onClose} aria-label="가이드 닫기"
             className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex items-center gap-0.5">
             건너뛰기 <X size={13} />

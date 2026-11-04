@@ -65,7 +65,7 @@ function SortableSubcategoryRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm text-gray-600 dark:text-gray-300 truncate">{sc.name}</span>
-        {sc.notes && <span className="block text-[11px] text-gray-400 dark:text-gray-500 truncate">{sc.notes}</span>}
+        {sc.notes && <span className="block text-11px text-gray-400 dark:text-gray-500 truncate">{sc.notes}</span>}
       </span>
       <button onClick={onStartEdit} aria-label={`${sc.name} 편집`}
         className="text-gray-400 hover:text-leaf-500 transition-colors p-1 flex-shrink-0">
@@ -73,8 +73,8 @@ function SortableSubcategoryRow({
       </button>
       {confirmDelete ? (
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onCancelDelete} className="text-[10px] px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
-          <button onClick={onDelete} className="text-[10px] px-1.5 py-1 rounded-md bg-red-500 text-white font-medium">삭제</button>
+          <button onClick={onCancelDelete} className="text-10px px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
+          <button onClick={onDelete} className="text-10px px-1.5 py-1 rounded-md bg-red-500 text-white font-medium">삭제</button>
         </div>
       ) : (
         <button onClick={onDelete} aria-label={`${sc.name} 삭제`}
@@ -255,17 +255,17 @@ function SortableCategoryItem({
           <span className="flex-1 min-w-0">
             <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{cat.name}</span>
             {cat.description && (
-              <span className="block text-[11px] text-gray-400 dark:text-gray-500 truncate">{cat.description}</span>
+              <span className="block text-11px text-gray-400 dark:text-gray-500 truncate">{cat.description}</span>
             )}
           </span>
           {cat.isDefault && (
-            <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">기본</span>
+            <span className="text-10px text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">기본</span>
           )}
           <button onClick={() => setShowSubcats(v => !v)} aria-label="하위카테고리 관리"
             title="하위카테고리 관리"
             className="flex items-center gap-0.5 text-gray-400 hover:text-leaf-500 transition-colors p-1">
             <Layers size={13} />
-            {subcatCount > 0 && <span className="text-[10px] font-semibold">{subcatCount}</span>}
+            {subcatCount > 0 && <span className="text-10px font-semibold">{subcatCount}</span>}
             {showSubcats ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
           <button onClick={() => { onStartEdit(cat.id); onCancelDelete(); }} aria-label={`${cat.name} 편집`}
@@ -275,9 +275,9 @@ function SortableCategoryItem({
           {confirmDeleteId === cat.id ? (
             <div className="flex items-center gap-1">
               <button onClick={onCancelDelete}
-                className="text-[11px] px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
+                className="text-11px px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
               <button onClick={() => onDelete(cat.id)}
-                className="text-[11px] px-2 py-1 rounded-lg bg-red-500 text-white font-medium">삭제</button>
+                className="text-11px px-2 py-1 rounded-lg bg-red-500 text-white font-medium">삭제</button>
             </div>
           ) : (
             <button onClick={() => onDelete(cat.id)} aria-label={`${cat.name} 삭제`}
@@ -352,7 +352,7 @@ export default function CategoryPage() {
           className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
-        <h1 className="page-title text-[22px] flex-1">카테고리 관리</h1>
+        <h1 className="page-title text-22px flex-1">카테고리 관리</h1>
         <button onClick={() => { setShowAdd(v => !v); setEditingId(null); }} aria-label={showAdd ? '취소' : '카테고리 추가'}
           className="btn-primary w-9 h-9">
           {showAdd ? <X size={16} /> : <Plus size={16} />}

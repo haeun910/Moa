@@ -53,10 +53,10 @@ export default function ProjectPage() {
             {todo.title}
           </p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {todo.date && <span className="text-[11px] text-gray-400">{format(parseISO(todo.date), 'M/d (EEE)', { locale: ko })}</span>}
-            {!todo.date && todo.dueDate && <span className="text-[11px] text-gray-400">마감 {format(parseISO(todo.dueDate), 'M/d', { locale: ko })}</span>}
+            {todo.date && <span className="text-11px text-gray-400">{format(parseISO(todo.date), 'M/d (EEE)', { locale: ko })}</span>}
+            {!todo.date && todo.dueDate && <span className="text-11px text-gray-400">마감 {format(parseISO(todo.dueDate), 'M/d', { locale: ko })}</span>}
             {subcat && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+              <span className="text-10px font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                 {subcat.name}
               </span>
             )}
@@ -88,7 +88,7 @@ export default function ProjectPage() {
           className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
-        <h1 className="page-title text-[22px] flex-1">프로젝트 로드맵</h1>
+        <h1 className="page-title text-22px flex-1">프로젝트 로드맵</h1>
       </div>
 
       <div className="px-4 lg:px-8 max-w-2xl mx-auto">
@@ -101,7 +101,7 @@ export default function ProjectPage() {
                 <button
                   key={cat.id}
                   onClick={() => setProjectCatId(cat.id)}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-13px font-medium transition-colors ${
                     projectCatId === cat.id ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold' : 'bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >

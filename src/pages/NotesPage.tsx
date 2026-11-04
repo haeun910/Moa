@@ -121,7 +121,7 @@ export default function NotesPage() {
             {preview || '추가 텍스트 없음'}
           </p>
           {folder === 'all' && n.folderId && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-400"><Folder size={11} />{folderName(n.folderId)}</p>
+            <p className="mt-1 flex items-center gap-1 text-11px text-gray-400"><Folder size={11} />{folderName(n.folderId)}</p>
           )}
         </button>
       </li>
@@ -246,7 +246,7 @@ export default function NotesPage() {
   // ── 휴대폰·태블릿: 폴더 칩 + 목록, 누르면 전체 화면 편집기 ──
   const chip = (f: FolderFilter, label: string) => (
     <button key={f} onClick={() => setFolder(f)}
-      className={`flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-semibold border transition-colors ${
+      className={`flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-13px font-semibold border transition-colors ${
         folder === f ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium'
       }`}>
       {label}<span className="opacity-60">{countIn(f)}</span>
@@ -267,7 +267,7 @@ export default function NotesPage() {
         {noteFolders.map(f => chip(f.id, f.name))}
         {chip('none', '폴더 없음')}
         <button onClick={() => setShowFolderModal(true)}
-          className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
+          className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-13px font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
           <Settings2 size={12} /> 폴더
         </button>
       </div>

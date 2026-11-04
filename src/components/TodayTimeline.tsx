@@ -100,7 +100,7 @@ export default function TodayTimeline() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Timer size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
           <button onClick={() => setCurrentScreen('timebox')}
-            className="text-[13px] font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
+            className="text-13px font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
             오늘 타임박스
           </button>
           <HelpTip text={GUIDES.timebox} label="오늘 타임박스" />
@@ -108,8 +108,8 @@ export default function TodayTimeline() {
         </div>
         <div className="order-last basis-full min-w-0">
           {statusText && (
-            <p className="min-w-0 flex items-center gap-1.5 text-[12.5px]">
-              <span className={`flex-shrink-0 text-[10.5px] font-bold px-1.5 py-px rounded ${
+            <p className="min-w-0 flex items-center gap-1.5 text-12.5px">
+              <span className={`flex-shrink-0 text-10.5px font-bold px-1.5 py-px rounded ${
                 current ? 'bg-leaf-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
               }`}>
                 {statusText.label}
@@ -136,7 +136,7 @@ export default function TodayTimeline() {
               <button key={h} onClick={() => addBlockAt(h * 60)} aria-label={`${h}시에 타임박스 추가`}
                 className="group absolute inset-x-0 flex items-start text-left hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
                 style={{ top: i * HOUR_PX, height: HOUR_PX }}>
-                <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500">
+                <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-10.5px tabular-nums text-gray-400 dark:text-gray-500">
                   {h}시
                 </span>
                 <span className={`flex-1 h-full ${i > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}`} />
@@ -162,11 +162,11 @@ export default function TodayTimeline() {
                     boxShadow: isNow ? `0 0 0 1.5px ${color}` : undefined,
                   }}
                 >
-                  <span className={`block truncate text-[12px] leading-tight font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+                  <span className={`block truncate text-12px leading-tight font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {title}
                   </span>
                   {(span.endMin - span.startMin) * MIN_PX >= 34 && (
-                    <span className="block truncate text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300">
+                    <span className="block truncate text-10.5px tabular-nums text-gray-600 dark:text-gray-300">
                       {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
                     </span>
                   )}
@@ -194,11 +194,11 @@ export default function TodayTimeline() {
                     borderLeft: `3px solid ${item.color}`,
                   }}
                 >
-                  <span className={`block truncate text-[12px] leading-tight font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}>
+                  <span className={`block truncate text-12px leading-tight font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {item.title}
                   </span>
                   {(item.endMin - item.startMin) * MIN_PX >= 34 && (
-                    <span className="block truncate text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
+                    <span className="block truncate text-10.5px tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
                   )}
                 </button>
               );

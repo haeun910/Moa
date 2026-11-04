@@ -45,7 +45,7 @@ export default function FeedbackListModal({ onClose }: { onClose: () => void }) 
           <div className="flex items-center gap-2">
             <Inbox size={17} className="text-leaf-600" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">받은 의견</h2>
-            {items && <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{items.length}</span>}
+            {items && <span className="text-10px font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{items.length}</span>}
           </div>
           <div className="flex items-center gap-1">
             <button onClick={load} aria-label="새로고침"
@@ -66,7 +66,7 @@ export default function FeedbackListModal({ onClose }: { onClose: () => void }) 
           {items?.map(f => (
             <div key={f.id} className="group rounded-xl border border-gray-200 dark:border-gray-800 p-3">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-gray-400">
+                <span className="text-11px text-gray-400">
                   {format(parseISO(f.created_at), 'yyyy.M.d HH:mm')}{f.app_version ? ` · v${f.app_version}` : ''}
                 </span>
                 <button onClick={() => remove(f.id)} aria-label="삭제"

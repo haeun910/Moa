@@ -32,9 +32,9 @@ export default function ChangelogModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-baseline gap-2 mb-2">
                 <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">v{entry.version}</h3>
                 {i === 0 && (
-                  <span className="text-[10px] font-bold text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40 px-1.5 py-0.5 rounded-full">최신</span>
+                  <span className="text-10px font-bold text-leaf-600 bg-leaf-100 dark:bg-leaf-900/40 px-1.5 py-0.5 rounded-full">최신</span>
                 )}
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
+                <span className="text-10px text-gray-400 dark:text-gray-500 ml-auto">
                   {format(new Date(entry.date), 'yyyy년 M월 d일', { locale: ko })}
                 </span>
               </div>

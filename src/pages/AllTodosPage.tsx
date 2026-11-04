@@ -68,7 +68,7 @@ function SubcategorySection({
     <div className="mt-4 pl-3.5 border-l-2 border-gray-200/80 dark:border-gray-800">
       <button onClick={() => setCollapsed(v => !v)} aria-expanded={!collapsed} className="flex items-center gap-1.5 mb-2 -ml-1 px-1 py-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors">
         {collapsed ? <ChevronRight size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />}
-        <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{subcat.name}</span>
+        <span className="text-13px font-semibold text-gray-700 dark:text-gray-200">{subcat.name}</span>
         <span className="count-pill">{group.todos.length}</span>
       </button>
       {subcat.notes && (
@@ -139,7 +139,7 @@ function CategoryQuickAdd({ categoryId, subcategoryId, onAdd, placeholder = '할
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 min-w-0 text-[13px] bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+        className="flex-1 min-w-0 text-13px bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
         onKeyDown={e => { if (e.key === 'Enter') submit(); }}
       />
       {title.trim() && (
@@ -171,7 +171,7 @@ function CategoryBlock({ cat, subGroups, bare, onEdit, actions, onAdd }: Categor
     <section className="mb-9">
       <button onClick={() => setCollapsed(v => !v)} aria-expanded={!collapsed} className="group w-full flex items-center gap-2.5 mb-1 text-left">
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-        <span className="text-[15px] font-bold tracking-[-0.02em] text-gray-900 dark:text-white">{cat.name}</span>
+        <span className="text-15px font-bold tracking-[-0.02em] text-gray-900 dark:text-white">{cat.name}</span>
         <span className="count-pill">{totalCount}</span>
         <span className="flex-1 h-px bg-gray-200/80 dark:bg-gray-800 ml-1" />
         {collapsed
@@ -518,7 +518,7 @@ export default function AllTodosPage() {
             <section className="mb-9">
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-300 dark:bg-gray-600" />
-                <span className="text-[15px] font-bold tracking-[-0.02em] text-gray-600 dark:text-gray-300">분류 없음</span>
+                <span className="text-15px font-bold tracking-[-0.02em] text-gray-600 dark:text-gray-300">분류 없음</span>
                 <span className="count-pill">{noCategoryGroup.todos.length}</span>
                 <span className="flex-1 h-px bg-gray-200/80 dark:bg-gray-800 ml-1" />
               </div>

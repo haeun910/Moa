@@ -65,7 +65,7 @@ export default function FeedbackModal({ onClose }: { onClose: () => void }) {
             placeholder="예) 반복 일정을 격주 말고 3주마다도 할 수 있으면 좋겠어요"
             className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm resize-none transition-all"
           />
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-11px">
             <span className="text-red-500">{error}</span>
             <span className="text-gray-400">{content.length}/{MAX_LENGTH}</span>
           </div>

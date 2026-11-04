@@ -82,7 +82,7 @@ export default function CalendarPage() {
             className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <ArrowLeft size={17} />
           </button>
-          <span className="text-[13px] font-medium text-gray-500 dark:text-gray-400">시간표</span>
+          <span className="text-13px font-medium text-gray-500 dark:text-gray-400">시간표</span>
         </div>
         <div className="flex items-center justify-between mb-2">
           <button onClick={() => setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'))} aria-label="전날"
@@ -135,7 +135,7 @@ export default function CalendarPage() {
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left bg-rose-50 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300">
                   <Flag size={13} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{d.title}</span>
-                  <span className="text-[11px] font-semibold">D-Day</span>
+                  <span className="text-11px font-semibold">D-Day</span>
                 </button>
               ))}
               {allDaySchedules.map(sc => (
@@ -154,7 +154,7 @@ export default function CalendarPage() {
             <div key={h} className="flex border-b border-gray-200/60 dark:border-gray-800 min-h-[56px] group lg:px-4">
               {/* Time label */}
               <div className="w-14 flex-shrink-0 pt-1 pr-2 text-right">
-                <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">
+                <span className="text-11px text-gray-400 dark:text-gray-500 tabular-nums">
                   {formatHour(h)}
                 </span>
               </div>
@@ -176,7 +176,7 @@ export default function CalendarPage() {
                 {!(todosByHour[h]?.length) && !(schedulesByHour[h]?.length) && (
                   <span className="absolute inset-0 flex items-center pl-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Plus size={12} className="text-leaf-600 mr-1" />
-                    <span className="text-[11px] font-medium text-leaf-600">추가</span>
+                    <span className="text-11px font-medium text-leaf-600">추가</span>
                   </span>
                 )}
               </div>
@@ -268,7 +268,7 @@ function TimeSlotTodo({ todo, onEdit }: { todo: Todo; onEdit: (e: React.MouseEve
           {todo.title}
         </p>
         {todo.startTime && (
-          <p className="flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+          <p className="flex items-center gap-0.5 text-10px text-gray-500 dark:text-gray-400">
             <Clock size={9} />
             {timeRangeLabel(todo.startTime, todo.endTime)}
           </p>
@@ -284,7 +284,7 @@ function ScheduleChip({ schedule, onOpen }: { schedule: ScheduleItem; onOpen: (s
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-blue-50 dark:bg-blue-900/25 border-l-[3px] border-blue-500">
       <CalendarDays size={13} className="flex-shrink-0 text-blue-600 dark:text-blue-300" />
       <span className="text-xs font-medium flex-1 truncate text-gray-800 dark:text-gray-100">{schedule.title}</span>
-      {schedule.startTime && !isMultiDay(schedule) && <span className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{timeRangeLabel(schedule.startTime, schedule.endTime)}</span>}
+      {schedule.startTime && !isMultiDay(schedule) && <span className="text-10px tabular-nums text-gray-500 dark:text-gray-400">{timeRangeLabel(schedule.startTime, schedule.endTime)}</span>}
     </button>
   );
 }

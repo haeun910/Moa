@@ -89,7 +89,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
             {stats.map(s => (
               <div key={s.label} className="px-4 py-4 bg-white dark:bg-gray-900">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{s.label}</p>
-                <p className="mt-1.5 text-[28px] leading-none font-bold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">
+                <p className="mt-1.5 text-28px leading-none font-bold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">
                   {s.value}<span className="text-sm font-semibold text-gray-400 ml-0.5">{s.unit}</span>
                 </p>
               </div>
@@ -140,11 +140,11 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-[3px] bg-leaf-100 dark:bg-leaf-900/50 block" />
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">할 일</span>
+                  <span className="text-11px text-gray-500 dark:text-gray-400">할 일</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-[3px] bg-leaf-500 block" />
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">완료</span>
+                  <span className="text-11px text-gray-500 dark:text-gray-400">완료</span>
                 </div>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
                         )}
                       </div>
                     </div>
-                    <span className={`text-[10px] tabular-nums ${isLast ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400'}`}>{d.shortLabel}</span>
+                    <span className={`text-10px tabular-nums ${isLast ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400'}`}>{d.shortLabel}</span>
                   </div>
                 );
               })}
@@ -179,7 +179,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
                   const pct = ct > 0 ? Math.round((cc / ct) * 100) : 0;
                   return (
                     <div key={cat.id}>
-                      <div className="flex justify-between items-center text-[13px] mb-1.5">
+                      <div className="flex justify-between items-center text-13px mb-1.5">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="font-medium text-gray-800 dark:text-gray-200">{cat.name}</span>

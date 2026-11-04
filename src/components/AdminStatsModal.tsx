@@ -92,7 +92,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-2 mb-3">
                   <Activity size={15} className="text-leaf-500" />
                   <p className="text-sm font-bold text-gray-700 dark:text-gray-300">활성 사용자</p>
-                  <span className="text-[11px] text-gray-400">할 일·메모를 남긴 사용자</span>
+                  <span className="text-11px text-gray-400">할 일·메모를 남긴 사용자</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <StatCard value={stats.activeUsers7d} label="최근 7일" tone="leaf" />
@@ -117,7 +117,7 @@ export default function AdminStatsModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
 
-              <p className="text-[11px] text-gray-300 dark:text-gray-600 text-center pt-1">
+              <p className="text-11px text-gray-300 dark:text-gray-600 text-center pt-1">
                 모두 집계된 숫자이며, 다른 사용자의 개인정보나 할 일 내용은 표시되지 않아요.
               </p>
             </>

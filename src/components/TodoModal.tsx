@@ -153,7 +153,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">제목</label>
+            <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">제목</label>
             <input maxLength={LIMITS.title}
               autoFocus
               type="text"
@@ -168,7 +168,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Date + Time */}
           <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">날짜</label>
+              <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">날짜</label>
               <input
                 type="date"
                 value={date}
@@ -177,7 +177,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               />
             </div>
             <div>
-              <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="flex items-center gap-1 text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 <Clock size={11} />
                 시간
                 <span className="font-normal text-gray-400">(끝 시간은 선택)</span>
@@ -189,7 +189,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Due date (작업할 날짜와는 별개인 마감일) */}
           <div>
-            <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label className="flex items-center gap-1 text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               <Flag size={11} />
               마감일
             </label>
@@ -223,7 +223,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Category */}
           <div>
-            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">카테고리</label>
+            <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">카테고리</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => selectCategory(null)}
@@ -259,7 +259,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           {/* Subcategory (선택한 카테고리 하위의 그룹) */}
           {categoryId && (
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">하위카테고리 (선택)</label>
+              <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">하위카테고리 (선택)</label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSubcategoryId(null)}
@@ -315,7 +315,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Notes */}
           <div>
-            <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">메모</label>
+            <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">메모</label>
             <textarea maxLength={LIMITS.longText}
               value={notes}
               onChange={e => setNotes(e.target.value)}

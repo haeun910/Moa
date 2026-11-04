@@ -5,7 +5,7 @@ interface Props {
   onChange: (id: string | null) => void;
 }
 
-const base = 'flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium transition-colors';
+const base = 'flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-13px font-medium transition-colors';
 const idle = 'bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:ring-gray-300 dark:hover:ring-gray-600';
 const active = 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold';
 

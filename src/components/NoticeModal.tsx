@@ -115,7 +115,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                         </button>
                         {confirmDeleteId === n.id ? (
                           <button onClick={() => handleDelete(n.id)}
-                            className="text-[11px] px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium">확인</button>
+                            className="text-11px px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium">확인</button>
                         ) : (
                           <button onClick={() => handleDelete(n.id)} aria-label="공지 삭제"
                             className="text-gray-400 hover:text-red-500 transition-colors p-1">
@@ -126,7 +126,7 @@ export default function NoticeModal({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{n.content}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
+                  <p className="text-10px text-gray-400 dark:text-gray-500 mt-2">
                     {format(new Date(n.createdAt), 'yyyy년 M월 d일', { locale: ko })}
                   </p>
                 </div>

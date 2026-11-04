@@ -62,12 +62,12 @@ export default function DDayListModal({ ddays, onDelete, onClose }: Props) {
                 const isPast = differenceInCalendarDays(parseISO(d.targetDate), new Date()) < 0;
                 return (
                   <div key={d.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl ${isPast ? 'opacity-50' : ''}`}>
-                    <span className={`flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[42px] text-center ${
+                    <span className={`flex-shrink-0 text-11px font-bold px-1.5 py-0.5 rounded-md min-w-[42px] text-center ${
                       isPast ? 'bg-gray-100 dark:bg-gray-800 text-gray-400' : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
                     }`}>{ddayLabel(d.targetDate)}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{d.title}</p>
-                      <p className="text-[11px] text-gray-400">{format(parseISO(d.targetDate), 'yyyy.M.d')}</p>
+                      <p className="text-11px text-gray-400">{format(parseISO(d.targetDate), 'yyyy.M.d')}</p>
                     </div>
                     {d.fromTodoId ? (
                       <span title="할 일에서 연동됨 (할 일 쪽에서 관리)" className="flex-shrink-0 text-gray-300 dark:text-gray-600">

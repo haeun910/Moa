@@ -57,7 +57,7 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
           {sentTo ? (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">확인 메일을 보냈어요</p>
-              <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
+              <p className="text-13px text-gray-500 dark:text-gray-400 leading-relaxed">
                 <b className="text-gray-700 dark:text-gray-300">{sentTo}</b> 메일함에서 링크를 누르면 정식 계정이 돼요.
                 지금까지 적은 내용은 그대로 남아요. 그다음 <b className="text-gray-700 dark:text-gray-300">설정 › 비밀번호 변경</b>에서
                 로그인할 때 쓸 비밀번호를 정해 주세요.
@@ -66,7 +66,7 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
             </div>
           ) : (
             <>
-              <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
+              <p className="text-13px text-gray-500 dark:text-gray-400 leading-relaxed">
                 지금은 이 기기에서만 쓰는 체험 계정이에요. 계정을 만들면 적어 둔 내용이 그대로 옮겨지고, 다른 기기에서도 로그인할 수 있어요.
               </p>
 
@@ -75,7 +75,7 @@ export default function UpgradeAccountModal({ onClose }: { onClose: () => void }
               </button>
 
               <form onSubmit={handleEmail} className="space-y-2.5">
-                <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300">또는 이메일로</label>
+                <label className="block text-13px font-medium text-gray-700 dark:text-gray-300">또는 이메일로</label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com"

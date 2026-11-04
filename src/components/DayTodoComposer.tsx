@@ -138,9 +138,9 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
               return (
                 <button key={cat.id} onClick={() => pickCategory(cat)} className={rowCls}>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                  <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
+                  <span className="flex-1 min-w-0 text-15px font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
                   {cat.id === lastCategoryId && (
-                    <span className="flex-shrink-0 text-[10.5px] font-semibold text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">최근</span>
+                    <span className="flex-shrink-0 text-10.5px font-semibold text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">최근</span>
                   )}
                   {subCount > 0 && <span className="flex-shrink-0 text-xs tabular-nums text-gray-400">하위 {subCount}</span>}
                   <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
@@ -154,13 +154,13 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
         {step === 'subcategory' && category && (
           <div className="flex-1 min-h-0 overflow-y-auto py-1 divide-y divide-gray-100 dark:divide-gray-800/80">
             <button onClick={() => pickSubcategory(null)} className={rowCls}>
-              <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-500 dark:text-gray-400">미정 <span className="text-xs font-normal">(하위 카테고리 없이)</span></span>
+              <span className="flex-1 min-w-0 text-15px font-medium text-gray-500 dark:text-gray-400">미정 <span className="text-xs font-normal">(하위 카테고리 없이)</span></span>
               <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
             </button>
             {categorySubcats.map(sc => (
               <button key={sc.id} onClick={() => pickSubcategory(sc.id)} className={rowCls}>
                 <span className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-                <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-900 dark:text-gray-100 truncate">{sc.name}</span>
+                <span className="flex-1 min-w-0 text-15px font-medium text-gray-900 dark:text-gray-100 truncate">{sc.name}</span>
                 <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
               </button>
             ))}
@@ -186,7 +186,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="할 일을 적어주세요"
-                className="flex-1 min-w-0 text-[15px] bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5"
+                className="flex-1 min-w-0 text-15px bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5"
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
               />
               <button onClick={handleAdd} disabled={!title.trim() || saving} aria-label="추가" className="btn-primary flex-shrink-0 w-9 h-9">
@@ -208,7 +208,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
             {added.length > 0 && (
               <ul className="pt-1 space-y-1" aria-label="방금 추가한 할 일">
                 {added.map((t, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">
+                  <li key={i} className="flex items-center gap-2 text-13px text-gray-600 dark:text-gray-300">
                     <Check size={13} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" strokeWidth={2.6} />
                     <span className="truncate">{t}</span>
                   </li>

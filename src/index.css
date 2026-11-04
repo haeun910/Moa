@@ -73,7 +73,7 @@ html {
   }
   /* 화면 섹션의 큰 제목 */
   .page-title {
-    @apply text-[26px] leading-tight font-bold tracking-[-0.03em] text-gray-900 dark:text-white;
+    @apply text-26px leading-tight font-bold tracking-[-0.03em] text-gray-900 dark:text-white;
   }
   .page-subtitle {
     @apply text-sm text-gray-500 dark:text-gray-400 mt-1 tabular-nums;
@@ -93,11 +93,11 @@ html {
   }
   /* 할 일 줄 아래에 펼쳐지는 작은 동작 버튼 (오늘로/날짜/복사 등) */
   .row-action {
-    @apply inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-medium whitespace-nowrap text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors;
+    @apply inline-flex items-center gap-1 h-6 px-2 rounded-md text-11px font-medium whitespace-nowrap text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors;
   }
   /* 카운트 뱃지 */
   .count-pill {
-    @apply text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded-md;
+    @apply text-11px font-semibold tabular-nums text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded-md;
   }
 }
 

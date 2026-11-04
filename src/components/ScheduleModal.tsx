@@ -134,16 +134,16 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
           />
           <div>
-            <p className="text-[12px] font-medium text-gray-500 dark:text-gray-400 mb-1">날짜 <span className="font-normal text-gray-400">(여러 날이면 끝 날짜도)</span></p>
+            <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">날짜 <span className="font-normal text-gray-400">(여러 날이면 끝 날짜도)</span></p>
             <div className="flex items-center gap-1.5">
               <input type="date" value={date} onChange={e => changeDate(e.target.value)} aria-label="시작 날짜" className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
               <span className="flex-shrink-0 text-gray-400 text-sm">~</span>
               <input type="date" value={endDate} min={date || undefined} onChange={e => setEndDate(e.target.value)} aria-label="끝 날짜" aria-invalid={dateRangeInvalid} className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
             </div>
-            {dateRangeInvalid && <p className="mt-1 text-[11.5px] text-rose-500">끝 날짜는 시작 날짜와 같거나 늦어야 해요</p>}
+            {dateRangeInvalid && <p className="mt-1 text-11.5px text-rose-500">끝 날짜는 시작 날짜와 같거나 늦어야 해요</p>}
           </div>
           <div>
-            <p className="text-[12px] font-medium text-gray-500 dark:text-gray-400 mb-1">시간 <span className="font-normal text-gray-400">(비우면 하루 종일, 끝 시간은 선택)</span></p>
+            <p className="text-12px font-medium text-gray-500 dark:text-gray-400 mb-1">시간 <span className="font-normal text-gray-400">(비우면 하루 종일, 끝 시간은 선택)</span></p>
             <TimeRangeInput start={startTime} end={endTime} onChange={(st, en) => { setStartTime(st); setEndTime(en); }}
               inputClassName="w-full min-w-0 px-3 py-2.5 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm transition-all" />
           </div>

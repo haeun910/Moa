@@ -11,6 +11,7 @@ import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
 import { timeRangeEnd } from '../lib/timeRange';
 import { DAY_MINUTES, applySeriesUpdate, formatMinutes, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
+import { applyFontScale } from '../lib/fontScale';
 import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
 import { OPTIONAL_FEATURES } from '../types';
 
@@ -383,6 +384,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       else root.classList.remove('dark');
     }
   }, [settings.theme]);
+
+  // ── 글자 크기 적용 (앱 전체) ───────────────────────────────
+  useEffect(() => { applyFontScale(settings.calendarTextSize); }, [settings.calendarTextSize]);
 
   // ── 이미 열린 앱에서 알림을 누르면 서비스워커가 보내는 메시지로 화면 이동 ──
   useEffect(() => {

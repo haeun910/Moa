@@ -35,7 +35,7 @@ function TodaySummary() {
 
   return (
     <div className="hidden wide:block mx-3 mb-6 rounded-xl bg-white dark:bg-gray-900 shadow-card p-3.5">
-      <p className="text-[13px] font-semibold text-gray-900 dark:text-white">
+      <p className="text-13px font-semibold text-gray-900 dark:text-white">
         {format(now, 'M월 d일 EEEE', { locale: ko })}
       </p>
       <div className="flex items-baseline justify-between mt-2.5 mb-1.5">
@@ -64,7 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className="hidden lg:flex flex-col flex-shrink-0 sticky top-0 h-screen w-[76px] wide:w-[232px] border-r border-gray-200/70 dark:border-gray-800/80">
         <div className="flex items-center gap-2.5 h-16 px-[22px] wide:px-5 mb-2">
           <Logo size={30} />
-          <span className="hidden wide:inline text-[17px] font-bold tracking-[-0.03em] text-gray-900 dark:text-white">모아</span>
+          <span className="hidden wide:inline text-17px font-bold tracking-[-0.03em] text-gray-900 dark:text-white">모아</span>
         </div>
 
         <TodaySummary />
@@ -117,7 +117,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active ? 'bg-leaf-100 dark:bg-leaf-900/40' : ''}`}>
                   <Icon size={19} strokeWidth={active ? 2.2 : 1.8} />
                 </span>
-                <span className={`text-[10.5px] leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                <span className={`text-10.5px leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
               </button>
             );
           })}

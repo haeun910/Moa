@@ -46,7 +46,7 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
             <div className="flex items-center gap-2">
               <AlertCircle size={16} className="text-amber-500" />
               <h2 className="text-base font-bold text-gray-900 dark:text-white">미완료 할 일</h2>
-              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">{todos.length}</span>
+              <span className="text-10px font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">{todos.length}</span>
             </div>
             <p className="text-xs text-gray-400 mt-0.5">지난 날짜에 잡혀 있었지만 아직 끝내지 못한 할 일이에요</p>
           </div>
@@ -71,7 +71,7 @@ export default function OverdueModal({ todos, onEdit, getActions, onClose }: Pro
                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300">
                     {format(parseISO(date), 'M월 d일 (EEE)', { locale: ko })}
                   </span>
-                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{daysAgo}일 지남</span>
+                  <span className="text-10px font-semibold text-amber-600 dark:text-amber-400">{daysAgo}일 지남</span>
                 </div>
                 <TodoList todos={dateTodos} onEdit={onEdit} getActions={getActions} />
               </div>

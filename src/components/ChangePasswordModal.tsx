@@ -63,7 +63,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
                 </p>
               )}
               <div>
-                <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">새 비밀번호</label>
+                <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">새 비밀번호</label>
                 <div className="relative">
                   <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -77,7 +77,7 @@ export default function ChangePasswordModal({ onClose, recovery = false }: { onC
                 </div>
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">새 비밀번호 확인</label>
+                <label className="block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">새 비밀번호 확인</label>
                 <div className="relative">
                   <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input

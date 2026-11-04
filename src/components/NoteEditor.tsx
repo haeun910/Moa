@@ -132,7 +132,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
             {noteFolders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </div>
-        <span className="flex-1 min-w-0 text-[11px] text-gray-400 truncate text-right sm:text-left">
+        <span className="flex-1 min-w-0 text-11px text-gray-400 truncate text-right sm:text-left">
           {status === 'saving' ? '저장 중...' : status === 'saved' ? <span className="inline-flex items-center gap-0.5"><Check size={11} />저장됨</span> : ''}
         </span>
         <button onClick={togglePin} aria-label={pinned ? '고정 해제' : '맨 위에 고정'} title={pinned ? '고정 해제' : '맨 위에 고정'}
@@ -155,7 +155,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
       {/* 본문 */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-5 sm:px-8 py-5 flex flex-col min-h-full">
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center mb-3">{updatedLabel}</p>
+          <p className="text-11px text-gray-400 dark:text-gray-500 text-center mb-3">{updatedLabel}</p>
           <input maxLength={LIMITS.title}
             ref={titleRef}
             value={title}
@@ -169,7 +169,7 @@ export default function NoteEditor({ note, defaultFolderId, onCreated, onClose, 
             value={content}
             onChange={e => { setContent(e.target.value); scheduleSave(); }}
             placeholder="내용을 입력하세요"
-            className="flex-1 w-full min-h-[50vh] bg-transparent text-[15px] leading-relaxed text-gray-800 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none resize-none"
+            className="flex-1 w-full min-h-[50vh] bg-transparent text-15px leading-relaxed text-gray-800 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none resize-none"
           />
         </div>
       </div>

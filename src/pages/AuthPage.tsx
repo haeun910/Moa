@@ -109,7 +109,7 @@ export default function AuthPage() {
   }
 
   const inputClass = "w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 text-sm transition-all";
-  const labelClass = "block text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5";
+  const labelClass = "block text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5";
 
   return (
     <div className="min-h-screen flex bg-white dark:bg-gray-950">
@@ -124,7 +124,7 @@ export default function AuthPage() {
         </div>
 
         <div className="mb-7">
-          <h1 className="text-[26px] font-bold tracking-[-0.03em] text-gray-900 dark:text-white">
+          <h1 className="text-26px font-bold tracking-[-0.03em] text-gray-900 dark:text-white">
             {mode === 'login' ? '다시 만나서 반가워요' : mode === 'signup' ? '모아 시작하기' : '비밀번호 재설정'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5">
@@ -186,10 +186,10 @@ export default function AuthPage() {
             {mode !== 'forgot' && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[13px] font-medium text-gray-700 dark:text-gray-300">비밀번호</label>
+                  <label className="text-13px font-medium text-gray-700 dark:text-gray-300">비밀번호</label>
                   {mode === 'login' && (
                     <button type="button" onClick={() => { setMode('forgot'); reset(); }}
-                      className="text-[13px] text-leaf-700 dark:text-leaf-400 hover:underline underline-offset-2 font-medium">
+                      className="text-13px text-leaf-700 dark:text-leaf-400 hover:underline underline-offset-2 font-medium">
                       비밀번호를 잊으셨나요?
                     </button>
                   )}
@@ -209,12 +209,12 @@ export default function AuthPage() {
 
             {error && (
               <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg px-3.5 py-2.5">
-                <p className="text-[13px] text-red-700 dark:text-red-400 font-medium">{error}</p>
+                <p className="text-13px text-red-700 dark:text-red-400 font-medium">{error}</p>
               </div>
             )}
             {info && (
               <div role="status" className="bg-leaf-50 dark:bg-leaf-900/20 border border-leaf-200 dark:border-leaf-800/50 rounded-lg px-3.5 py-2.5">
-                <p className="text-[13px] text-leaf-800 dark:text-leaf-300 font-medium">{info}</p>
+                <p className="text-13px text-leaf-800 dark:text-leaf-300 font-medium">{info}</p>
               </div>
             )}
 
@@ -257,7 +257,7 @@ export default function AuthPage() {
               >
                 {guestLoading ? '체험 준비 중…' : '가입 없이 둘러보기'}
               </button>
-              <p className="text-[11.5px] text-center text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
+              <p className="text-11.5px text-center text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
                 이 기기에서만 쓰는 체험 계정이에요. 나중에 가입하면 적어 둔 내용이 그대로 옮겨져요.
               </p>
             </>
@@ -307,10 +307,10 @@ function BrandPanel() {
       </div>
 
       <div className="relative">
-        <h2 className="text-[40px] xl:text-[46px] leading-[1.15] font-bold tracking-[-0.04em]">
+        <h2 className="text-40px xl:text-46px leading-[1.15] font-bold tracking-[-0.04em]">
           흩어진 할 일과 일정,<br />한 곳에 모아.
         </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-leaf-100/75 max-w-[380px]">
+        <p className="mt-4 text-15px leading-relaxed text-leaf-100/75 max-w-[380px]">
           이번 달 목표와 D-Day, 약속과 오늘 할 일을 한 화면에서 보고 차근차근 지워 나가요.
         </p>
 
@@ -319,11 +319,11 @@ function BrandPanel() {
           <div className="absolute left-0 top-0 w-[340px] rounded-2xl bg-white text-gray-900 shadow-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold tracking-[-0.02em]">{format(now, 'yyyy년 M월', { locale: ko })}</p>
-              <span className="text-[10px] font-semibold text-leaf-700 bg-leaf-50 rounded-md px-1.5 py-0.5">월</span>
+              <span className="text-10px font-semibold text-leaf-700 bg-leaf-50 rounded-md px-1.5 py-0.5">월</span>
             </div>
             <div className="grid grid-cols-7 gap-y-1 text-center">
               {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                <span key={d} className={`text-[9px] font-semibold pb-1 ${i === 0 ? 'text-red-500/80' : i === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{d}</span>
+                <span key={d} className={`text-9px font-semibold pb-1 ${i === 0 ? 'text-red-500/80' : i === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{d}</span>
               ))}
               {days.map(day => {
                 const key = format(day, 'yyyy-MM-dd');
@@ -331,7 +331,7 @@ function BrandPanel() {
                 const inMonth = isSameMonth(day, now);
                 return (
                   <div key={key} className="h-[34px] flex flex-col items-center">
-                    <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] tabular-nums ${
+                    <span className={`w-5 h-5 flex items-center justify-center rounded-full text-10px tabular-nums ${
                       key === todayKey ? 'bg-leaf-600 text-white font-bold' : inMonth ? 'text-gray-700 font-medium' : 'text-gray-300'
                     }`}>{format(day, 'd')}</span>
                     {chip && (
@@ -344,8 +344,8 @@ function BrandPanel() {
           </div>
 
           <div className="absolute left-[220px] top-[120px] w-[250px] rounded-2xl bg-white text-gray-900 shadow-2xl p-4">
-            <p className="text-[10px] font-medium text-gray-500">{format(now, 'EEEE', { locale: ko })} <span className="text-leaf-600 font-semibold">오늘</span></p>
-            <p className="text-[15px] font-bold tracking-[-0.03em] mb-2.5">{format(now, 'M월 d일', { locale: ko })}</p>
+            <p className="text-10px font-medium text-gray-500">{format(now, 'EEEE', { locale: ko })} <span className="text-leaf-600 font-semibold">오늘</span></p>
+            <p className="text-15px font-bold tracking-[-0.03em] mb-2.5">{format(now, 'M월 d일', { locale: ko })}</p>
             <div className="h-1 rounded-full bg-gray-100 mb-3"><div className="h-full w-1/3 rounded-full bg-leaf-500" /></div>
             <div className="space-y-2">
               {previewTodos.map(t => (
@@ -354,7 +354,7 @@ function BrandPanel() {
                     style={t.done ? undefined : { borderColor: `${t.color}99` }}>
                     {t.done && <Check size={9} className="text-white" strokeWidth={3.5} />}
                   </span>
-                  <span className={`text-[12px] ${t.done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
+                  <span className={`text-12px ${t.done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
                 </div>
               ))}
             </div>

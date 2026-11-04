@@ -22,7 +22,7 @@ export default function SeriesScopePicker({ scope, onChange, seriesCount, follow
   const counts: Record<SeriesScope, number> = { one: 1, following: followingCount, all: seriesCount };
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
-      <p className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+      <p className="flex items-center gap-1 text-11px font-semibold text-gray-500 dark:text-gray-400">
         <Repeat size={11} />
         반복 항목이에요 · 저장/삭제를 어디까지 적용할까요?
       </p>
@@ -35,7 +35,7 @@ export default function SeriesScopePicker({ scope, onChange, seriesCount, follow
         ))}
       </div>
       {scope !== 'one' && (
-        <p className="text-[11px] text-gray-400">날짜 변경은 이 항목에만 적용되고, 나머지 내용은 선택한 범위에 모두 적용돼요.</p>
+        <p className="text-11px text-gray-400">날짜 변경은 이 항목에만 적용되고, 나머지 내용은 선택한 범위에 모두 적용돼요.</p>
       )}
     </div>
   );

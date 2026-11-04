@@ -97,14 +97,14 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
                 if (e.key === 'Escape') setEditingTitle(false);
               }}
               onBlur={saveTitleEdit}
-              className="block w-full text-[14px] leading-snug bg-transparent border-b border-leaf-400 text-gray-800 dark:text-gray-100 focus:outline-none"
+              className="block w-full text-14px leading-snug bg-transparent border-b border-leaf-400 text-gray-800 dark:text-gray-100 focus:outline-none"
             />
           ) : (
             <span
               onClick={handleTitleClick}
               onDoubleClick={handleTitleDoubleClick}
               title="한 번: 자세히 편집 · 두 번: 이름만 바로 수정"
-              className={`block text-[14px] leading-[1.45] transition-colors cursor-pointer ${
+              className={`block text-14px leading-[1.45] transition-colors cursor-pointer ${
                 todo.completed
                   ? 'line-through decoration-gray-300 dark:decoration-gray-600 text-gray-400 dark:text-gray-500'
                   : 'text-gray-900 dark:text-gray-100'
@@ -116,19 +116,19 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
           {(todo.startTime || todo.dueDate || todo.notes || todo.seriesId) && (
             <div className="flex items-center gap-2.5 mt-1 cursor-pointer tabular-nums" onClick={handleTitleClick}>
               {todo.seriesId && (
-                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 font-medium" title="반복 할 일">
+                <span className="flex items-center gap-1 text-11px text-gray-500 dark:text-gray-400 font-medium" title="반복 할 일">
                   <Repeat size={10} />
                   반복
                 </span>
               )}
               {todo.startTime && (
-                <span className="flex items-center gap-1 text-[11px] text-leaf-600 dark:text-leaf-400 font-semibold">
+                <span className="flex items-center gap-1 text-11px text-leaf-600 dark:text-leaf-400 font-semibold">
                   <Clock size={10} />
                   {timeRangeLabel(todo.startTime, todo.endTime)}
                 </span>
               )}
               {todo.dueDate && (
-                <span className={`flex items-center gap-1 text-[11px] font-medium ${
+                <span className={`flex items-center gap-1 text-11px font-medium ${
                   isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   <Flag size={10} />
@@ -136,7 +136,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
                 </span>
               )}
               {todo.notes && (
-                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 font-medium" title={todo.notes}>
+                <span className="flex items-center gap-1 text-11px text-gray-500 dark:text-gray-400 font-medium" title={todo.notes}>
                   <StickyNote size={10} />
                   메모
                 </span>
@@ -161,9 +161,9 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         ) : confirmDelete ? (
           <div className={`flex items-center gap-1 flex-shrink-0 transition-opacity duration-200 ${showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button onClick={() => setConfirmDelete(false)}
-              className="text-[11px] font-medium px-2 py-1 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 whitespace-nowrap">취소</button>
+              className="text-11px font-medium px-2 py-1 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 whitespace-nowrap">취소</button>
             <button onClick={() => deleteTodo(todo.id)} aria-label="삭제 확정"
-              className="text-[11px] px-2 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold whitespace-nowrap">삭제</button>
+              className="text-11px px-2 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold whitespace-nowrap">삭제</button>
           </div>
         ) : (
           <button

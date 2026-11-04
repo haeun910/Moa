@@ -74,10 +74,10 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
       className={`surface rounded-2xl p-4 flex items-center justify-between gap-3 text-left min-w-0 ${onClick ? 'hover:ring-1 hover:ring-leaf-200 dark:hover:ring-leaf-800 transition-shadow' : ''}`}>
       <div className="min-w-0">
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
-        <p className={`mt-1 text-[26px] leading-none font-bold tracking-[-0.03em] tabular-nums ${tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
+        <p className={`mt-1 text-26px leading-none font-bold tracking-[-0.03em] tabular-nums ${tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
           {value}{unit && <span className="ml-0.5 text-sm font-semibold text-gray-400 dark:text-gray-500">{unit}</span>}
         </p>
-        {sub && <p className="mt-1.5 text-[11.5px] leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">{sub}</p>}
+        {sub && <p className="mt-1.5 text-11.5px leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">{sub}</p>}
       </div>
       {/* 폰에서는 두 칸씩 좁아서 아이콘은 빼고 숫자·설명에 자리를 줌 */}
       <span className="hidden sm:flex">{icon}</span>
@@ -89,10 +89,10 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
 function ScheduleTime({ s }: { s: ScheduleItem }) {
   const multi = isMultiDay(s);
   return (
-    <span className="w-11 flex-shrink-0 text-[12px] leading-tight tabular-nums font-medium text-gray-500 dark:text-gray-400">
+    <span className="w-11 flex-shrink-0 text-12px leading-tight tabular-nums font-medium text-gray-500 dark:text-gray-400">
       {multi ? '기간' : s.startTime ?? '종일'}
       {!multi && s.startTime && s.endTime && isValidTimeRange(s.startTime, s.endTime) && (
-        <span className="block text-[10.5px] font-normal text-gray-400">~{s.endTime}</span>
+        <span className="block text-10.5px font-normal text-gray-400">~{s.endTime}</span>
       )}
     </span>
   );
@@ -106,7 +106,7 @@ function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         {icon}
-        <h2 className="text-[14px] font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <h2 className="text-14px font-semibold text-gray-900 dark:text-white">{title}</h2>
         {help && <HelpTip text={help} label={title} />}
         {meta}
       </div>
@@ -173,14 +173,14 @@ function MemoSection() {
           rows={2}
           placeholder="떠오른 생각을 바로 적어 보세요"
           aria-label="빠른 메모"
-          className="block w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none"
+          className="block w-full resize-none bg-transparent px-3 pt-2.5 text-13px text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none"
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-2">
-          <span className={`text-[11px] ${error ? 'text-rose-500' : 'text-gray-400'}`}>
+          <span className={`text-11px ${error ? 'text-rose-500' : 'text-gray-400'}`}>
             {error ? '저장하지 못했어요. 다시 눌러 주세요.' : '첫 줄이 제목이 돼요'}
           </span>
           <button onClick={save} disabled={!text.trim() || saving}
-            className="h-7 px-3 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 disabled:hover:bg-leaf-600 text-white text-[12px] font-medium transition-colors">
+            className="h-7 px-3 rounded-lg bg-leaf-600 hover:bg-leaf-700 disabled:opacity-40 disabled:hover:bg-leaf-600 text-white text-12px font-medium transition-colors">
             {saving ? '저장 중' : '저장'}
           </button>
         </div>
@@ -195,11 +195,11 @@ function MemoSection() {
                   {n.pinned
                     ? <Pin size={12} className="flex-shrink-0 text-amber-500" />
                     : <span className="w-1.5 h-1.5 mx-[3px] flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />}
-                  <span className="min-w-0 flex-1 truncate text-[13px]">
+                  <span className="min-w-0 flex-1 truncate text-13px">
                     <span className="text-gray-800 dark:text-gray-100 group-hover:text-leaf-700 dark:group-hover:text-leaf-300">{n.title.trim() || '새 메모'}</span>
                     {preview && <span className="ml-1.5 text-gray-400 dark:text-gray-500">{preview}</span>}
                   </span>
-                  <span className="flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>
+                  <span className="flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(n.updatedAt), 'M/d')}</span>
                 </button>
               </li>
             );
@@ -296,10 +296,10 @@ export default function HomePage() {
         {/* ── 인사 + 날짜 ── */}
         <header className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <p className="text-[13px] font-medium text-leaf-700 dark:text-leaf-400">{greeting(now.getHours())}</p>
+            <p className="text-13px font-medium text-leaf-700 dark:text-leaf-400">{greeting(now.getHours())}</p>
             <h1 className="page-title mt-0.5">
               {format(now, 'M월 d일 EEEE', { locale: ko })}
-              {todayHoliday && <span className="ml-2 align-middle inline-flex items-center h-6 px-2 rounded-full bg-red-50 dark:bg-red-900/30 text-[12px] font-semibold text-red-600 dark:text-red-300">{todayHoliday}</span>}
+              {todayHoliday && <span className="ml-2 align-middle inline-flex items-center h-6 px-2 rounded-full bg-red-50 dark:bg-red-900/30 text-12px font-semibold text-red-600 dark:text-red-300">{todayHoliday}</span>}
             </h1>
           </div>
           <div className="flex items-center gap-2 pt-1">
@@ -307,7 +307,7 @@ export default function HomePage() {
               <Megaphone size={15} />
               {hasUnreadNotice && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />}
             </button>
-            <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-[13px]">
+            <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
               <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
               <span className="hidden sm:inline">성취 리포트</span>
             </button>
@@ -368,7 +368,7 @@ export default function HomePage() {
                 onAction={() => goCalendar(todayKey)}
               />
               {todayTodos.length === 0 && (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500 py-2">오늘 할 일을 아래에 적어보세요</p>
+                <p className="text-13px text-gray-400 dark:text-gray-500 py-2">오늘 할 일을 아래에 적어보세요</p>
               )}
               <CategoryTodoGroups todos={todayTodos} onEdit={todo => setTodoModal({ todo })} className="space-y-4" />
               <div className="mt-3">
@@ -383,8 +383,8 @@ export default function HomePage() {
                       const diff = daysUntil(t.dueDate as string, now);
                       return (
                         <li key={t.id}>
-                          <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-[13px] text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
-                            <span className={`flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                          <button onClick={() => setTodoModal({ todo: t })} className="w-full flex items-center gap-2 text-left py-1 text-13px text-gray-700 dark:text-gray-200 hover:text-leaf-700 dark:hover:text-leaf-300">
+                            <span className={`flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-px rounded-md ${diff === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                               {diff === 0 ? '오늘' : `${diff}일 뒤`}
                             </span>
                             <span className="truncate">{t.title}</span>
@@ -404,7 +404,7 @@ export default function HomePage() {
             {!hidden.has('timebox') && <div>
               <TodayTimeline />
               {box.planned > 0 && (
-                <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-1.5 px-1">
+                <p className="text-11.5px text-gray-500 dark:text-gray-400 mt-1.5 px-1">
                   오늘 타임박스 {durationLabel(box.planned)} 중 <span className="font-semibold text-gray-700 dark:text-gray-300">{durationLabel(box.done)}</span> 완료
                 </p>
               )}
@@ -420,7 +420,7 @@ export default function HomePage() {
                 onAction={() => setScheduleModal({})}
               />
               {todaySchedules.length === 0 ? (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500">
+                <p className="text-13px text-gray-400 dark:text-gray-500">
                   오늘은 정해진 일정이 없어요
                   {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {timeRangeLabel(upcoming.startTime, upcoming.endTime)} {upcoming.title}</span></>}
                 </p>
@@ -432,9 +432,9 @@ export default function HomePage() {
                         className={`w-full flex items-center gap-2.5 text-left px-2 py-1.5 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 ${isPast(s) ? 'opacity-50' : ''}`}>
                         <span className="w-1 self-stretch rounded-full bg-[#4F73A8] flex-shrink-0" />
                         <ScheduleTime s={s} />
-                        <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
-                        {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
-                        {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-[10.5px] font-semibold text-[#4F73A8] flex items-center gap-0.5"><Clock size={10} />다음</span>}
+                        <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
+                        {isMultiDay(s) && <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
+                        {upcoming?.id === s.id && <span className="ml-auto flex-shrink-0 text-10.5px font-semibold text-[#4F73A8] flex items-center gap-0.5"><Clock size={10} />다음</span>}
                       </button>
                     </li>
                   ))}
@@ -452,7 +452,7 @@ export default function HomePage() {
                 onAction={() => goCalendar()}
               />
               {upcomingDdays.length === 0 ? (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
+                <p className="text-13px text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
               ) : (
                 <ul className="space-y-1">
                   {upcomingDdays.map(d => {
@@ -460,9 +460,9 @@ export default function HomePage() {
                     return (
                       <li key={d.id}>
                         <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
-                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
-                          <span className="text-[13px] text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
-                          <span className="ml-auto flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
+                          <span className={`w-14 flex-shrink-0 whitespace-nowrap text-12px font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
+                          <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
+                          <span className="ml-auto flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
                         </button>
                       </li>
                     );
@@ -482,7 +482,7 @@ export default function HomePage() {
                 onAction={() => goCalendar()}
               />
               {goals.length === 0 ? (
-                <p className="text-[13px] text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
+                <p className="text-13px text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
               ) : (
                 <>
                   <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
@@ -495,7 +495,7 @@ export default function HomePage() {
                           <span className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center ${g.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'}`}>
                             {g.completed && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                           </span>
-                          <span className={`text-[13px] truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
+                          <span className={`text-13px truncate ${g.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>{g.title}</span>
                         </button>
                       </li>
                     ))}
@@ -507,7 +507,7 @@ export default function HomePage() {
             {/* ── 메모 ── */}
             {!hidden.has('notes') && <MemoSection />}
 
-            <button onClick={() => goCalendar()} className="btn-secondary h-10 text-[13px] justify-center">
+            <button onClick={() => goCalendar()} className="btn-secondary h-10 text-13px justify-center">
               <CalendarDays size={15} />
               월 달력 열기
             </button>
