@@ -12,7 +12,8 @@ import { isValidTimeRange } from '../lib/timeRange';
 import TimeRangeInput from './TimeRangeInput';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import ReminderPicker, { normalizeRemind } from './ReminderPicker';
+import ReminderPicker from './ReminderPicker';
+import { normalizeRemind } from '../lib/reminder';
 
 interface Props {
   schedule?: ScheduleItem;

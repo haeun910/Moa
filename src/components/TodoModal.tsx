@@ -11,7 +11,8 @@ import TimeRangeInput from './TimeRangeInput';
 import { isValidTimeRange } from '../lib/timeRange';
 import { LIMITS } from '../lib/limits';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import ReminderPicker, { normalizeRemind } from './ReminderPicker';
+import ReminderPicker from './ReminderPicker';
+import { normalizeRemind } from '../lib/reminder';
 
 interface Props {
   todo?: Todo;

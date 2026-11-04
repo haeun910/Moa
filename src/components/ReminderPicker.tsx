@@ -2,28 +2,7 @@ import { Bell, BellOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { isPushConfigured } from '../lib/push';
-
-// 시간이 있을 때: 시작 시각 기준 / 시간이 없을 때: 그날 오전 9시 기준 (0 = 당일 9시, 1440 = 전날 9시)
-const TIMED: { value: number | null; label: string }[] = [
-  { value: null, label: '없음' },
-  { value: 0, label: '정시' },
-  { value: 10, label: '10분 전' },
-  { value: 30, label: '30분 전' },
-  { value: 60, label: '1시간 전' },
-  { value: 1440, label: '하루 전' },
-];
-const ALL_DAY: { value: number | null; label: string }[] = [
-  { value: null, label: '없음' },
-  { value: 0, label: '당일 오전 9시' },
-  { value: 1440, label: '전날 오전 9시' },
-];
-
-// 시간을 지웠을 때처럼 지금 고를 수 없는 값이면 가장 가까운 값으로
-export function normalizeRemind(value: number | null | undefined, hasTime: boolean): number | null {
-  if (value === null || value === undefined) return null;
-  if (hasTime) return TIMED.some(o => o.value === value) ? value : 10;
-  return value >= 1440 ? 1440 : 0;
-}
+import { ALL_DAY_REMIND_OPTIONS as ALL_DAY, TIMED_REMIND_OPTIONS as TIMED, normalizeRemind } from '../lib/reminder';
 
 interface Props {
   value: number | null;
@@ -55,10 +34,11 @@ export default function ReminderPicker({ value, onChange, hasDate, hasTime, onLe
             const on = current === opt.value;
             return (
               <button key={String(opt.value)} type="button" role="radio" aria-checked={on} onClick={() => onChange(opt.value)}
-                className={`h-8 px-3 rounded-lg text-12.5px transition-colors ${
+                // 반복 고르기(RepeatPicker)와 같은 모양
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   on
-                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 font-semibold'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-medium'
+                    ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
+                    : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}>
                 {opt.label}
               </button>

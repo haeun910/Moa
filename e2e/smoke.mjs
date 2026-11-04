@@ -7,6 +7,10 @@
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정(끝 시간 길이대로), 여러 날 일정, D-Day가 타임박스에 보이는지
 // 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 // 6) 설정: 끈 기능(타임박스)은 메뉴·홈에서 빠지고, 공휴일(한글날)이 홈과 달력에 보이는지
+// 7~8) 폰 하단 메뉴·날짜 팝업, 태블릿 타임박스 끌어 옮기기
+// 9) 검색(Ctrl+K, 초성)으로 메모를 찾아 열고, 마크다운 링크·체크리스트가 동작하는지
+// 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
+// 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -374,6 +378,122 @@ try {
       fail(`태블릿 타임박스 요일 넘겨 끌기 (${e.message})`);
     }
     if (errors.length) fail(`태블릿 타임박스 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 9) 검색 → 메모 열기 → 마크다운 (링크는 새 창, 주소 뒤 한글은 링크에서 빠짐, 체크리스트는 눌러서 체크)
+  {
+    const { context, page, errors } = await loggedInContext();
+    const note = {
+      id: 'note-md', user_id: USER_ID, title: '회의 준비', folder_id: null, pinned: false,
+      content: '## 안건\n- [ ] 자료 공유\n- 참고 https://example.com에서 확인',
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
+    };
+    const notePatches = [];
+    await page.route(`${SUPABASE}/rest/v1/notes**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: [note] });
+      if (m === 'PATCH') notePatches.push(route.request().postData() ?? '');
+      return route.fulfill({ json: [] });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.keyboard.press('Control+k');
+      const box = page.getByRole('dialog', { name: '검색' });
+      await box.getByRole('searchbox', { name: '검색어' }).fill('ㅎㅇ ㅈㅂ');
+      await box.getByRole('option').filter({ hasText: '회의 준비' }).waitFor({ timeout: 5000 });
+      await page.keyboard.press('Enter');
+      await page.getByRole('heading', { name: '안건' }).waitFor({ timeout: 10000 });
+      const link = page.locator('.md a').first();
+      if (!/^https:\/\/example\.com\/?$/.test(await link.getAttribute('href') ?? '') || await link.getAttribute('target') !== '_blank') throw new Error(`링크: ${await link.getAttribute('href')} ${await link.textContent()}`);
+      await page.locator('.md').getByRole('checkbox').first().click();
+      for (let i = 0; i < 30 && !notePatches.some(p => p.includes('[x] 자료 공유')); i++) await page.waitForTimeout(100);
+      if (!notePatches.some(p => p.includes('[x] 자료 공유'))) throw new Error(`체크가 저장되지 않음: ${notePatches.join(' / ') || '요청 없음'}`);
+      console.log('✅ 검색: Ctrl+K·초성으로 메모를 찾아 열고, 마크다운 링크(새 창)·체크리스트 체크가 저장됨');
+    } catch (e) {
+      fail(`검색·마크다운 메모 (${e.message})`);
+    }
+    if (errors.length) fail(`검색·메모 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 10) 오프라인 저장
+  {
+    const { context, page, errors } = await loggedInContext();
+    const writes = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fallback();
+      writes.push(`${m} ${route.request().postData() ?? ''}`);
+      const body = JSON.parse(route.request().postData() ?? '{}');
+      return route.fulfill({ status: 201, json: Array.isArray(body) ? body : [body] });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByText(`할 일 ${TOTAL_TODOS}`, { exact: true }).first().waitFor({ timeout: 15000 });
+      await context.setOffline(true);
+      await page.getByRole('button', { name: '완료 처리' }).first().click();
+      await page.getByRole('button', { name: /에 할 일 추가/ }).first().click();
+      const sheet = page.getByRole('dialog', { name: '할 일 추가' });
+      const pick = sheet.getByRole('button', { name: /공부/ });
+      if (await pick.count()) await pick.first().click();
+      await sheet.getByPlaceholder('할 일을 적어주세요').fill('비행기에서 적은 일');
+      await sheet.getByPlaceholder('할 일을 적어주세요').press('Enter');
+      await page.keyboard.press('Escape');
+      await page.getByText('비행기에서 적은 일').first().waitFor({ timeout: 5000 });
+      await page.getByText('(2개 대기)', { exact: false }).first().waitFor({ timeout: 5000 });
+      if (writes.length) throw new Error(`끊긴 동안 요청이 나감: ${writes.join(' / ')}`);
+      await context.setOffline(false);
+      for (let i = 0; i < 50 && writes.length < 2; i++) await page.waitForTimeout(100);
+      if (writes.length !== 2 || !writes[0].startsWith('PATCH') || !writes[0].includes('"completed":true') || !writes[1].startsWith('POST') || !writes[1].includes('"id":')) {
+        throw new Error(`다시 연결된 뒤 저장 순서/내용이 다름: ${writes.join(' / ')}`);
+      }
+      await page.getByText('오프라인에서 바꾼 내용을 모두 저장했어요').waitFor({ timeout: 5000 });
+      console.log('✅ 오프라인: 끊긴 동안 체크·추가가 화면에 남고, 다시 연결되면 순서대로 저장됨');
+    } catch (e) {
+      fail(`오프라인 저장 (${e.message})`);
+    }
+    if (errors.filter(e => !/ERR_INTERNET_DISCONNECTED|Failed to load resource|WebSocket/.test(e)).length) fail(`오프라인 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 11) 밀린 할 일: 매일 반복은 가장 최근에 놓친 한 번만, '안 하기' 저장
+  {
+    const { context, page, errors } = await loggedInContext();
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const shift = (days) => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+    const base = { user_id: USER_ID, completed: false, category_id: null, subcategory_id: null, due_date: null, is_dday: false, start_time: null, notes: null, sort_order: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+    const rows = [
+      { ...base, id: 'r1', title: '스트레칭', date: shift(-3), series_id: 's-daily' },
+      { ...base, id: 'r2', title: '스트레칭', date: shift(-2), series_id: 's-daily' },
+      { ...base, id: 'r3', title: '스트레칭', date: shift(-1), series_id: 's-daily' },
+      { ...base, id: 'o1', title: '서류 제출', date: shift(-2), series_id: null },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: new URL(route.request().url()).searchParams.get('offset') === '0' || !new URL(route.request().url()).searchParams.get('offset') ? rows : [] });
+      if (m === 'PATCH') patches.push(`${new URL(route.request().url()).searchParams.get('id')} ${route.request().postData()}`);
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: /밀린 할 일/ }).first().click();
+      const dlg = page.getByRole('dialog', { name: '밀린 할 일' });
+      await dlg.getByText('서류 제출').waitFor({ timeout: 5000 });
+      const repeats = await dlg.getByText('스트레칭').count();
+      if (repeats !== 1) throw new Error(`반복 할 일이 ${repeats}번 보임 (1번이어야 함)`);
+      await dlg.locator('li').filter({ hasText: '서류 제출' }).getByRole('button', { name: /안 하기/ }).click();
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.o1') && p.includes('"skipped":true'))) throw new Error(`안 하기가 저장되지 않음: ${patches.join(' / ')}`);
+      console.log('✅ 밀린 할 일: 반복은 가장 최근 한 번만 보이고, 안 하기가 저장됨');
+    } catch (e) {
+      fail(`밀린 할 일 정리 (${e.message})`);
+    }
+    if (errors.length) fail(`밀린 할 일 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

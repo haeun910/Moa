@@ -101,7 +101,6 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
   const STEPS = useMemo(() => buildSteps(desktop, new Set(settings.hiddenFeatures)), [desktop, settings.hiddenFeatures]);
   const [step, setStep] = useState(0);
   const current = Math.min(step, STEPS.length - 1);
-  const { Icon, title, lines } = STEPS[current];
   const isLast = current === STEPS.length - 1;
 
   return (
@@ -115,16 +114,21 @@ export default function OnboardingModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2 text-center">
-          <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800">
-            <Icon size={26} />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
-          <div className="space-y-2 text-left">
-            {lines.map(line => (
-              <p key={line} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{line}</p>
-            ))}
-          </div>
+        {/* 모든 단계를 같은 칸에 겹쳐 두고 지금 단계만 보여줌 → 단계마다 창 높이가 들쭉날쭉하지 않음 */}
+        <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2 text-center grid">
+          {STEPS.map(({ Icon, title, lines }, i) => (
+            <div key={title} className={`[grid-area:1/1] ${i === current ? '' : 'invisible'}`} aria-hidden={i !== current}>
+              <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 text-gray-700 bg-gray-100 dark:text-gray-200 dark:bg-gray-800">
+                <Icon size={26} />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
+              <div className="space-y-2 text-left">
+                {lines.map(line => (
+                  <p key={line} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{line}</p>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="flex-shrink-0 flex justify-center gap-1.5 py-3">
