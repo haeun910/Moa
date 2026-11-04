@@ -524,6 +524,49 @@ try {
     await context.close();
   }
 
+  // 12) 프로젝트 로드맵: D-Day를 고르고 적은 일을 날짜에 나누면 그 D-Day에 연결된 할 일로 저장됨
+  {
+    const { context, page, errors } = await loggedInContext();
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const inserts = [];
+    const ddayPatches = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      const rows = JSON.parse(route.request().postData() ?? '[]');
+      inserts.push(rows);
+      return route.fulfill({ json: rows.map(r => ({ completed: false, created_at: new Date().toISOString(), ...r })) });
+    });
+    await page.route(`${SUPABASE}/rest/v1/ddays**`, route => {
+      if (route.request().method() !== 'PATCH') return route.fallback();
+      ddayPatches.push(route.request().postData() ?? '');
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: '설정', exact: true }).first().click();
+      await page.getByRole('button', { name: '할 일 정리' }).first().click(); // 컴퓨터 설정은 왼쪽에서 칸을 고름
+      await page.getByRole('button', { name: /프로젝트 로드맵/ }).click();
+      await page.getByRole('heading', { name: '프로젝트 로드맵' }).waitFor({ timeout: 5000 });
+      await page.getByRole('tab', { name: /시험날/, selected: true }).waitFor({ timeout: 5000 });
+      await page.getByRole('textbox', { name: /준비할 일/ }).fill('단어 외우기\n- 모의고사 풀기\n\n');
+      await page.getByRole('button', { name: '2개 날짜에 나누기' }).click();
+      await page.getByRole('button', { name: '모의고사 풀기', exact: true }).waitFor({ timeout: 5000 });
+      const rows = inserts.flat();
+      if (rows.length !== 2 || !rows.every(r => r.dday_id === 'dd-1' && r.date === today)) throw new Error(`저장된 할 일: ${JSON.stringify(rows)}`);
+      if (rows.map(r => r.title).join('|') !== '단어 외우기|모의고사 풀기') throw new Error(`제목: ${rows.map(r => r.title).join('|')}`);
+      for (let i = 0; i < 20 && ddayPatches.length === 0; i++) await page.waitForTimeout(100);
+      if (!ddayPatches.some(p => p.includes('"plan"'))) throw new Error('나누는 방법이 D-Day에 저장되지 않음');
+      await page.getByRole('button', { name: '뒤로 가기' }).click();
+      await page.getByRole('button', { name: /프로젝트 로드맵/ }).waitFor({ timeout: 5000 }); // 설정에서 열었으면 설정으로 돌아감
+      console.log('✅ 프로젝트 로드맵: 적은 일 2개가 D-Day에 연결된 할 일로 저장되고, 뒤로 가기는 설정으로');
+    } catch (e) {
+      fail(`프로젝트 로드맵 (${e.message})`);
+    }
+    if (errors.length) fail(`프로젝트 로드맵 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
   await browser.close();
 } finally {
   server.kill();

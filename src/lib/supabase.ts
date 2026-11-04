@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { configureOutbox, createOfflineFetch } from './outbox';
+import type { DDayPlan } from '../types';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -95,6 +96,7 @@ export interface DbTodo {
   skipped?: boolean;              // 025 마이그레이션 전에는 컬럼이 없을 수 있음
   remind_minutes?: number | null; // 025
   time_zone?: string | null;      // 025: 알림 시각을 계산할 기기 시간대
+  dday_id?: string | null;        // 027: 준비 계획으로 나눈 할 일의 D-Day
   created_at: string;
   updated_at: string;
 }
@@ -134,6 +136,7 @@ export interface DbDDay {
   title: string;
   target_date: string;
   created_at: string;
+  plan?: DDayPlan | null; // 027
 }
 
 // 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과 구분되는 별도 항목으로,

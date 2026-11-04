@@ -30,6 +30,7 @@ import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
 import ScheduleModal from '../components/ScheduleModal';
 import DDayModal from '../components/DDayModal';
+import { planProgress } from '../lib/plan';
 import OverdueModal from '../components/OverdueModal';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
@@ -306,6 +307,9 @@ export default function HomePage() {
     .filter(d => d.targetDate >= todayKey)
     .sort((a, b) => a.targetDate.localeCompare(b.targetDate))
     .slice(0, 4);
+  // 준비 계획(프로젝트 로드맵)이 있는 D-Day는 진행 상황을 같이 보여줌
+  const planByDday = new Map<string, Todo[]>();
+  for (const t of todos) if (t.ddayId) planByDday.set(t.ddayId, [...(planByDday.get(t.ddayId) ?? []), t]);
   const goals = monthlyGoals.filter(g => g.month === monthKey);
   const hidden = new Set(settings.hiddenFeatures);
   const todayHoliday = holidayLabel(holidays, todayKey);
@@ -548,11 +552,16 @@ export default function HomePage() {
                 <ul className="space-y-1">
                   {upcomingDdays.map(d => {
                     const diff = daysUntil(d.targetDate, now);
+                    const plan = planByDday.get(d.id);
+                    const planned = plan ? planProgress(plan) : null;
                     return (
                       <li key={d.id}>
                         <button onClick={() => openDday(d)} className="w-full flex items-center gap-2.5 text-left py-1 hover:text-leaf-700 dark:hover:text-leaf-300">
                           <span className={`w-14 flex-shrink-0 whitespace-nowrap text-12px font-bold tabular-nums ${diff <= 3 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{ddayLabel(diff)}</span>
                           <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
+                          {planned && planned.total > 0 && (
+                            <span title="준비한 일 / 준비할 일" className="flex-shrink-0 text-10.5px font-semibold tabular-nums text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">준비 {planned.done}/{planned.total}</span>
+                          )}
                           <span className="ml-auto flex-shrink-0 text-11px text-gray-400 tabular-nums">{format(new Date(d.targetDate + 'T00:00'), 'M/d')}</span>
                         </button>
                       </li>

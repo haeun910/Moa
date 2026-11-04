@@ -30,12 +30,14 @@ import { showToast } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import type { OptionalFeature, Settings } from '../types';
 import { setCategoriesOrigin } from '../lib/navBack';
+import { setPlanTarget } from '../lib/planNav';
 
 // ── 설정 화면 구성 ─────────────────────────────────────────
 // 휴대폰: 분류별로 묶인 한 줄 목록 (아이폰 설정처럼). "일반"은 현재 값만 보여주고 누르면 상세 화면으로
 // 태블릿·PC: 왼쪽 분류 메뉴 + 오른쪽에 고른 분류의 설정만 넓게 (Notion/Slack 설정처럼)
 type SectionId = 'general' | 'organize' | 'account' | 'help' | 'about' | 'admin';
 
+const SECTION_KEY = 'moa-settings-section';
 const SECTIONS: { id: SectionId; label: string; Icon: typeof Info; adminOnly?: boolean }[] = [
   { id: 'general', label: '일반', Icon: SlidersHorizontal },
   { id: 'organize', label: '할 일 정리', Icon: ListTodo },
@@ -208,7 +210,17 @@ export default function SettingsPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFeedbackList, setShowFeedbackList] = useState(false);
   // 태블릿·PC에서 오른쪽에 보여줄 분류 / 휴대폰에서 "일반" 상세 화면을 열었는지
-  const [activeSection, setActiveSection] = useState<SectionId>('general');
+  // 컴퓨터: 카테고리 관리·로드맵 같은 하위 화면에 갔다가 돌아와도 보던 칸이 그대로 열려 있게 기억
+  const [activeSection, setActiveSectionState] = useState<SectionId>(() => {
+    try {
+      const saved = sessionStorage.getItem(SECTION_KEY);
+      return SECTIONS.some(s => s.id === saved) ? (saved as SectionId) : 'general';
+    } catch { return 'general'; }
+  });
+  function setActiveSection(id: SectionId) {
+    setActiveSectionState(id);
+    try { sessionStorage.setItem(SECTION_KEY, id); } catch { /* 기억 못 해도 일반 칸이 열릴 뿐 */ }
+  }
   const [mobileGeneralOpen, setMobileGeneralOpen] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
@@ -339,7 +351,7 @@ export default function SettingsPage() {
   const organizeRows = (
     <>
       <Row Icon={Tag} label="카테고리 관리" value={`${categories.length}개`} onClick={() => { setCategoriesOrigin('settings'); setCurrentScreen('categories'); }} />
-      <Row Icon={Milestone} label="프로젝트 로드맵" desc="카테고리 하나를 골라 타임라인으로 보기" onClick={() => setCurrentScreen('project')} />
+      <Row Icon={Milestone} label="프로젝트 로드맵" desc="D-Day까지 준비할 일을 날짜별로 나누기" onClick={() => { setPlanTarget('settings'); setCurrentScreen('project'); }} />
       <PushRows onEnabledChange={on => updateSettings({ notifications: on })} />
     </>
   );
