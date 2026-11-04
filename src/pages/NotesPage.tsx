@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, FileText, Search, Folder, FolderOpen, Inbox, Pin, Settings2, X } from 'lucide-react';
 import { format, isToday, isThisYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { clearRequestedNote, peekRequestedNote } from '../lib/openNote';
+import { clearRequestedNote, peekRequestedNote, OPEN_NOTE_EVENT } from '../lib/openNote';
+import { matches, normalizeQuery } from '../lib/search';
+import { noteHeading, notePreview } from '../lib/markdown';
 import { useApp } from '../context/AppContext';
 import NoteEditor from '../components/NoteEditor';
 import NoteFolderModal from '../components/NoteFolderModal';
@@ -29,15 +31,6 @@ function shortDate(iso: string) {
   return format(d, 'yyyy. M. d.');
 }
 
-// 제목이 없으면 내용 첫 줄을 제목처럼 보여줌
-function noteHeading(n: Note) {
-  return n.title.trim() || n.content.trim().split('\n')[0] || '새 메모';
-}
-function notePreview(n: Note) {
-  const body = n.title.trim() ? n.content : n.content.split('\n').slice(1).join(' ');
-  return body.replace(/\s+/g, ' ').trim();
-}
-
 export default function NotesPage() {
   const { notes, noteFolders } = useApp();
   // PC(넓은 화면): 폴더 | 목록 | 편집기 3칸 / 휴대폰: 목록 → 누르면 전체 화면 편집기
@@ -48,7 +41,18 @@ export default function NotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(peekRequestedNote);
   // 편집기를 다시 만들지 결정하는 키 (새 메모가 저장돼 id가 생겨도 편집기가 새로 뜨지 않게 따로 관리)
   const [editorKey, setEditorKey] = useState<string | null>(peekRequestedNote);
-  useEffect(() => { clearRequestedNote(); }, []);
+  useEffect(() => {
+    clearRequestedNote();
+    function onOpen(e: Event) {
+      const id = (e as CustomEvent<string>).detail;
+      clearRequestedNote();
+      setFolder('all');
+      setSelectedId(id);
+      setEditorKey(id);
+    }
+    window.addEventListener(OPEN_NOTE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_NOTE_EVENT, onOpen);
+  }, []);
   const [newCount, setNewCount] = useState(0);
   const [showFolderModal, setShowFolderModal] = useState(false);
 
@@ -57,10 +61,11 @@ export default function NotesPage() {
     if (folder !== 'all' && folder !== 'none' && !noteFolders.some(f => f.id === folder)) setFolder('all');
   }, [folder, noteFolders]);
 
-  const q = query.trim().toLowerCase();
+  // 한글 초성으로도 찾음 (예: ㅎㅇㄹ → 회의록)
+  const q = normalizeQuery(query);
   const visible = useMemo(() => notes
     .filter(n => folder === 'all' || (folder === 'none' ? !n.folderId : n.folderId === folder))
-    .filter(n => !q || n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+    .filter(n => !q || matches(n.title, q) || matches(n.content, q))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
   [notes, folder, q]);
   const pinnedNotes = visible.filter(n => n.pinned);
@@ -114,14 +119,14 @@ export default function NotesPage() {
     return (
       <li key={n.id}>
         <button onClick={() => openNote(n)}
-          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-inset ring-leaf-200/80 dark:ring-leaf-800/50' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
+          className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${on ? 'bg-white dark:bg-gray-800 ring-1 ring-inset ring-gray-300 dark:ring-gray-700' : 'hover:bg-gray-100/80 dark:hover:bg-gray-800/50'}`}>
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{noteHeading(n)}</p>
           <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
             <span className="text-gray-700 dark:text-gray-300 mr-1.5 tabular-nums">{shortDate(n.updatedAt)}</span>
             {preview || '추가 텍스트 없음'}
           </p>
           {folder === 'all' && n.folderId && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-400"><Folder size={11} />{folderName(n.folderId)}</p>
+            <p className="mt-1 flex items-center gap-1 text-11px text-gray-400"><Folder size={11} />{folderName(n.folderId)}</p>
           )}
         </button>
       </li>
@@ -131,7 +136,7 @@ export default function NotesPage() {
   const list = (
     visible.length === 0 ? (
       <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl surface flex items-center justify-center mb-3">
+        <div className="w-14 h-14 rounded-xl surface flex items-center justify-center mb-3">
           <FileText size={24} className="text-gray-400" />
         </div>
         <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{q ? '검색 결과가 없어요' : '메모가 없어요'}</p>
@@ -159,7 +164,7 @@ export default function NotesPage() {
     <div className="relative">
       <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="검색"
-        className="w-full h-9 pl-9 pr-8 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-800 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500 transition-shadow" />
+        className="w-full h-9 pl-9 pr-8 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-800 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition-shadow" />
       {query && (
         <button onClick={() => setQuery('')} aria-label="검색어 지우기" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"><X size={14} /></button>
       )}
@@ -246,7 +251,7 @@ export default function NotesPage() {
   // ── 휴대폰·태블릿: 폴더 칩 + 목록, 누르면 전체 화면 편집기 ──
   const chip = (f: FolderFilter, label: string) => (
     <button key={f} onClick={() => setFolder(f)}
-      className={`flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-semibold border transition-colors ${
+      className={`flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-13px font-semibold border transition-colors ${
         folder === f ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium'
       }`}>
       {label}<span className="opacity-60">{countIn(f)}</span>
@@ -267,14 +272,14 @@ export default function NotesPage() {
         {noteFolders.map(f => chip(f.id, f.name))}
         {chip('none', '폴더 없음')}
         <button onClick={() => setShowFolderModal(true)}
-          className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-[13px] font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
+          className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-13px font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500">
           <Settings2 size={12} /> 폴더
         </button>
       </div>
       <div className="rounded-xl surface p-1.5">{list}</div>
 
       <button onClick={newNote} aria-label="새 메모"
-        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
+        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20">
         <Plus size={24} strokeWidth={2.5} />
       </button>
 

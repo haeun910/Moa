@@ -9,13 +9,13 @@ import type { Category, DDay, ScheduleItem, TimeBlock, Todo } from '../types';
 // - D-Day (직접 만든 것 + 할 일에서 "D-Day로 표시"한 것)
 // 따로 저장하지 않고 원래 데이터에서 그때그때 계산해서, 할 일·일정을 고치면 바로 따라 바뀜
 
-export const SCHEDULE_COLOR = '#4F73A8';
+export const SCHEDULE_COLOR = '#4B5148'; // 일정은 먹색 (tailwind ink-600)
 // 끝 시간이 없는 할 일·일정은 1시간짜리로 보여줌
 export const AGENDA_MINUTES = DEFAULT_BLOCK_MINUTES;
 
 export type AgendaTimed =
   | { key: string; kind: 'todo'; startMin: number; endMin: number; title: string; color: string; done: boolean; todo: Todo }
-  | { key: string; kind: 'schedule'; startMin: number; endMin: number; title: string; color: string; done: false; schedule: ScheduleItem };
+  | { key: string; kind: 'schedule'; startMin: number; endMin: number; title: string; color: string; done: boolean; schedule: ScheduleItem };
 
 export type AgendaAllDay =
   | { key: string; kind: 'schedule'; title: string; schedule: ScheduleItem }
@@ -90,7 +90,7 @@ export function buildAgenda(
     if (!days.has(schedule.date)) continue;
     const day = result.get(schedule.date)!;
     const range = timedRange(schedule.startTime, schedule.endTime);
-    if (range) day.timed.push({ key: `schedule-${schedule.id}`, kind: 'schedule', ...range, title: schedule.title, color: SCHEDULE_COLOR, done: false, schedule });
+    if (range) day.timed.push({ key: `schedule-${schedule.id}`, kind: 'schedule', ...range, title: schedule.title, color: SCHEDULE_COLOR, done: schedule.completed, schedule });
     else day.allDay.push({ key: `schedule-${schedule.id}`, kind: 'schedule', title: schedule.title, schedule });
   }
 

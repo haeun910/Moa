@@ -6,11 +6,15 @@ import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format, parseISO, startOfWeek, subWeeks } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
-import { showSaveError, markSaveErrorHandled } from '../lib/toast';
+import { showSaveError, markSaveErrorHandled, showToast } from '../lib/toast';
+import { drainOutbox, loadOutbox, onOutboxDrained, pendingFor, setOutboxUser } from '../lib/outbox';
+import { offlineStore } from '../lib/offlineStore';
+import { snapshotKey } from '../lib/offlineData';
 import { reportError } from '../lib/monitoring';
 import { createSerialWriter } from '../lib/serialWrites';
 import { timeRangeEnd } from '../lib/timeRange';
 import { DAY_MINUTES, applySeriesUpdate, formatMinutes, getBlockSpan, parseMinutes, spanToRange } from '../lib/timebox';
+import { applyFontScale } from '../lib/fontScale';
 import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, TimeBlock, Notice, OptionalFeature } from '../types';
 import { OPTIONAL_FEATURES } from '../types';
 
@@ -30,6 +34,8 @@ function toTodo(t: DbTodo): Todo {
     notes: t.notes ?? '',
     createdAt: t.created_at,
     seriesId: t.series_id ?? null,
+    skipped: t.skipped ?? false,
+    remindMinutes: t.remind_minutes ?? null,
   };
 }
 
@@ -58,7 +64,10 @@ function toDDay(d: DbDDay): DDay {
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
-  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null };
+  return {
+    id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes,
+    createdAt: s.created_at, seriesId: s.series_id ?? null, completed: s.completed ?? false, remindMinutes: s.remind_minutes ?? null,
+  };
 }
 
 function toTimeBlock(b: DbTimeBlock): TimeBlock {
@@ -72,11 +81,11 @@ function sortTimeBlocks(list: TimeBlock[]): TimeBlock[] {
   return [...list].sort((a, b) => a.startAt.localeCompare(b.startAt));
 }
 
-// 알림을 누르고 들어오면 ?screen=timebox 로 열림 → 그 화면부터 보여줌
+// 알림을 누르고 들어오면 ?screen=timebox(타임박스 알림) / ?screen=today(할 일·일정 알림)로 열림 → 그 화면부터 보여줌
 function screenFromUrl(): Screen | null {
   const screen = new URLSearchParams(window.location.search).get('screen');
   // 약관·개인정보처리방침 주소(Google 동의 화면 링크 등)는 로그인한 상태에서도 그 화면으로
-  return screen === 'timebox' || screen === 'terms' || screen === 'privacy' ? screen : null;
+  return screen === 'timebox' || screen === 'today' || screen === 'terms' || screen === 'privacy' ? screen : null;
 }
 
 export type TimeBlockFields = Omit<TimeBlock, 'id' | 'createdAt' | 'seriesId'>;
@@ -156,6 +165,7 @@ interface AppContextType {
   addSchedule: (fields: ScheduleFields & { date: string; endDate?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  toggleSchedule: (id: string) => Promise<void>;
   addScheduleSeries: (fields: ScheduleFields, dates: string[], existingId?: string) => Promise<void>;
   updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => Promise<void>;
   deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
@@ -177,8 +187,15 @@ interface AppContextType {
 // 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
 export type NoteUpdates = Partial<Pick<Note, 'title' | 'content' | 'folderId' | 'pinned'>>;
 
-export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes'>>;
-export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null };
+export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'endTime' | 'notes' | 'remindMinutes'>>;
+export type ScheduleFields = { title: string; startTime?: string | null; endTime?: string | null; notes?: string | null; remindMinutes?: number | null };
+
+// 알림은 정했을 때(또는 있던 걸 끌 때)만 DB로 보냄 (025 마이그레이션 전 DB에서도 알림 없는 저장은 그대로 되게).
+// 알림 시각은 DB가 날짜·시간과 이 기기 시간대로 계산함 (반복 회차를 한꺼번에 고쳐도 회차마다 맞게)
+function remindFields(next: number | null | undefined, had: boolean): { remind_minutes?: number | null; time_zone?: string } {
+  if (next === undefined || (next === null && !had)) return {};
+  return { remind_minutes: next, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul' };
+}
 
 // 끝 시간은 있을 때(또는 있던 걸 지울 때)만 DB로 보냄.
 // 021 마이그레이션(end_time 칸)을 실행하기 전 DB에서도 끝 시간을 안 쓰는 저장은 그대로 되게 하기 위함
@@ -190,6 +207,20 @@ function endTimeField(next: string | null | undefined, had: boolean): { end_time
 function inSeries(item: { seriesId?: string | null; date: string | null }, seriesId: string, fromDate: string | null): boolean {
   if (item.seriesId !== seriesId) return false;
   return fromDate ? !!item.date && item.date >= fromDate : true;
+}
+
+// 오프라인으로 앱을 열어도 보이도록 이 기기에 남겨 두는 마지막 화면 내용
+interface Snapshot {
+  savedAt: string;
+  todos: Todo[]; categories: Category[]; subcategories: Subcategory[]; notes: Note[]; noteFolders: NoteFolder[];
+  settings: Settings; monthlyGoals: MonthlyGoal[]; ddays: DDay[]; schedules: ScheduleItem[]; timeblocks: TimeBlock[]; notices: Notice[];
+}
+
+// 서버에 닿지 못한 오류인지 (오프라인, 연결 끊김)
+function isNetworkError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = err instanceof Error ? err.message : typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : '';
+  return err instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(msg);
 }
 
 // 서버에서 다시 불러올 수 있는 데이터 종류
@@ -274,10 +305,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 같은 종류를 짧은 시간에 여러 번 요청하면 한 번만 불러옴
   // (예: 반복으로 한 번에 100개를 만들면 실시간 알림도 100번 오기 때문)
   const resyncTimersRef = useRef<Partial<Record<Resource, ReturnType<typeof setTimeout>>>>({});
+  // 오프라인이거나 아직 보내지 못한 변경이 있으면 서버 내용으로 덮지 않음 (그러면 방금 바꾼 게 사라져 보임).
+  // 대신 표시해 두었다가 다 보낸 뒤(onOutboxDrained) 한꺼번에 다시 불러옴
+  const deferredResyncRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = user?.id ?? null;
   const resync = useCallback((kind: Resource, delayMs = 300) => {
     clearTimeout(resyncTimersRef.current[kind]);
     resyncTimersRef.current[kind] = setTimeout(() => {
-      fetchersRef.current?.[kind]().catch(err => reportError(err, `resync ${kind}`));
+      if ((typeof navigator !== 'undefined' && navigator.onLine === false) || pendingFor(userIdRef.current) > 0) {
+        deferredResyncRef.current = true;
+        return;
+      }
+      fetchersRef.current?.[kind]().catch(err => { if (!isNetworkError(err)) reportError(err, `resync ${kind}`); });
     }, delayMs);
   }, []);
   const resyncAll = useCallback(() => {
@@ -291,6 +331,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
   const didSetInitialScreenRef = useRef(false);
+  // 처음 불러오기가 끝난 계정 (끝나기 전의 빈 목록을 "마지막 내용"으로 저장하지 않기 위함)
+  const loadedUserRef = useRef<string | null>(null);
 
   // 최신 목록을 렌더 사이에도 바로 읽기 위한 참조.
   // 완료 토글처럼 "지금 값의 반대"를 저장해야 하는 함수가 이전 렌더의 목록을 보면,
@@ -325,53 +367,131 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setDataLoading(true);
     setLoadError(false);
-    Promise.all([
-      db.fetchTodos(user.id),
-      db.fetchCategories(user.id),
-      db.fetchSubcategories(user.id),
-      db.fetchNotes(user.id),
-      db.fetchSettings(user.id),
-      db.fetchMonthlyGoals(user.id),
-      db.fetchDDays(user.id),
-      db.fetchSchedules(user.id).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-      db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-      db.fetchNoteFolders(user.id).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
-      db.fetchTimeBlocks(user.id, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks 테이블이 아직 없어도(016 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders, rawTimeBlocks]) => {
-      setTodos(rawTodos.map(toTodo));
-      setCategories(rawCats.map(toCategory));
-      setSubcategories(rawSubcats.map(toSubcategory));
-      setNotes(rawNotes.map(toNote));
-      setNoteFolders(rawNoteFolders.map(toNoteFolder));
-      setMonthlyGoals(rawGoals.map(toMonthlyGoal));
-      setDDays(rawDDays.map(toDDay));
-      setSchedules(rawSchedules.map(toSchedule));
-      setNotices(rawNotices.map(toNotice));
-      setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+    loadedUserRef.current = null;
+    let cancelled = false;
+    const userId = user.id;
+    setOutboxUser(userId);
+
+    function applyScreenAfterLoad(s: Settings | null) {
       const urlScreen = screenFromUrl();
       if (urlScreen) {
         window.history.replaceState(null, '', window.location.pathname);
         setCurrentScreen(urlScreen);
         didSetInitialScreenRef.current = true;
       }
-      if (rawSettings) {
-        const s = toSettings(rawSettings);
-        setSettings(s);
-        if (!didSetInitialScreenRef.current) {
-          setCurrentScreen(s.defaultScreen as Screen);
-          didSetInitialScreenRef.current = true;
-        }
+      if (s && !didSetInitialScreenRef.current) {
+        setCurrentScreen(s.defaultScreen as Screen);
+        didSetInitialScreenRef.current = true;
       }
-    }).catch(err => {
-      // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
-      reportError(err, 'initial load');
-      setLoadError(true);
-    }).finally(() => setDataLoading(false));
+    }
+
+    // 오프라인으로 열었거나 서버에 닿지 못하면, 이 기기에 남겨 둔 마지막 내용으로 엶
+    async function loadSnapshot(): Promise<boolean> {
+      const snap = await offlineStore.get<Snapshot>('kv', snapshotKey(userId));
+      if (!snap || cancelled) return false;
+      setTodos(snap.todos); setCategories(snap.categories); setSubcategories(snap.subcategories);
+      setNotes(snap.notes); setNoteFolders(snap.noteFolders); setMonthlyGoals(snap.monthlyGoals);
+      setDDays(snap.ddays); setSchedules(snap.schedules); setNotices(snap.notices ?? []);
+      setTimeblocks(snap.timeblocks); setSettings(snap.settings);
+      applyScreenAfterLoad(snap.settings);
+      loadedUserRef.current = userId;
+      deferredResyncRef.current = true; // 다시 연결되면 서버 내용으로 맞춤
+      return true;
+    }
+
+    (async () => {
+      // 지난번에 보내지 못한 변경이 있으면 먼저 보냄 (안 그러면 서버에서 불러온 내용에 그 변경이 빠져 보임)
+      await loadOutbox();
+      if (pendingFor(userId) > 0) await drainOutbox();
+      if (cancelled) return;
+      if (pendingFor(userId) > 0 && await loadSnapshot()) return;
+
+      try {
+        const [rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders, rawTimeBlocks] = await Promise.all([
+          db.fetchTodos(userId),
+          db.fetchCategories(userId),
+          db.fetchSubcategories(userId),
+          db.fetchNotes(userId),
+          db.fetchSettings(userId),
+          db.fetchMonthlyGoals(userId),
+          db.fetchDDays(userId),
+          db.fetchSchedules(userId).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+          db.fetchNoteFolders(userId).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
+          db.fetchTimeBlocks(userId, timeblocksFromRef.current.toISOString()).catch(() => []), // timeblocks 테이블이 아직 없어도(016 전) 나머지는 정상 로드되도록
+        ]);
+        if (cancelled) return;
+        setTodos(rawTodos.map(toTodo));
+        setCategories(rawCats.map(toCategory));
+        setSubcategories(rawSubcats.map(toSubcategory));
+        setNotes(rawNotes.map(toNote));
+        setNoteFolders(rawNoteFolders.map(toNoteFolder));
+        setMonthlyGoals(rawGoals.map(toMonthlyGoal));
+        setDDays(rawDDays.map(toDDay));
+        setSchedules(rawSchedules.map(toSchedule));
+        setNotices(rawNotices.map(toNotice));
+        setTimeblocks(sortTimeBlocks(rawTimeBlocks.map(toTimeBlock)));
+        const s = rawSettings ? toSettings(rawSettings) : null;
+        if (s) setSettings(s);
+        applyScreenAfterLoad(s);
+        loadedUserRef.current = userId;
+      } catch (err) {
+        if (cancelled) return;
+        if (isNetworkError(err) && await loadSnapshot()) return;
+        // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
+        if (!isNetworkError(err)) reportError(err, 'initial load');
+        setLoadError(true);
+      }
+    })().finally(() => { if (!cancelled) setDataLoading(false); });
+    return () => { cancelled = true; };
     // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
     // 실제 로그인 계정은 그대로인 경우에는 이 무거운 재조회 + 화면 이동이 일어나지 않게 함
     // (reloadKey는 "다시 시도" 버튼용)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, reloadKey]);
+
+  // ── 오프라인 대비 ──────────────────────────────────────
+  // 보관 중인 변경은 지금 로그인한 사람 것만 보냄
+  useEffect(() => {
+    setOutboxUser(user?.id ?? null);
+    if (user) void loadOutbox().then(() => drainOutbox());
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 보관했던 변경을 다 보내면: 서버 내용으로 다시 맞추고 결과를 알려 줌
+  useEffect(() => onOutboxDrained(({ sent, failed }) => {
+    if (failed > 0) showToast(`오프라인에서 바꾼 내용 중 ${failed}개는 저장하지 못했어요 (다른 기기에서 지운 항목 등)`, 'error', 7000);
+    else if (sent > 0) showToast('오프라인에서 바꾼 내용을 모두 저장했어요', 'success');
+    deferredResyncRef.current = false;
+    resyncAll();
+  }), [resyncAll]);
+
+  // 다시 연결됐는데 보낼 변경이 없으면, 미뤄 둔 다시 불러오기를 바로
+  useEffect(() => {
+    function onOnline() {
+      setTimeout(() => {
+        if (deferredResyncRef.current && pendingFor(userIdRef.current) === 0 && navigator.onLine) {
+          deferredResyncRef.current = false;
+          resyncAll();
+        }
+      }, 1500);
+    }
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [resyncAll]);
+
+  // 지금 화면 내용을 이 기기에 저장 (오프라인으로 열 때 사용). 바뀐 뒤 1초 모아서 한 번
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId || loadedUserRef.current !== userId) return;
+    const timer = setTimeout(() => {
+      const snap: Snapshot = {
+        savedAt: new Date().toISOString(),
+        todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices,
+      };
+      void offlineStore.put('kv', snap, snapshotKey(userId));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [user?.id, todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, timeblocks, notices]);
 
   // ── 테마 적용 ───────────────────────────────────────────
   useEffect(() => {
@@ -384,11 +504,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings.theme]);
 
+  // ── 글자 크기 적용 (앱 전체) ───────────────────────────────
+  useEffect(() => { applyFontScale(settings.calendarTextSize); }, [settings.calendarTextSize]);
+
   // ── 이미 열린 앱에서 알림을 누르면 서비스워커가 보내는 메시지로 화면 이동 ──
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     function handleMessage(e: MessageEvent) {
-      if (e.data?.type === 'moa:navigate' && e.data.screen === 'timebox') setCurrentScreen('timebox');
+      // 알림을 누르면: 타임박스 알림은 타임박스로, 할 일·일정 알림은 홈으로
+      if (e.data?.type === 'moa:navigate' && (e.data.screen === 'timebox' || e.data.screen === 'today')) setCurrentScreen(e.data.screen);
     }
     navigator.serviceWorker.addEventListener('message', handleMessage);
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
@@ -462,6 +586,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
       // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
@@ -494,6 +619,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       ...endTimeField(fields.endTime, false),
+      ...remindFields(fields.remindMinutes, false),
       notes: fields.notes,
       sort_order: firstSort + i,
     })), seriesId);
@@ -508,6 +634,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if ('subcategoryId' in updates) dbUpdates.subcategory_id = updates.subcategoryId ?? null;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.endTime)));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, todosRef.current.some(t => inSeries(t, seriesId, fromDate) && t.remindMinutes != null)));
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
     setTodos(prev => prev.map(t => inSeries(t, seriesId, fromDate) ? { ...t, ...updates } : t));
     await db.updateTodoSeries(seriesId, fromDate, dbUpdates);
@@ -539,7 +666,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const before = todosRef.current.find(t => t.id === id);
     if ('endTime' in updates) Object.assign(dbUpdates, endTimeField(updates.endTime, !!before?.endTime));
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
+    // '안 하기'는 켤 때(또는 켜져 있던 걸 풀 때)만 보냄 (025 전 DB 대비). 완료하면 '안 하기'는 풀림
+    const nextUpdates = { ...updates };
+    if (updates.completed === true && before?.skipped) nextUpdates.skipped = false;
+    if (nextUpdates.skipped !== undefined && (nextUpdates.skipped || before?.skipped)) dbUpdates.skipped = nextUpdates.skipped;
+    if (nextUpdates.skipped === true && before?.completed) { nextUpdates.completed = false; dbUpdates.completed = false; }
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, ...nextUpdates } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...nextUpdates } : t));
     await db.updateTodo(id, dbUpdates);
     if (before && followBlocks) await followTodoWithBlocks(before, updates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -602,10 +736,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const todo = todosRef.current.find(t => t.id === id);
     if (!todo) return;
     const completed = !todo.completed;
+    // 끝냈으면 '안 하기'는 풀림
+    const unskip = completed && !!todo.skipped;
     // 다음 렌더 전에 또 눌려도 방금 바꾼 값을 기준으로 뒤집도록 참조도 바로 갱신
-    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed } : t);
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
-    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed }));
+    todosRef.current = todosRef.current.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed, ...(unskip ? { skipped: false } : {}) } : t));
+    await serialWriteRef.current(`todo:${id}`, () => db.updateTodo(id, { completed, ...(unskip ? { skipped: false } : {}) }));
   }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
@@ -778,6 +914,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const row = await db.createSchedule(user.id, {
       title: fields.title, date: fields.date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false),
       ...(fields.endDate ? { end_date: fields.endDate } : {}), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
     });
     setSchedules(prev => sortSchedules([...prev, toSchedule(row)]));
   }, [user]);
@@ -793,7 +930,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.date !== undefined) dbUpdates.date = updates.date;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, before?.remindMinutes != null));
     await db.updateSchedule(id, dbUpdates);
+  }, []);
+
+  // 일정 완료 체크 (끝낸 일정은 위쪽 일정 목록에서 빠지고 달력에는 흐리게 남음)
+  const toggleSchedule = useCallback(async (id: string) => {
+    const schedule = schedulesRef.current.find(s => s.id === id);
+    if (!schedule) return;
+    const completed = !schedule.completed;
+    schedulesRef.current = schedulesRef.current.map(s => s.id === id ? { ...s, completed } : s);
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, completed } : s));
+    await serialWriteRef.current(`schedule:${id}`, () => db.updateSchedule(id, { completed }));
   }, []);
 
   const deleteSchedule = useCallback(async (id: string) => {
@@ -813,6 +961,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (dates.length === 0) return;
     const rows = await db.createSchedules(user.id, dates.map(date => ({
       title: fields.title, date, start_time: fields.startTime ?? null, ...endTimeField(fields.endTime, false), notes: fields.notes ?? null,
+      ...remindFields(fields.remindMinutes, false),
     })), seriesId);
     setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
   }, [user]);
@@ -823,6 +972,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    if ('remindMinutes' in updates) Object.assign(dbUpdates, remindFields(updates.remindMinutes, schedulesRef.current.some(s => inSeries(s, seriesId, fromDate) && s.remindMinutes != null)));
     setSchedules(prev => sortSchedules(prev.map(s => inSeries(s, seriesId, fromDate) ? { ...s, ...updates } : s)));
     await db.updateScheduleSeries(seriesId, fromDate, dbUpdates);
   }, []);
@@ -1065,6 +1215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addSchedule: guard(addSchedule, S, true),
       updateSchedule: guard(updateSchedule, S),
       deleteSchedule: guard(deleteSchedule, S),
+      toggleSchedule: guard(toggleSchedule, S),
       addScheduleSeries: guard(addScheduleSeries, S, true),
       updateScheduleSeries: guard(updateScheduleSeries, S),
       deleteScheduleSeries: guard(deleteScheduleSeries, S),

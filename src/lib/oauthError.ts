@@ -8,7 +8,7 @@ export function readOAuthError(): string {
   window.history.replaceState(null, '', window.location.pathname);
   if (code === 'access_denied') return 'Google 로그인이 취소되었습니다.';
   if (detail === 'identity_already_exists') {
-    return '이 Google 계정은 이미 모아 계정이 있어요. 게스트 데이터는 그대로 있어요. 그 계정을 쓰려면 체험을 끝내고 Google로 로그인해 주세요.';
+    return '이 Google 계정은 이미 모아 계정이 있어요. 체험 내용은 그대로 있어요. 그 계정을 쓰려면 화면 아래 체험 안내의 "로그인"을 눌러 Google로 로그인해 주세요.';
   }
   return 'Google 로그인에 실패했습니다. 잠시 후 다시 시도하거나 이메일로 로그인해 주세요.';
 }

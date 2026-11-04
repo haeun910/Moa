@@ -5,14 +5,27 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
 import { LIMITS } from '../lib/limits';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const LAST_CATEGORY_KEY = 'day-composer-last-category';
+const LAST_SUBCATEGORY_KEY = 'day-composer-last-subcategory';
 
 function readLastCategory(): string | null {
   try { return localStorage.getItem(LAST_CATEGORY_KEY); } catch { return null; }
 }
 function writeLastCategory(id: string) {
   try { localStorage.setItem(LAST_CATEGORY_KEY, id); } catch { /* 저장 못 해도 동작에는 지장 없음 */ }
+}
+// 마지막에 고른 하위카테고리 (카테고리별로 기억. 없음 = "미정")
+function readLastSubcategory(categoryId: string): string | null {
+  try { return (JSON.parse(localStorage.getItem(LAST_SUBCATEGORY_KEY) ?? '{}') as Record<string, string | null>)[categoryId] ?? null; } catch { return null; }
+}
+function writeLastSubcategory(categoryId: string, id: string | null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LAST_SUBCATEGORY_KEY) ?? '{}') as Record<string, string | null>;
+    all[categoryId] = id;
+    localStorage.setItem(LAST_SUBCATEGORY_KEY, JSON.stringify(all));
+  } catch { /* 저장 못 해도 동작에는 지장 없음 */ }
 }
 
 interface Props {
@@ -22,8 +35,9 @@ interface Props {
 }
 
 // 홈 화면에서 날짜를 고른 뒤 할 일을 추가하는 입력창.
-// 패널에는 입력칸 하나만 보이고, 누르면 따로 뜨는 창에서 카테고리 → 하위카테고리 → 제목 순서로 고름.
-// (예전엔 패널 아래에 카테고리/하위카테고리 칩이 가로로 줄지어 있어서 좁은 화면에서 고르기 불편했음)
+// 패널에는 입력칸 하나만 보이고, 누르면 따로 뜨는 창에서 바로 제목을 씀.
+// 카테고리는 마지막에 쓴 것으로 미리 골라 두고, 바꿀 때만 "바꾸기"를 누름
+// (처음 쓸 때만 카테고리 → 하위카테고리를 먼저 고름. 예전엔 매번 골라야 해서 누르는 횟수가 많았음)
 export default function DayTodoComposer({ date, onOpenDetail }: Props) {
   const [open, setOpen] = useState(false);
   const dateLabel = format(parseISO(date), 'M월 d일');
@@ -33,7 +47,7 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-2 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg hover:ring-leaf-400 dark:hover:ring-leaf-600 transition-shadow pl-3.5 pr-1.5 py-1.5 text-left"
+        className="w-full flex items-center gap-2 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg hover:ring-gray-400 dark:hover:ring-gray-500 transition-shadow pl-3.5 pr-1.5 py-1.5 text-left"
       >
         <Plus size={16} className="text-gray-400 flex-shrink-0" />
         <span className="flex-1 min-w-0 text-sm text-gray-400 py-1.5 truncate">{dateLabel}에 할 일 추가</span>
@@ -58,14 +72,20 @@ type Step = 'category' | 'subcategory' | 'write';
 function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => void }) {
   const { categories, subcategories, addTodo } = useApp();
   const lastCategoryId = readLastCategory();
-  // 카테고리가 하나도 없는 사용자는 바로 제목 쓰기로
-  const [step, setStep] = useState<Step>(categories.length ? 'category' : 'write');
-  const [category, setCategory] = useState<Category | null>(null);
-  const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
+  // 마지막에 쓴 카테고리가 아직 있으면 그걸로 바로 제목 쓰기. 카테고리가 하나도 없는 사용자도 바로 제목 쓰기로
+  const [initialCategory] = useState(() => categories.find(c => c.id === lastCategoryId) ?? null);
+  const [step, setStep] = useState<Step>(initialCategory || !categories.length ? 'write' : 'category');
+  const [category, setCategory] = useState<Category | null>(initialCategory);
+  const [subcategoryId, setSubcategoryId] = useState<string | null>(() => {
+    if (!initialCategory) return null;
+    const last = readLastSubcategory(initialCategory.id);
+    return subcategories.some(s => s.id === last && s.categoryId === initialCategory.id) ? last : null;
+  });
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [added, setAdded] = useState<string[]>([]); // 이 창에서 방금 추가한 할 일 (연달아 추가할 때 확인용)
   const inputRef = useRef<HTMLInputElement>(null);
+  useEscapeKey(onClose);
 
   const categorySubcats = category ? subcategories.filter(s => s.categoryId === category.id) : [];
   const subcategory = categorySubcats.find(s => s.id === subcategoryId) ?? null;
@@ -79,12 +99,14 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
     setCategory(cat);
     setSubcategoryId(null);
     writeLastCategory(cat.id);
+    writeLastSubcategory(cat.id, null);
     // 하위카테고리가 없으면 고를 게 없으니 바로 제목 쓰기로
     setStep(subcategories.some(s => s.categoryId === cat.id) ? 'subcategory' : 'write');
   }
 
   function pickSubcategory(id: string | null) {
     setSubcategoryId(id);
+    if (category) writeLastSubcategory(category.id, id);
     setStep('write');
   }
 
@@ -106,12 +128,14 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
     } finally { setSaving(false); }
   }
 
+  // 카테고리 고르기 → (바꾸던 중이면) 원래 고른 카테고리로 제목 쓰기, 하위카테고리 → 카테고리
   function goBack() {
-    if (step === 'write') setStep(categorySubcats.length ? 'subcategory' : 'category');
-    else setStep('category');
+    if (step === 'subcategory') setStep('category');
+    else if (step === 'category') setStep('write');
   }
 
-  const canGoBack = step !== 'category' && categories.length > 0;
+  // 제목 쓰기 화면은 처음부터 열리므로 뒤로 가기 대신 위의 "바꾸기"로 카테고리를 고름
+  const canGoBack = step === 'subcategory' || (step === 'category' && !!category);
   const heading = step === 'category' ? '어떤 카테고리인가요?' : step === 'subcategory' ? `${category?.name} · 하위 카테고리` : '할 일 추가';
   const rowCls = 'w-full flex items-center gap-3 px-4 min-h-[52px] py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors';
 
@@ -138,9 +162,9 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
               return (
                 <button key={cat.id} onClick={() => pickCategory(cat)} className={rowCls}>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                  <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
+                  <span className="flex-1 min-w-0 text-15px font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
                   {cat.id === lastCategoryId && (
-                    <span className="flex-shrink-0 text-[10.5px] font-semibold text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">최근</span>
+                    <span className="flex-shrink-0 text-10.5px font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded">최근</span>
                   )}
                   {subCount > 0 && <span className="flex-shrink-0 text-xs tabular-nums text-gray-400">하위 {subCount}</span>}
                   <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
@@ -154,13 +178,13 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
         {step === 'subcategory' && category && (
           <div className="flex-1 min-h-0 overflow-y-auto py-1 divide-y divide-gray-100 dark:divide-gray-800/80">
             <button onClick={() => pickSubcategory(null)} className={rowCls}>
-              <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-500 dark:text-gray-400">미정 <span className="text-xs font-normal">(하위 카테고리 없이)</span></span>
+              <span className="flex-1 min-w-0 text-15px font-medium text-gray-500 dark:text-gray-400">미정 <span className="text-xs font-normal">(하위 카테고리 없이)</span></span>
               <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
             </button>
             {categorySubcats.map(sc => (
               <button key={sc.id} onClick={() => pickSubcategory(sc.id)} className={rowCls}>
                 <span className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-                <span className="flex-1 min-w-0 text-[15px] font-medium text-gray-900 dark:text-gray-100 truncate">{sc.name}</span>
+                <span className="flex-1 min-w-0 text-15px font-medium text-gray-900 dark:text-gray-100 truncate">{sc.name}</span>
                 <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />
               </button>
             ))}
@@ -179,14 +203,14 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
               </button>
             )}
 
-            <div className="flex items-center gap-1 bg-white dark:bg-gray-800/60 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-leaf-500 pl-3 pr-1.5 py-1.5">
+            <div className="flex items-center gap-1 bg-white dark:bg-gray-800/60 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-gray-500 pl-3 pr-1.5 py-1.5">
               <input maxLength={LIMITS.title}
                 ref={inputRef}
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="할 일을 적어주세요"
-                className="flex-1 min-w-0 text-[15px] bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5"
+                className="flex-1 min-w-0 text-15px bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5"
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); }}
               />
               <button onClick={handleAdd} disabled={!title.trim() || saving} aria-label="추가" className="btn-primary flex-shrink-0 w-9 h-9">
@@ -208,7 +232,7 @@ function AddTodoSheet({ date, onClose, onOpenDetail }: Props & { onClose: () => 
             {added.length > 0 && (
               <ul className="pt-1 space-y-1" aria-label="방금 추가한 할 일">
                 {added.map((t, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">
+                  <li key={i} className="flex items-center gap-2 text-13px text-gray-600 dark:text-gray-300">
                     <Check size={13} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" strokeWidth={2.6} />
                     <span className="truncate">{t}</span>
                   </li>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { deleteMyAccount } from '../lib/db';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const CONFIRM_TEXT = '삭제합니다';
 
@@ -10,6 +11,7 @@ export default function DeleteAccountModal({ onClose }: { onClose: () => void })
   const [confirmInput, setConfirmInput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  useEscapeKey(onClose, !loading);
 
   async function handleDelete() {
     if (confirmInput !== CONFIRM_TEXT) { setError(`"${CONFIRM_TEXT}"를 정확히 입력해주세요.`); return; }

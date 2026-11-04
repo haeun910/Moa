@@ -18,6 +18,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 오프라인·저장 대기 안내 띠(Toaster)가 떠 있으면 그 높이만큼 화면을 내려서 맨 위 버튼을 가리지 않게 */
+body {
+  padding-top: var(--strip-h, 0px);
+}
+
 /* 모바일에서 앱처럼 고정: 두 번 탭 확대 방지 + 화면 끝에서 튕기거나 당겨서 새로고침 방지.
    주의: html/body에 overflow-x: hidden을 주면 body의 세로 overflow가 auto로 바뀌어 body 자체가
    스크롤 영역이 되는데, 아이폰(WebKit)에서는 이 때문에 페이지 전체 스크롤(저장소/설정 등)이
@@ -45,7 +50,7 @@ html {
   }
   /* 키보드로 이동할 때만 또렷한 초록 포커스 링 */
   :focus-visible {
-    outline: 2px solid theme('colors.leaf.500');
+    outline: 2px solid theme('colors.gray.500');
     outline-offset: 2px;
   }
   input:focus-visible, textarea:focus-visible, select:focus-visible {
@@ -73,7 +78,7 @@ html {
   }
   /* 화면 섹션의 큰 제목 */
   .page-title {
-    @apply text-[26px] leading-tight font-bold tracking-[-0.03em] text-gray-900 dark:text-white;
+    @apply text-26px leading-tight font-bold tracking-[-0.03em] text-gray-900 dark:text-white;
   }
   .page-subtitle {
     @apply text-sm text-gray-500 dark:text-gray-400 mt-1 tabular-nums;
@@ -83,7 +88,7 @@ html {
     @apply bg-white dark:bg-gray-900 shadow-card dark:shadow-none dark:ring-1 dark:ring-gray-800;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 active:bg-leaf-800 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 active:bg-gray-950 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-40;
@@ -93,11 +98,11 @@ html {
   }
   /* 할 일 줄 아래에 펼쳐지는 작은 동작 버튼 (오늘로/날짜/복사 등) */
   .row-action {
-    @apply inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-medium whitespace-nowrap text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors;
+    @apply inline-flex items-center gap-1 h-6 px-2 rounded-md text-11px font-medium whitespace-nowrap text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors;
   }
   /* 카운트 뱃지 */
   .count-pill {
-    @apply text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded-md;
+    @apply text-11px font-semibold tabular-nums text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded-md;
   }
 }
 
@@ -123,4 +128,72 @@ html {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── 메모 보기 화면 (마크다운) ── */
+@layer components {
+  .md {
+    @apply text-15px leading-relaxed text-gray-800 dark:text-gray-100 break-words;
+  }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p, .md ul, .md ol, .md blockquote, .md pre, .md .md-table { margin: 0 0 0.75em; }
+  .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 {
+    @apply font-bold tracking-[-0.02em] text-gray-900 dark:text-white;
+    margin: 1.2em 0 0.45em;
+    line-height: 1.35;
+  }
+  .md h1 { @apply text-22px; }
+  .md h2 { @apply text-[1.2em]; }
+  .md h3 { @apply text-[1.08em]; }
+  .md h4, .md h5, .md h6 { @apply text-[1em]; }
+  .md ul { @apply list-disc pl-[1.35em]; }
+  .md ol { @apply list-decimal pl-[1.5em]; }
+  .md li { margin: 0.15em 0; }
+  .md li > ul, .md li > ol { margin: 0.15em 0 0.2em; }
+  .md li::marker { @apply text-gray-400 dark:text-gray-500; }
+  .md li.task-list-item { list-style: none; position: relative; }
+  .md ul.contains-task-list { @apply pl-[1.6em]; }
+  .md li.task-list-item > input[type='checkbox'],
+  .md li.task-list-item > p > input[type='checkbox'] {
+    @apply absolute -left-[1.6em] top-[0.22em] m-0;
+  }
+  .md input[type='checkbox'] {
+    @apply appearance-none w-[1.1em] h-[1.1em] rounded-[0.32em] border-[1.5px] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 cursor-pointer transition-colors align-[-0.15em];
+  }
+  .md input[type='checkbox']:hover { @apply border-gray-500; }
+  .md input[type='checkbox']:checked {
+    @apply bg-leaf-500 border-leaf-500;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+    background-size: 100% 100%;
+  }
+  .md input[type='checkbox']:focus-visible { @apply outline-none ring-2 ring-gray-400/50 ring-offset-1; }
+  .md li.is-done { @apply text-gray-400 dark:text-gray-500 line-through decoration-gray-300 dark:decoration-gray-600; }
+  .md a {
+    @apply text-gray-900 dark:text-white font-medium underline decoration-gray-300 dark:decoration-gray-600 underline-offset-[3px] hover:decoration-gray-900 dark:hover:decoration-white break-all;
+  }
+  .md strong { @apply font-bold text-gray-900 dark:text-white; }
+  .md del { @apply text-gray-400 dark:text-gray-500; }
+  .md blockquote {
+    @apply border-l-[3px] border-gray-200 dark:border-gray-700 pl-3.5 text-gray-600 dark:text-gray-300;
+  }
+  .md code {
+    @apply px-[0.35em] py-[0.1em] rounded-md bg-gray-100 dark:bg-gray-800 text-[0.88em] font-mono text-gray-800 dark:text-gray-100;
+  }
+  .md pre {
+    @apply p-3.5 rounded-xl bg-gray-100 dark:bg-gray-800 overflow-x-auto text-[0.88em] leading-normal;
+  }
+  .md pre code { @apply p-0 bg-transparent text-[1em]; }
+  .md hr { @apply my-5 border-0 border-t border-gray-200 dark:border-gray-800; }
+  .md img { @apply max-w-full h-auto rounded-lg; }
+  .md .md-table { @apply overflow-x-auto; }
+  .md table { @apply w-full border-collapse text-[0.92em]; }
+  .md th, .md td { @apply border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 text-left align-top; }
+  .md th { @apply bg-gray-50 dark:bg-gray-800/60 font-semibold; }
+}
+
+@layer utilities {
+  /* 가로로 넘기는 줄의 스크롤 막대 숨기기 (넘기기는 그대로 됨) */
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }

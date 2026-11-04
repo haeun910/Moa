@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { newSeriesId as newId } from './recurrence';
 import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbNoteFolder, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbTimeBlock, DbNotice, AdminStats } from './supabase';
 
 // ────────────────────────────────────────────────
@@ -82,6 +83,20 @@ export async function deleteMyAccount(userId: string): Promise<void> {
   }
 }
 
+// 체험(익명) 계정만 지움 (024 마이그레이션의 delete_guest_account 함수).
+// 서버가 "지금 로그인한 계정 = 이 체험 계정이고 익명일 때"만 지우므로, 그 사이 다른 창에서
+// 회원 계정으로 바뀌었어도 회원 계정은 절대 지워지지 않음
+export async function deleteGuestAccount(guestId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_guest_account', { p_guest_id: guestId });
+  if (error) throw error;
+}
+
+// 024를 아직 실행하지 않은 DB인지 (함수가 없다는 오류)
+export function isMissingGuestDeleteFunction(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  return e?.code === 'PGRST202' || /delete_guest_account/.test(e?.message ?? '');
+}
+
 // ────────────────────────────────────────────────
 // Categories
 // ────────────────────────────────────────────────
@@ -98,7 +113,7 @@ export async function fetchCategories(userId: string): Promise<DbCategory[]> {
 export async function createCategory(userId: string, name: string, color: string, sortOrder = 0, description?: string | null): Promise<DbCategory> {
   const { data, error } = await supabase
     .from('categories')
-    .insert({ user_id: userId, name, color, sort_order: sortOrder, description: description ?? null })
+    .insert({ id: newId(), user_id: userId, name, color, sort_order: sortOrder, description: description ?? null })
     .select()
     .single();
   if (error) throw error;
@@ -131,7 +146,7 @@ export async function fetchSubcategories(userId: string): Promise<DbSubcategory[
 export async function createSubcategory(userId: string, categoryId: string, name: string, sortOrder = 0): Promise<DbSubcategory> {
   const { data, error } = await supabase
     .from('subcategories')
-    .insert({ user_id: userId, category_id: categoryId, name, sort_order: sortOrder })
+    .insert({ id: newId(), user_id: userId, category_id: categoryId, name, sort_order: sortOrder })
     .select()
     .single();
   if (error) throw error;
@@ -166,11 +181,11 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
 
 export async function createTodo(
   userId: string,
-  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; end_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean }
+  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; end_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean; remind_minutes?: number | null; time_zone?: string }
 ): Promise<DbTodo> {
   const { data, error } = await supabase
     .from('todos')
-    .insert({ user_id: userId, ...fields })
+    .insert({ id: newId(), user_id: userId, ...fields })
     .select('*')
     .single();
   if (error) throw error;
@@ -179,7 +194,7 @@ export async function createTodo(
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'end_time' | 'notes' | 'sort_order' | 'is_dday'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'end_time' | 'notes' | 'sort_order' | 'is_dday' | 'skipped' | 'remind_minutes' | 'time_zone'>>
 ): Promise<void> {
   const { error } = await supabase.from('todos').update(updates).eq('id', id);
   if (error) throw error;
@@ -197,8 +212,10 @@ function isMissingSeriesColumn(error: { message?: string } | null): boolean {
   return !!error?.message && error.message.includes('series_id');
 }
 
-async function insertMany<T>(table: 'todos' | 'schedules' | 'timeblocks', rows: Record<string, unknown>[]): Promise<T[]> {
-  if (rows.length === 0) return [];
+async function insertMany<T>(table: 'todos' | 'schedules' | 'timeblocks', input: Record<string, unknown>[]): Promise<T[]> {
+  if (input.length === 0) return [];
+  // id는 기기에서 정함: 오프라인에서 만든 뒤 바로 고치거나 지워도 다시 연결될 때 같은 항목으로 반영되게
+  const rows: Record<string, unknown>[] = input.map(r => ({ id: newId(), ...r }));
   const first = await supabase.from(table).insert(rows).select('*');
   if (!first.error) return (first.data ?? []) as T[];
   if (!isMissingSeriesColumn(first.error)) throw first.error;
@@ -225,7 +242,7 @@ export async function createTodos(userId: string, rows: Parameters<typeof create
 
 export async function updateTodoSeries(
   seriesId: string, fromDate: string | null,
-  updates: Partial<Pick<DbTodo, 'title' | 'category_id' | 'subcategory_id' | 'start_time' | 'end_time' | 'notes'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'category_id' | 'subcategory_id' | 'start_time' | 'end_time' | 'notes' | 'remind_minutes' | 'time_zone'>>
 ): Promise<void> {
   const { error } = await seriesQuery(supabase.from('todos').update(updates), seriesId, fromDate);
   if (error) throw error;
@@ -253,7 +270,7 @@ export async function createNote(userId: string, title: string, content: string,
   const { data, error } = await supabase
     .from('notes')
     // folder_id는 폴더를 고른 경우에만 보냄 (014 마이그레이션 전에도 폴더 없는 메모는 저장되도록)
-    .insert({ user_id: userId, title, content, ...(folderId ? { folder_id: folderId } : {}) })
+    .insert({ id: newId(), user_id: userId, title, content, ...(folderId ? { folder_id: folderId } : {}) })
     .select()
     .single();
   if (error) throw error;
@@ -285,7 +302,7 @@ export async function fetchNoteFolders(userId: string): Promise<DbNoteFolder[]> 
 export async function createNoteFolder(userId: string, name: string, sortOrder: number): Promise<DbNoteFolder> {
   const { data, error } = await supabase
     .from('note_folders')
-    .insert({ user_id: userId, name, sort_order: sortOrder })
+    .insert({ id: newId(), user_id: userId, name, sort_order: sortOrder })
     .select()
     .single();
   if (error) throw error;
@@ -340,7 +357,7 @@ export async function fetchMonthlyGoals(userId: string): Promise<DbMonthlyGoal[]
 export async function createMonthlyGoal(userId: string, month: string, title: string): Promise<DbMonthlyGoal> {
   const { data, error } = await supabase
     .from('monthly_goals')
-    .insert({ user_id: userId, month, title })
+    .insert({ id: newId(), user_id: userId, month, title })
     .select()
     .single();
   if (error) throw error;
@@ -373,7 +390,7 @@ export async function fetchDDays(userId: string): Promise<DbDDay[]> {
 export async function createDDay(userId: string, title: string, targetDate: string): Promise<DbDDay> {
   const { data, error } = await supabase
     .from('ddays')
-    .insert({ user_id: userId, title, target_date: targetDate })
+    .insert({ id: newId(), user_id: userId, title, target_date: targetDate })
     .select()
     .single();
   if (error) throw error;
@@ -406,18 +423,18 @@ export async function fetchSchedules(userId: string): Promise<DbSchedule[]> {
 
 export async function createSchedule(
   userId: string,
-  fields: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null }
+  fields: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null; remind_minutes?: number | null; time_zone?: string }
 ): Promise<DbSchedule> {
   const { data, error } = await supabase
     .from('schedules')
-    .insert({ user_id: userId, ...fields })
+    .insert({ id: newId(), user_id: userId, ...fields })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'end_time' | 'end_date' | 'notes'>>): Promise<void> {
+export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'end_time' | 'end_date' | 'notes' | 'completed' | 'remind_minutes' | 'time_zone'>>): Promise<void> {
   const { error } = await supabase.from('schedules').update(updates).eq('id', id);
   if (error) throw error;
 }
@@ -429,7 +446,7 @@ export async function deleteSchedule(id: string): Promise<void> {
 
 export async function createSchedules(
   userId: string,
-  rows: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null }[],
+  rows: { title: string; date: string; start_time?: string | null; end_time?: string | null; end_date?: string | null; notes?: string | null; remind_minutes?: number | null; time_zone?: string }[],
   seriesId: string
 ): Promise<DbSchedule[]> {
   return insertMany<DbSchedule>('schedules', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
@@ -437,7 +454,7 @@ export async function createSchedules(
 
 export async function updateScheduleSeries(
   seriesId: string, fromDate: string | null,
-  updates: Partial<Pick<DbSchedule, 'title' | 'start_time' | 'end_time' | 'notes'>>
+  updates: Partial<Pick<DbSchedule, 'title' | 'start_time' | 'end_time' | 'notes' | 'remind_minutes' | 'time_zone'>>
 ): Promise<void> {
   const { error } = await seriesQuery(supabase.from('schedules').update(updates), seriesId, fromDate);
   if (error) throw error;
@@ -502,7 +519,7 @@ export async function createTimeBlock(
 ): Promise<DbTimeBlock> {
   const { data, error } = await supabase
     .from('timeblocks')
-    .insert({ user_id: userId, ...fields })
+    .insert({ id: newId(), user_id: userId, ...fields })
     .select()
     .single();
   if (error) throw error;

@@ -3,9 +3,13 @@ import { X, ChevronLeft, ChevronRight, TrendingUp, Target, CheckCircle2 } from '
 import { format, addMonths, subMonths, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function AchievementModal({ onClose }: { onClose: () => void }) {
-  const { todos, categories, monthlyGoals } = useApp();
+  useEscapeKey(onClose);
+  const { todos: allTodos, categories, monthlyGoals } = useApp();
+  // '안 하기'로 정리한 할 일은 할 일 개수·달성률에서 뺌
+  const todos = allTodos.filter(t => !t.skipped);
   const [viewMonth, setViewMonth] = useState(new Date());
 
   const monthStr = format(viewMonth, 'yyyy-MM');
@@ -89,7 +93,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
             {stats.map(s => (
               <div key={s.label} className="px-4 py-4 bg-white dark:bg-gray-900">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{s.label}</p>
-                <p className="mt-1.5 text-[28px] leading-none font-bold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">
+                <p className="mt-1.5 text-28px leading-none font-bold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">
                   {s.value}<span className="text-sm font-semibold text-gray-400 ml-0.5">{s.unit}</span>
                 </p>
               </div>
@@ -101,7 +105,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={15} className="text-leaf-600 dark:text-leaf-400" />
+                  <CheckCircle2 size={15} className="text-gray-500 dark:text-gray-400" />
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">할 일 달성률</span>
                 </div>
                 <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{rate}%</span>
@@ -115,7 +119,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Target size={15} className="text-leaf-600 dark:text-leaf-400" />
+                    <Target size={15} className="text-gray-500 dark:text-gray-400" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                       {format(viewMonth, 'M월')} 목표 달성률
                     </span>
@@ -134,17 +138,17 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp size={15} className="text-leaf-600 dark:text-leaf-400" />
+                <TrendingUp size={15} className="text-gray-500 dark:text-gray-400" />
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">최근 14일</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-[3px] bg-leaf-100 dark:bg-leaf-900/50 block" />
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">할 일</span>
+                  <span className="text-11px text-gray-500 dark:text-gray-400">할 일</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-[3px] bg-leaf-500 block" />
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">완료</span>
+                  <span className="text-11px text-gray-500 dark:text-gray-400">완료</span>
                 </div>
               </div>
             </div>
@@ -163,7 +167,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
                         )}
                       </div>
                     </div>
-                    <span className={`text-[10px] tabular-nums ${isLast ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400'}`}>{d.shortLabel}</span>
+                    <span className={`text-10px tabular-nums ${isLast ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400'}`}>{d.shortLabel}</span>
                   </div>
                 );
               })}
@@ -179,7 +183,7 @@ export default function AchievementModal({ onClose }: { onClose: () => void }) {
                   const pct = ct > 0 ? Math.round((cc / ct) * 100) : 0;
                   return (
                     <div key={cat.id}>
-                      <div className="flex justify-between items-center text-[13px] mb-1.5">
+                      <div className="flex justify-between items-center text-13px mb-1.5">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="font-medium text-gray-800 dark:text-gray-200">{cat.name}</span>

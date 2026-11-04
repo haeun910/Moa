@@ -1,7 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
+import { deleteGuestAccount } from '../lib/db';
+import { reportError } from '../lib/monitoring';
 import { setMonitoringUser } from '../lib/monitoring';
+import { clearOfflineData } from '../lib/offlineData';
 import { disablePush } from '../lib/push';
 
 interface AuthContextType {
@@ -16,6 +20,9 @@ interface AuthContextType {
   signInAsGuest: () => Promise<{ error: string | null }>;
   upgradeWithEmail: (email: string) => Promise<{ error: string | null }>;
   linkGoogle: () => Promise<{ error: string | null }>;
+  // 체험 중에 이미 있는 계정으로 로그인 (체험 데이터는 옮기지 않고 지움)
+  loginFromGuest: (email: string, password: string) => Promise<{ error: string | null }>;
+  googleLoginFromGuest: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -92,10 +99,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  // 체험 계정을 지움 (실패해도 로그인은 계속: 남은 체험 데이터는 본인만 볼 수 있고 다시 들어올 방법이 없을 뿐).
+  // 서버 함수가 "지금 로그인한 계정이 이 체험 계정일 때만" 지우므로, 그 사이 회원 계정으로 바뀌었으면 아무것도 안 지움.
+  // 함수가 아직 없는 DB(024 전)면 지우지 않고 넘어감 (회원 계정을 지울 위험이 있는 예전 방식은 쓰지 않음)
+  async function dropGuest(guestId: string) {
+    try { await deleteGuestAccount(guestId); } catch (e) { reportError(e, 'delete guest before login'); }
+    await clearOfflineData(guestId);
+  }
+
+  // 체험 → 회원 계정 전환은 한 번에 하나만 (창을 닫았다 다시 열어 두 번 눌러도 겹치지 않게)
+  const switchingRef = useRef(false);
+  async function switchFromGuest<T extends { error: string | null }>(run: (guestId: string) => Promise<T>): Promise<T | { error: string }> {
+    if (switchingRef.current) return { error: 'already switching' };
+    const guestId = user?.is_anonymous ? user.id : null;
+    if (!guestId) return { error: 'not a guest' };
+    switchingRef.current = true;
+    try { return await run(guestId); } finally { switchingRef.current = false; }
+  }
+
+  // 체험 중 → 이메일 계정으로 로그인. 비밀번호가 틀려도 체험 데이터가 지워지지 않도록,
+  // 따로 만든 임시 연결로 먼저 로그인해 보고 성공했을 때만 체험 계정을 지우고 그 계정으로 바꿈
+  function loginFromGuest(email: string, password: string) {
+    return switchFromGuest(async guestId => {
+      const probe = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'moa-guest-login-probe' } });
+      const { data, error } = await probe.auth.signInWithPassword({ email, password });
+      if (error || !data.session) return { error: error?.message ?? 'login failed' };
+      await dropGuest(guestId);
+      const { error: setError } = await supabase.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+      return { error: setError?.message ?? null };
+    });
+  }
+
+  // 체험 중 → 구글 계정으로 로그인 (구글 화면으로 넘어가므로 넘어가기 전에 체험 계정을 지움)
+  function googleLoginFromGuest() {
+    return switchFromGuest(async guestId => {
+      await dropGuest(guestId);
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      return signInWithGoogle();
+    });
+  }
+
   async function signOut() {
-    // 이 기기로 이전 계정의 타임박스 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
+    const userId = user?.id;
+    // 이 기기로 이전 계정의 알림이 계속 오지 않도록 로그아웃 전에 알림 구독을 정리
     await disablePush().catch(() => {});
     await supabase.auth.signOut();
+    // 같은 기기를 다른 사람이 쓸 수 있으므로, 이 기기에 남겨 둔 내용(오프라인용)도 지움
+    if (userId) await clearOfflineData(userId);
   }
 
   async function resetPassword(email: string) {
@@ -116,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, loading, signUp, signIn, signInWithGoogle, signOut, resetPassword, updatePassword,
-      isGuest: user?.is_anonymous ?? false, signInAsGuest, upgradeWithEmail, linkGoogle,
+      isGuest: user?.is_anonymous ?? false, signInAsGuest, upgradeWithEmail, linkGoogle, loginFromGuest, googleLoginFromGuest,
       passwordRecovery, endPasswordRecovery: () => setPasswordRecovery(false),
     }}>
       {children}

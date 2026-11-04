@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, CalendarCheck, Repeat } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -10,6 +10,12 @@ import ScheduleModal from '../components/ScheduleModal';
 import ScheduleDeleteButton from '../components/ScheduleDeleteButton';
 import OverdueModal from '../components/OverdueModal';
 import HelpTip from '../components/HelpTip';
+import Sheet from '../components/Sheet';
+import ScheduleCheck from '../components/ScheduleCheck';
+import CalendarViewTabs from '../components/CalendarViewTabs';
+import { savedCalendarView } from '../lib/calendarView';
+import { openSearch } from '../lib/searchStore';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { GUIDES } from '../data/guides';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -28,21 +34,22 @@ import { todoDdays } from '../lib/agenda';
 import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
 import { timeRangeLabel } from '../lib/timeRange';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
+import { overdueTodos as findOverdue, progressOf, rate, splitOverdue } from '../lib/homeStats';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// 설정 > 달력 표시에서 고른 글자 크기에 맞춰 달력 칸의 일정 칩 스타일을 정함.
+// 설정 > 글자 크기에 맞춰 달력 칸 높이와 칸에 넣는 칩 개수를 정함 (글자 자체는 앱 전체 배율로 커짐).
 // 글자가 커질수록 칸 하나에 다 들어가는 칩 개수는 줄이고 칸 높이를 늘림.
 const CALENDAR_CHIP_STYLES: Record<Settings['calendarTextSize'], { chip: string; cellMinH: string; maxChips: number; icon: number }> = {
-  small: { chip: 'text-[9px] md:text-[9px]', cellMinH: 'min-h-[82px]', maxChips: 4, icon: 7 },
-  medium: { chip: 'text-[11px] md:text-[10.5px]', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
-  large: { chip: 'text-[13px] md:text-[12px]', cellMinH: 'min-h-[112px]', maxChips: 2, icon: 9 },
+  small: { chip: 'text-10.5px', cellMinH: 'min-h-[84px]', maxChips: 3, icon: 7 },
+  medium: { chip: 'text-10.5px', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
+  large: { chip: 'text-10.5px', cellMinH: 'min-h-[112px]', maxChips: 2, icon: 9 },
 };
 
 // 일요일/토요일 글자색 (달력 숫자, 요일 머리글 공통)
 function weekdayTone(dow: number) {
   if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
+  if (dow === 6) return 'text-gray-500 dark:text-gray-400';
   return 'text-gray-700 dark:text-gray-200';
 }
 
@@ -60,7 +67,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
           type="date"
           autoFocus
           defaultValue={todo.date ?? ''}
-          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
+          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
           onChange={e => { if (e.target.value) onMove(e.target.value); setOpen(false); }}
           onBlur={() => setOpen(false)}
         />
@@ -71,7 +78,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 // 상단 요약 띠의 한 칸 (목표 / D-Day / 일정)
 function OverviewColumn({
-  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children,
+  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children, footer, inSheet,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -84,34 +91,44 @@ function OverviewColumn({
   emptyText: string;
   isEmpty: boolean;
   children: React.ReactNode;
+  footer?: React.ReactNode;
+  inSheet?: boolean; // 폰·태블릿 팝업 안: 높이 제한 없이, 손가락으로 누르기 쉽게 크게
 }) {
   return (
-    <div className="flex flex-col min-w-0 px-4 pt-3.5 pb-3 md:h-[156px]">
+    <div className={`flex flex-col min-w-0 ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2 min-w-0">
           {icon}
           {onTitleClick ? (
             <button onClick={onTitleClick} title={titleHint}
-              className="text-[13px] font-semibold text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
+              className="text-13px font-semibold text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
               {title}
             </button>
           ) : (
-            <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{title}</span>
+            <span className="text-13px font-semibold text-gray-900 dark:text-white">{title}</span>
           )}
           {help && <HelpTip text={help} label={title} />}
           {meta}
         </div>
-        <button onClick={onAdd} aria-label={addLabel} title={addLabel} className="btn-icon w-7 h-7 -mr-1.5">
-          <Plus size={15} />
-        </button>
+        {inSheet ? (
+          <button onClick={onAdd} className="btn-primary h-8 px-3 text-13px -mr-1">
+            <Plus size={14} />
+            추가
+          </button>
+        ) : (
+          <button onClick={onAdd} aria-label={addLabel} title={addLabel} className="btn-icon w-7 h-7 -mr-1.5">
+            <Plus size={15} />
+          </button>
+        )}
       </div>
-      <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin -mx-1 px-1">
+      <div className={`flex-1 overflow-y-auto scrollbar-thin -mx-1 px-1 ${inSheet ? 'divide-y divide-gray-100 dark:divide-gray-800' : 'space-y-1'}`}>
         {isEmpty ? (
-          <button onClick={onAdd} className="w-full text-left text-[13px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1 transition-colors">
+          <button onClick={onAdd} className={`w-full text-left text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1 transition-colors ${inSheet ? 'text-sm py-6 text-center' : 'text-13px'}`}>
             {emptyText}
           </button>
         ) : children}
       </div>
+      {footer}
     </div>
   );
 }
@@ -131,7 +148,10 @@ export default function TodayPage() {
   const currentMonth = format(viewMonth, 'yyyy-MM');
   const monthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const completedGoals = monthGoals.filter(g => g.completed).length;
-  const monthSchedules = schedules.filter(s => scheduleOverlaps(s, `${currentMonth}-01`, `${currentMonth}-31`));
+  const monthAllSchedules = schedules.filter(s => scheduleOverlaps(s, `${currentMonth}-01`, `${currentMonth}-31`));
+  // 완료한 일정은 위쪽 일정 목록에서 빠짐 (달력 칸과 날짜 창에는 흐리게 남아서 다시 풀 수 있음)
+  const monthSchedules = monthAllSchedules.filter(s => !s.completed);
+  const monthDoneSchedules = monthAllSchedules.length - monthSchedules.length;
 
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
@@ -143,7 +163,12 @@ export default function TodayPage() {
   const [ddayModalState, setDdayModalState] = useState<{ dday?: DDay } | null>(null);
   const [showDdayListModal, setShowDdayListModal] = useState(false);
   const [scheduleModalState, setScheduleModalState] = useState<{ schedule?: ScheduleItem; defaultDate?: string } | null>(null);
-  const [calView, setCalView] = useState<'month' | 'week'>('month');
+  const [calView, setCalView] = useState<'month' | 'week'>(savedCalendarView);
+  // 컴퓨터는 오른쪽 패널, 폰·태블릿은 날짜를 누르면 팝업
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isPhone = useMediaQuery('(max-width: 767px)');
+  // 폰·태블릿: 목표·D-Day·일정을 위에 다 펼치지 않고 눌러서 팝업으로
+  const [overviewSheet, setOverviewSheet] = useState<'goal' | 'dday' | 'schedule' | null>(null);
   const [weekRef, setWeekRef] = useState(new Date());
   const [weekAddDate, setWeekAddDate] = useState<string | null>(null);
   const [weekAddTitle, setWeekAddTitle] = useState('');
@@ -166,6 +191,7 @@ export default function TodayPage() {
     end: endOfWeek(endOfMonth(viewMonth)),
   });
   const weekCount = Math.ceil(days.length / 7);
+  const weekDays = eachDayOfInterval({ start: startOfWeek(weekRef, { weekStartsOn: 0 }), end: endOfWeek(weekRef, { weekStartsOn: 0 }) });
   const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
   // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
   const holidayRange = [
@@ -178,11 +204,12 @@ export default function TodayPage() {
   // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
   // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
   const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
-  const selectedDoneCount = selectedTodos.filter(t => t.completed).length;
+  // 진행 막대는 '안 하기'로 정리한 할 일을 빼고 셈
+  const selectedProgress = progressOf(selectedTodos);
 
   const selectedSchedules = schedules.filter(s => scheduleOnDate(s, selectedDate));
-  // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
-  const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
+  // 지난 날짜에 못 끝낸 할 일 (홈과 같은 기준: 반복은 최근 회차만, 2주 넘은 것은 접어 둬서 숫자에 안 셈)
+  const overdueTodos = splitOverdue(findOverdue(todos, todayStr), todayStr).recent;
 
   function handleDayClick(dateStr: string) {
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
@@ -244,23 +271,6 @@ export default function TodayPage() {
     );
   }
 
-  // 미완료 모아보기에서는 "오늘로" 버튼을 맨 앞에 추가
-  function getOverdueActions(todo: Todo) {
-    return (
-      <>
-        <button
-          onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: todayStr }); }}
-          className="row-action !bg-leaf-50 !text-leaf-700 hover:!bg-leaf-100 dark:!bg-leaf-900/30 dark:!text-leaf-300 dark:hover:!bg-leaf-900/60"
-          title="오늘 할 일로 옮기기"
-        >
-          <CalendarCheck size={11} />
-          오늘로
-        </button>
-        {getTodoActions(todo)}
-      </>
-    );
-  }
-
   // 선택한 날의 할 일을 카테고리별로 나눠서 보여줌 (카테고리 이름이 목록 사이에 끼워짐)
   function renderDayGroups() {
     if (selectedTodos.length === 0 && selectedSchedules.length === 0 && selectedDdays.length === 0) {
@@ -270,7 +280,7 @@ export default function TodayPage() {
             <Check size={20} className="text-gray-400" />
           </div>
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">이 날은 비어 있어요</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">아래 입력창에 할 일을 적고 Enter를 누르세요</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">아래 입력창에 할 일을 적거나, 위의 "일정"으로 약속을 추가하세요</p>
         </div>
       );
     }
@@ -279,7 +289,7 @@ export default function TodayPage() {
         {selectedDdays.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-2 px-0.5">
-              <Flag size={13} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
+              <Flag size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">D-Day</span>
               <span className="count-pill">{selectedDdays.length}</span>
             </div>
@@ -301,7 +311,7 @@ export default function TodayPage() {
                   <button
                     onClick={e => { e.stopPropagation(); removeDday(d); }}
                     aria-label="D-Day 삭제"
-                    className="flex-shrink-0 opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all"
+                    className="flex-shrink-0 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -313,7 +323,7 @@ export default function TodayPage() {
         {selectedSchedules.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-2 px-0.5">
-              <CalendarClock size={13} className="text-blue-500 flex-shrink-0" />
+              <CalendarClock size={13} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">일정</span>
               <span className="count-pill">{selectedSchedules.length}</span>
             </div>
@@ -322,20 +332,20 @@ export default function TodayPage() {
                 <div
                   key={s.id}
                   onClick={() => setScheduleModalState({ schedule: s })}
-                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer group first:rounded-t-xl last:rounded-b-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer group first:rounded-t-xl last:rounded-b-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${s.completed ? 'opacity-60' : ''}`}
                 >
-                  <span className="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="flex-shrink-0 w-11 text-xs font-semibold leading-tight tabular-nums text-blue-600 dark:text-blue-300">
+                  <ScheduleCheck schedule={s} />
+                  <span className="flex-shrink-0 w-11 text-xs font-semibold leading-tight tabular-nums text-ink-600 dark:text-ink-300">
                     {isMultiDay(s) ? '기간' : s.startTime ?? '종일'}
                     {!isMultiDay(s) && s.endTime && timeRangeLabel(s.startTime, s.endTime).includes('~') && (
-                      <span className="block text-[10.5px] font-normal text-blue-400">~{s.endTime}</span>
+                      <span className="block text-10.5px font-normal text-ink-400">~{s.endTime}</span>
                     )}
                   </span>
-                  <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate">{s.title}</span>
-                  {isMultiDay(s) && <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{format(parseISO(s.date), 'M/d')}~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
-                  {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
+                  <span className={`flex-1 min-w-0 text-sm truncate ${s.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>{s.title}</span>
+                  {isMultiDay(s) && <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">{format(parseISO(s.date), 'M/d')}~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
+                  {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-ink-300 dark:text-ink-700" aria-label="반복 일정" />}
                   <ScheduleDeleteButton schedule={s}
-                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
+                    className="flex-shrink-0 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
                 </div>
               ))}
             </div>
@@ -348,7 +358,7 @@ export default function TodayPage() {
 
   // 선택한 날 패널의 머리글 (데스크톱/모바일 공통)
   function renderPanelHeader(compact: boolean) {
-    const pct = selectedTodos.length ? Math.round((selectedDoneCount / selectedTodos.length) * 100) : 0;
+    const pct = rate(selectedProgress) ?? 0;
     const isTodaySelected = selectedDate === todayStr;
     return (
       <div className={compact ? 'px-4 pt-4 pb-3 flex-shrink-0' : 'px-6 pt-6 pb-4 flex-shrink-0'}>
@@ -357,16 +367,23 @@ export default function TodayPage() {
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
               {format(parseISO(selectedDate), 'EEEE', { locale: ko })}
               {holidayLabel(holidays, selectedDate) && <span className="ml-1.5 text-red-500 dark:text-red-400 font-semibold">{holidayLabel(holidays, selectedDate)}</span>}
-              {isTodaySelected && <span className="ml-1.5 text-leaf-600 dark:text-leaf-400 font-semibold">오늘</span>}
+              {isTodaySelected && <span className="ml-1.5 text-gray-900 dark:text-white font-semibold">오늘</span>}
             </p>
-            <h2 className={`${compact ? 'text-lg' : 'text-[22px]'} font-bold tracking-[-0.03em] text-gray-900 dark:text-white tabular-nums mt-0.5`}>
+            <h2 className={`${compact ? 'text-lg' : 'text-22px'} font-bold tracking-[-0.03em] text-gray-900 dark:text-white tabular-nums mt-0.5`}>
               {format(parseISO(selectedDate), 'M월 d일', { locale: ko })}
             </h2>
           </div>
           <div className="flex items-center gap-0.5 -mr-1.5">
-            <button onClick={() => setScheduleModalState({ defaultDate: selectedDate })} aria-label="일정 추가" title="일정 추가" className="btn-icon">
-              <CalendarClock size={16} />
-            </button>
+            {compact ? (
+              <button onClick={() => setScheduleModalState({ defaultDate: selectedDate })} className="btn-secondary h-8 px-2.5 text-13px mr-1">
+                <Plus size={14} />
+                일정
+              </button>
+            ) : (
+              <button onClick={() => setScheduleModalState({ defaultDate: selectedDate })} aria-label="일정 추가" title="일정 추가" className="btn-icon">
+                <CalendarClock size={16} />
+              </button>
+            )}
             <button onClick={() => setCurrentScreen('calendar')} aria-label="시간표 보기" title="시간표 보기" className="btn-icon">
               <Clock10 size={16} />
             </button>
@@ -375,13 +392,13 @@ export default function TodayPage() {
             </button>
           </div>
         </div>
-        {selectedTodos.length > 0 && (
+        {selectedProgress.total > 0 && (
           <div className="flex items-center gap-3 mt-3">
             <div className="flex-1 h-1 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
               <div className="h-full rounded-full bg-leaf-500 transition-[width] duration-500" style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
-              <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedDoneCount}</span> / {selectedTodos.length} 완료
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProgress.done}</span> / {selectedProgress.total} 완료
             </span>
           </div>
         )}
@@ -393,6 +410,125 @@ export default function TodayPage() {
     return <DayTodoComposer date={selectedDate} onOpenDetail={openNewTodoDetail} />;
   }
 
+  const goalColumn = (inSheet = false) => (
+    <>
+    {/* 이번달 목표 */}
+    <OverviewColumn
+      inSheet={inSheet}
+      icon={<Target size={15} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+      title={`${format(viewMonth, 'M월')} 목표`}
+      help={GUIDES.goal}
+      meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
+      onAdd={() => setGoalModalState({})}
+      addLabel="목표 추가"
+      emptyText="이번 달에 이루고 싶은 것을 적어보세요"
+      isEmpty={monthGoals.length === 0}
+    >
+      {monthGoals.map(g => (
+        <div key={g.id} className="ov-row flex items-center gap-2.5 group py-0.5">
+          <button onClick={() => toggleMonthlyGoal(g.id)}
+            aria-label={g.completed ? '완료 취소' : '완료 처리'}
+            className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center transition-colors ${
+              g.completed ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500' : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500'
+            }`}>
+            {g.completed && <Check size={10} className="text-white" strokeWidth={3.2} />}
+          </button>
+          <button
+            onClick={() => setGoalModalState({ goal: g })}
+            title="눌러서 수정"
+            className={`flex-1 min-w-0 truncate text-left text-13px hover:text-gray-900 dark:hover:text-white transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
+          >
+            {g.title}
+          </button>
+          <button onClick={() => deleteMonthlyGoal(g.id)} aria-label="목표 삭제"
+            className="p-1.5 -m-1.5 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all">
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+    </OverviewColumn>
+
+    </>
+  );
+  const ddayColumn = (inSheet = false) => (
+    <>
+    {/* D-Day */}
+    <OverviewColumn
+      inSheet={inSheet}
+      icon={<Flag size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+      title="D-Day"
+      help={GUIDES.dday}
+      onTitleClick={() => setShowDdayListModal(true)}
+      titleHint="지난 D-Day까지 전체 보기"
+      onAdd={() => setDdayModalState({})}
+      addLabel="D-Day 추가"
+      emptyText="다가오는 날을 등록해 카운트다운하세요"
+      isEmpty={upcomingDdays.length === 0}
+    >
+      {upcomingDdays.map(d => (
+        <div key={d.id} className="ov-row flex items-center gap-2.5 group py-0.5">
+          <span className={`flex-shrink-0 text-11px font-bold tabular-nums px-1.5 py-0.5 rounded-md min-w-[46px] text-center ${
+            ddayLabel(d.targetDate) === 'D-Day'
+              ? 'bg-leaf-600 text-white'
+              : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-700 dark:text-leaf-300'
+          }`}>
+            {ddayLabel(d.targetDate)}
+          </span>
+          <span className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate">{d.title}</span>
+          {d.fromTodoId && (
+            <span title="할 일에서 연동됨" className="flex-shrink-0 text-gray-300 dark:text-gray-600">
+              <Link2 size={11} />
+            </span>
+          )}
+          <span className="flex-shrink-0 text-11px tabular-nums text-gray-400 hidden sm:inline">{format(parseISO(d.targetDate), 'M/d')}</span>
+          <button onClick={() => removeDday(d)} aria-label="D-Day 삭제"
+            className="p-1.5 -m-1.5 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      ))}
+    </OverviewColumn>
+
+    </>
+  );
+  const scheduleColumn = (inSheet = false) => (
+    <>
+    {/* 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개로 관리) */}
+    <OverviewColumn
+      inSheet={inSheet}
+      icon={<CalendarClock size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+      title={`${format(viewMonth, 'M월')} 일정`}
+      help={GUIDES.schedule}
+      meta={monthSchedules.length > 0 && <span className="count-pill">{monthSchedules.length}</span>}
+      onAdd={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })}
+      addLabel="일정 추가"
+      emptyText={monthDoneSchedules > 0 ? '남은 일정을 모두 끝냈어요' : '약속이나 회의처럼 시간이 정해진 일을 추가하세요'}
+      isEmpty={monthSchedules.length === 0}
+      footer={monthDoneSchedules > 0 && (
+        <p className={`flex-shrink-0 pt-1.5 text-11px text-gray-400 dark:text-gray-500 ${inSheet ? 'text-12px pt-3' : ''}`}>
+          완료한 일정 {monthDoneSchedules}개는 달력 칸에 흐리게 남아 있어요
+        </p>
+      )}
+    >
+      {monthSchedules.map(s => (
+        <div key={s.id} className="ov-row flex items-center gap-2.5 group cursor-pointer py-0.5" onClick={() => setScheduleModalState({ schedule: s })}>
+          <ScheduleCheck schedule={s} size="sm" />
+          <span className="flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-ink-50 dark:bg-ink-900/30 text-ink-700 dark:text-ink-300">
+            {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
+          </span>
+          <span className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
+          {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-ink-300 dark:text-ink-700" aria-label="반복 일정" />}
+          {s.startTime && (
+            <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
+          )}
+          <ScheduleDeleteButton schedule={s} size={12}
+            className="p-1.5 -m-1.5 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
+        </div>
+      ))}
+    </OverviewColumn>
+    </>
+  );
+
   const navBtn = 'btn-icon w-8 h-8';
 
   return (
@@ -402,7 +538,7 @@ export default function TodayPage() {
       {/* 노트북처럼 화면 세로 길이가 짧을 때 목표/D-Day 카드 + 달력의 최소 높이 합이 화면을 넘으면
           예전엔 md:overflow-hidden 때문에 달력 아래쪽이 그냥 잘려서 안 보였음.
           내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
-      <div className={`flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'md:h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
 
         <div className="flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 md:min-h-0">
 
@@ -431,38 +567,30 @@ export default function TodayPage() {
                 </button>
               </div>
               <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPanelOpen(true); }}
-                className="btn-secondary h-8 px-3 text-[13px]">
+                className="btn-secondary h-8 px-3 text-13px">
                 오늘
               </button>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* 월/주 전환 */}
-              <div className="flex p-0.5 rounded-lg bg-gray-200/60 dark:bg-gray-800 text-[13px] font-medium" role="tablist" aria-label="달력 보기">
-                {(['month', 'week'] as const).map(v => (
-                  <button key={v} role="tab" aria-selected={calView === v} onClick={() => setCalView(v)}
-                    className={`h-7 px-3 rounded-md transition-all ${
-                      calView === v
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm font-semibold'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}>
-                    {v === 'month' ? '월' : '주'}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => setShowOverdue(true)} aria-label="미완료 할 일" title="지난 날짜의 미완료 할 일 모아보기"
-                className={`btn-secondary relative h-8 w-8 sm:w-auto sm:px-3 text-[13px] ${
+              {/* 월/주(/타임박스) 전환 */}
+              <CalendarViewTabs value={calView} onChange={setCalView} />
+              <button onClick={() => setShowOverdue(true)} aria-label="밀린 할 일" title="지난 날짜에 못 끝낸 할 일 정리하기"
+                className={`btn-secondary relative h-8 w-8 sm:w-auto sm:px-3 text-13px ${
                   overdueTodos.length > 0 ? '!text-amber-700 dark:!text-amber-400 !ring-amber-200 dark:!ring-amber-800/70' : ''
                 }`}>
                 <AlertCircle size={15} />
-                <span className="hidden sm:inline">미완료</span>
+                <span className="hidden sm:inline">밀린 일</span>
                 {overdueTodos.length > 0 && <span className="hidden sm:inline tabular-nums font-semibold">{overdueTodos.length}</span>}
                 {/* 모바일은 아이콘만: 개수는 모서리 배지로 */}
                 {overdueTodos.length > 0 && (
-                  <span className="sm:hidden absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] leading-4 font-bold text-center tabular-nums ring-2 ring-gray-50 dark:ring-gray-950">
+                  <span className="sm:hidden absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-9px leading-4 font-bold text-center tabular-nums ring-2 ring-gray-50 dark:ring-gray-950">
                     {overdueTodos.length > 99 ? '99+' : overdueTodos.length}
                   </span>
                 )}
+              </button>
+              <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
+                <Search size={15} />
               </button>
               <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
                 <Megaphone size={15} />
@@ -470,124 +598,45 @@ export default function TodayPage() {
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />
                 )}
               </button>
-              <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-[13px]">
-                <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
+              <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
+                <BarChart3 size={15} className="text-gray-500 dark:text-gray-400" />
                 <span className="hidden sm:inline">성취 리포트</span>
               </button>
             </div>
           </header>
 
-          {/* ── 이번 달 요약: 목표 / D-Day / 일정 (한 장의 면을 세 칸으로 나눔) ── */}
-          <section className="flex-shrink-0 grid grid-cols-1 md:grid-cols-3 rounded-2xl surface divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800 mb-4">
-
-            {/* 이번달 목표 */}
-            <OverviewColumn
-              icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
-              title={`${format(viewMonth, 'M월')} 목표`}
-              help={GUIDES.goal}
-              meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
-              onAdd={() => setGoalModalState({})}
-              addLabel="목표 추가"
-              emptyText="이번 달에 이루고 싶은 것을 적어보세요"
-              isEmpty={monthGoals.length === 0}
-            >
-              {monthGoals.map(g => (
-                <div key={g.id} className="flex items-center gap-2.5 group py-0.5">
-                  <button onClick={() => toggleMonthlyGoal(g.id)}
-                    aria-label={g.completed ? '완료 취소' : '완료 처리'}
-                    className={`flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center transition-colors ${
-                      g.completed ? 'bg-leaf-600 border-leaf-600 dark:bg-leaf-500 dark:border-leaf-500' : 'border-gray-300 dark:border-gray-600 hover:border-leaf-500'
-                    }`}>
-                    {g.completed && <Check size={10} className="text-white" strokeWidth={3.2} />}
-                  </button>
-                  <button
-                    onClick={() => setGoalModalState({ goal: g })}
-                    title="눌러서 수정"
-                    className={`flex-1 min-w-0 truncate text-left text-[13px] hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors ${g.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}
-                  >
-                    {g.title}
-                  </button>
-                  <button onClick={() => deleteMonthlyGoal(g.id)} aria-label="목표 삭제"
-                    className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all">
-                    <X size={13} />
-                  </button>
-                </div>
+          {/* ── 이번 달 요약: 목표 / D-Day / 일정 ── */}
+          {isDesktop ? (
+            /* 컴퓨터: 한 장의 면을 세 칸으로 나눠 펼쳐 둠 */
+            <section className="flex-shrink-0 grid grid-cols-3 rounded-xl surface divide-x divide-gray-100 dark:divide-gray-800 mb-4">
+              {goalColumn()}
+              {ddayColumn()}
+              {scheduleColumn()}
+            </section>
+          ) : (
+            /* 폰·태블릿: 개수만 보이는 버튼 세 개, 누르면 팝업으로 목록 */
+            <section className="flex-shrink-0 grid grid-cols-3 gap-2 mb-3" aria-label="이번 달 요약">
+              {([
+                { key: 'goal', icon: <Target size={15} className="text-gray-500 dark:text-gray-400" />, label: `${format(viewMonth, 'M월')} 목표`, value: monthGoals.length ? `${completedGoals}/${monthGoals.length}` : '없음' },
+                { key: 'dday', icon: <Flag size={14} className="text-gray-500 dark:text-gray-400" />, label: 'D-Day', value: upcomingDdays.length ? (upcomingDdays[0] && ddayLabel(upcomingDdays[0].targetDate)) : '없음' },
+                { key: 'schedule', icon: <CalendarClock size={14} className="text-gray-500 dark:text-gray-400" />, label: `${format(viewMonth, 'M월')} 일정`, value: monthSchedules.length ? `${monthSchedules.length}개` : '없음' },
+              ] as const).map(item => (
+                <button key={item.key} onClick={() => setOverviewSheet(item.key)}
+                  className="surface rounded-xl px-3 py-2.5 text-left min-w-0 active:scale-[0.98] transition-transform">
+                  <span className="flex items-center gap-1.5 text-11.5px font-medium text-gray-500 dark:text-gray-400 truncate">{item.icon}{item.label}</span>
+                  <span className={`block mt-1 text-15px font-bold tabular-nums truncate ${item.value === '없음' ? 'text-gray-300 dark:text-gray-600' : 'text-gray-900 dark:text-white'}`}>{item.value}</span>
+                </button>
               ))}
-            </OverviewColumn>
-
-            {/* D-Day */}
-            <OverviewColumn
-              icon={<Flag size={14} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
-              title="D-Day"
-              help={GUIDES.dday}
-              onTitleClick={() => setShowDdayListModal(true)}
-              titleHint="지난 D-Day까지 전체 보기"
-              onAdd={() => setDdayModalState({})}
-              addLabel="D-Day 추가"
-              emptyText="다가오는 날을 등록해 카운트다운하세요"
-              isEmpty={upcomingDdays.length === 0}
-            >
-              {upcomingDdays.map(d => (
-                <div key={d.id} className="flex items-center gap-2.5 group py-0.5">
-                  <span className={`flex-shrink-0 text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-md min-w-[46px] text-center ${
-                    ddayLabel(d.targetDate) === 'D-Day'
-                      ? 'bg-leaf-600 text-white'
-                      : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-700 dark:text-leaf-300'
-                  }`}>
-                    {ddayLabel(d.targetDate)}
-                  </span>
-                  <span className="flex-1 min-w-0 text-[13px] text-gray-800 dark:text-gray-200 truncate">{d.title}</span>
-                  {d.fromTodoId && (
-                    <span title="할 일에서 연동됨" className="flex-shrink-0 text-gray-300 dark:text-gray-600">
-                      <Link2 size={11} />
-                    </span>
-                  )}
-                  <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400 hidden sm:inline">{format(parseISO(d.targetDate), 'M/d')}</span>
-                  <button onClick={() => removeDday(d)} aria-label="D-Day 삭제"
-                    className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </OverviewColumn>
-
-            {/* 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개로 관리) */}
-            <OverviewColumn
-              icon={<CalendarClock size={14} className="text-blue-500 flex-shrink-0" />}
-              title={`${format(viewMonth, 'M월')} 일정`}
-              help={GUIDES.schedule}
-              meta={monthSchedules.length > 0 && <span className="count-pill">{monthSchedules.length}</span>}
-              onAdd={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })}
-              addLabel="일정 추가"
-              emptyText="약속이나 회의처럼 시간이 정해진 일을 추가하세요"
-              isEmpty={monthSchedules.length === 0}
-            >
-              {monthSchedules.map(s => (
-                <div key={s.id} className="flex items-center gap-2.5 group cursor-pointer py-0.5" onClick={() => setScheduleModalState({ schedule: s })}>
-                  <span className="flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                    {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
-                  </span>
-                  <span className="flex-1 min-w-0 text-[13px] text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
-                  {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
-                  {s.startTime && (
-                    <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
-                  )}
-                  <ScheduleDeleteButton schedule={s} size={12}
-                    className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
-                </div>
-              ))}
-            </OverviewColumn>
-          </section>
+            </section>
+          )}
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
-            <div className={`rounded-2xl surface overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[200px]' : 'flex-1 md:min-h-0'
-            }`}>
+            <div className="rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
               <div className="flex-shrink-0 grid grid-cols-7 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
-                  <div key={d} className={`py-2 px-2 text-[11px] font-semibold ${
-                    i === 0 ? 'text-red-500/80 dark:text-red-400/80' : i === 6 ? 'text-blue-500/80 dark:text-blue-400/80' : 'text-gray-400 dark:text-gray-500'
+                  <div key={d} className={`py-2 px-2 text-11px font-semibold ${
+                    i === 0 ? 'text-red-500/80 dark:text-red-400/80' : i === 6 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-400 dark:text-gray-500'
                   }`}>{d}</div>
                 ))}
               </div>
@@ -609,35 +658,36 @@ export default function TodayPage() {
                   // 할 일(날짜만 있고 시간표는 아닌 것)은 예전처럼 카테고리별 색깔 점으로만 표시.
                   // 칩이 좁아 최대 몇 개만 보여주고 나머지는 "+N개"로 요약(자세히 보려면 칸을 눌러 확인)
                   const chips = [
-                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, isDday: true })),
-                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, isDday: false })),
+                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, isDday: true, done: false })),
+                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, isDday: false, done: s.completed })),
                   ];
                   const visibleChips = chips.slice(0, chipStyle.maxChips);
                   const overflowCount = chips.length - visibleChips.length;
-                  const todoDots = Array.from(new Set(dayTodos.map(t => t.categoryId))).slice(0, 8);
-                  const allDone = dayTodos.length > 0 && dayTodos.every(t => t.completed);
+                  const dayCounted = dayTodos.filter(t => !t.skipped);
+                  const todoDots = Array.from(new Set(dayCounted.map(t => t.categoryId))).slice(0, 8);
+                  const allDone = dayCounted.length > 0 && dayCounted.every(t => t.completed);
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
                       aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
                       aria-pressed={isSelected}
-                      className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1.5 text-left transition-colors ${
+                      className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1 sm:p-1.5 text-left transition-colors ${
                         dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
                       } ${!isLastRow ? 'border-b border-gray-100 dark:border-gray-800' : ''} ${
                         // 오늘: 초록 테두리 + 연한 초록 배경으로 한눈에 보이게 / 고른 날: 진한 회색 테두리 (오늘과 구분)
                         isToday
-                          ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
-                              ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
-                              : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
+                          ? `bg-gray-50 dark:bg-gray-800/40 ${isSelected
+                              ? 'shadow-[inset_0_0_0_1.5px_theme(colors.gray.900)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.200)]'
+                              : 'hover:bg-gray-100/70 dark:hover:bg-gray-800/60'}`
                           : isSelected
                             ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
                             : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
                       }`}
                     >
                       <div className="w-full min-w-0 flex items-center gap-1 mb-1">
-                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] tabular-nums ${
+                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-12px tabular-nums ${
                           isToday
-                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold'
                             : !inMonth
                               ? 'text-gray-300 dark:text-gray-600 font-medium'
                               : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
@@ -646,7 +696,7 @@ export default function TodayPage() {
                         </span>
                         {/* 공휴일 이름 (빨간 날) */}
                         {holiday && (
-                          <span className={`min-w-0 truncate text-[10px] font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
+                          <span className={`min-w-0 truncate text-10px font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
                         )}
                       </div>
                       <div className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
@@ -654,14 +704,17 @@ export default function TodayPage() {
                           <div
                             key={chip.key}
                             title={chip.title}
-                            className={`w-full flex items-center gap-1 ${chipStyle.chip} leading-[1.35] px-1.5 py-px rounded-[4px] font-medium ${
+                            className={`w-full flex items-center gap-1 ${chipStyle.chip} leading-[1.35] px-0.5 sm:px-1.5 py-px rounded-[4px] font-medium ${
                               chip.isDday
                                 ? 'bg-leaf-100 text-leaf-800 dark:bg-leaf-900/50 dark:text-leaf-200'
-                                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+                                : chip.done
+                                  ? 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800 dark:text-gray-500'
+                                  : 'bg-ink-50 text-ink-700 dark:bg-ink-900/40 dark:text-ink-200'
                             }`}
                           >
-                            {chip.isDday && <Flag size={chipStyle.icon} className="flex-shrink-0" strokeWidth={2.8} />}
-                            <span className={`truncate ${chip.isDday ? 'font-semibold' : ''}`}>{chip.title}</span>
+                            {chip.isDday && <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />}
+                            {/* 폰은 칸이 좁아서 말줄임표(…) 없이 들어가는 만큼 글자를 보여줌 (전체는 눌러서 팝업으로) */}
+                            <span className={`overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.isDday ? 'font-semibold' : ''}`}>{chip.title}</span>
                           </div>
                         ))}
                         {overflowCount > 0 && (
@@ -692,11 +745,83 @@ export default function TodayPage() {
                 })}
               </div>
             </div>
+          ) : isPhone ? (
+            /* ── 폰 주간 보기: 7칸으로 나누면 제목이 한두 글자씩 잘려서, 날짜별로 위아래로 쌓은 목록으로 ── */
+            <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800" aria-label="이번 주 목록">
+              {weekDays.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const dayTodos = todos.filter(t => t.date === dateStr);
+                const dayCount = progressOf(dayTodos);
+                const dayDdayList = allDdays.filter(d => d.targetDate === dateStr);
+                const daySchedules = schedules.filter(sc => scheduleOnDate(sc, dateStr))
+                  .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+                const dow = day.getDay();
+                const isToday = dateStr === todayStr;
+                const holiday = holidayLabel(holidays, dateStr);
+                const empty = dayTodos.length === 0 && daySchedules.length === 0 && dayDdayList.length === 0;
+                return (
+                  <div key={dateStr} className={`flex gap-3 px-3 py-3 ${isToday ? 'bg-gray-50/80 dark:bg-gray-800/30' : ''}`}>
+                    <button onClick={() => handleDayClick(dateStr)} aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })} 열기`}
+                      className="w-10 flex-shrink-0 flex flex-col items-center pt-0.5">
+                      <span className={`text-11px font-semibold ${dow === 0 || holiday ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{DAY_LABELS[dow]}</span>
+                      <span className={`mt-0.5 w-8 h-8 flex items-center justify-center rounded-full text-base font-bold tabular-nums ${
+                        isToday ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : weekdayTone(holiday ? 0 : dow)
+                      }`}>{format(day, 'd')}</span>
+                      {dayCount.total > 0 && <span className="mt-1 text-10.5px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</span>}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-1 py-0.5">
+                      {holiday && <p className="text-11px font-medium text-red-500 dark:text-red-400 truncate">{holiday}</p>}
+                      {dayDdayList.map(d => (
+                        <button key={`dday-${d.id}`} onClick={() => openDday(d)} className="w-full flex items-center gap-1.5 text-left text-13px text-gray-800 dark:text-gray-100">
+                          <Flag size={12} className="flex-shrink-0 text-leaf-600 dark:text-leaf-400" />
+                          <span className="truncate font-medium">{d.title}</span>
+                        </button>
+                      ))}
+                      {daySchedules.map(sc => (
+                        <div key={`sch-${sc.id}`} className="flex items-center gap-2">
+                          <ScheduleCheck schedule={sc} size="sm" />
+                          <button onClick={() => setScheduleModalState({ schedule: sc })} className="flex-1 min-w-0 flex items-center gap-1.5 text-left">
+                            <span className="flex-shrink-0 text-11.5px tabular-nums font-medium text-gray-500 dark:text-gray-400">
+                              {isMultiDay(sc) ? '기간' : sc.startTime ? timeRangeLabel(sc.startTime, sc.endTime) : '종일'}
+                            </span>
+                            <span className={`truncate text-13px ${sc.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{sc.title}</span>
+                          </button>
+                        </div>
+                      ))}
+                      {dayTodos.map(todo => {
+                        const cat = categories.find(c => c.id === todo.categoryId);
+                        return (
+                          <div key={todo.id} className="flex items-center gap-2">
+                            <button onClick={() => toggleTodo(todo.id)} aria-label={todo.completed ? '완료 취소' : '완료'} aria-pressed={todo.completed}
+                              className="flex-shrink-0 -m-1.5 p-1.5">
+                              <span className={`w-4 h-4 rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors ${
+                                todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600'
+                              }`}>
+                                {todo.completed && <Check size={10} className="text-white" strokeWidth={3.2} />}
+                              </span>
+                            </button>
+                            <button onClick={() => openEdit(todo)} className="flex-1 min-w-0 flex items-center gap-1.5 text-left">
+                              {cat && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />}
+                              <span className={`truncate text-13px ${todo.completed || todo.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{todo.title}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {empty && (
+                        <button onClick={() => handleDayClick(dateStr)} className="text-13px text-gray-300 dark:text-gray-600 py-0.5">비어 있어요</button>
+                      )}
+                    </div>
+                    <button onClick={() => handleDayClick(dateStr)} aria-label={`${format(day, 'M월 d일')}에 추가`}
+                      className="btn-icon w-8 h-8 flex-shrink-0 -mr-1">
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             /* ── 주간 뷰 (인라인) ── */
-            <div className={`rounded-2xl surface overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[200px]' : 'flex-1 md:min-h-0'
-            }`}>
+            <div className="rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
               <div className="flex-1 overflow-auto p-2">
                 <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '260px' }}>
                   {eachDayOfInterval({
@@ -705,7 +830,7 @@ export default function TodayPage() {
                   }).map(day => {
                     const dateStr = format(day, 'yyyy-MM-dd');
                     const dayTodos = todos.filter(t => t.date === dateStr);
-                    const completedCount = dayTodos.filter(t => t.completed).length;
+                    const dayCount = progressOf(dayTodos);
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
                     const holiday = holidayLabel(holidays, dateStr);
@@ -713,29 +838,29 @@ export default function TodayPage() {
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
                           isToday
-                            ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-2 ring-leaf-500 dark:ring-leaf-400'
+                            ? 'bg-white dark:bg-gray-800 ring-1 ring-gray-900 dark:ring-gray-200'
                             : 'bg-gray-50 dark:bg-gray-800/40'
                         }`}
                       >
                         <div className="mb-2 flex-shrink-0 px-0.5">
-                          <p className={`text-[10px] font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
+                          <p className={`text-10px font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-gray-400' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
-                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
-                            {dayTodos.length > 0 && (
-                              <p className="text-[10px] tabular-nums text-gray-400">{completedCount}/{dayTodos.length}</p>
+                            <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-gray-900 dark:text-white' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
+                            {dayCount.total > 0 && (
+                              <p className="text-10px tabular-nums text-gray-400">{dayCount.done}/{dayCount.total}</p>
                             )}
                           </div>
-                          {holiday && <p className="text-[10px] font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
+                          {holiday && <p className="text-10px font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
                         </div>
                         <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
                           {/* 월간 보기처럼 D-Day·일정도 함께 */}
                           {allDdays.filter(d => d.targetDate === dateStr).map(d => (
-                            <p key={`dday-${d.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-rose-50 dark:bg-rose-900/30 text-[10.5px] font-medium text-rose-700 dark:text-rose-300 truncate">
+                            <p key={`dday-${d.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-leaf-50 dark:bg-leaf-900/30 text-10.5px font-medium text-leaf-800 dark:text-leaf-300 truncate">
                               <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
                             </p>
                           ))}
                           {schedules.filter(sc => scheduleOnDate(sc, dateStr)).sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
-                            <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-[10.5px] font-medium text-blue-700 dark:text-blue-300 truncate">
+                            <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-ink-50 dark:bg-ink-900/30 text-10.5px font-medium text-ink-700 dark:text-ink-300 truncate">
                               {sc.startTime && !isMultiDay(sc) && <span className="flex-shrink-0 tabular-nums">{timeRangeLabel(sc.startTime, sc.endTime)}</span>}
                               <span className="truncate">{sc.title}</span>
                             </p>
@@ -750,8 +875,8 @@ export default function TodayPage() {
                               }`}>
                                 {todo.completed && <Check size={7} className="text-white" strokeWidth={3.5} />}
                               </div>
-                              <span className={`text-[11px] leading-snug break-words ${
-                                todo.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
+                              <span className={`text-11px leading-snug break-words ${
+                                todo.completed || todo.skipped ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
                               }`}>{todo.title}</span>
                             </div>
                           ))}
@@ -763,9 +888,9 @@ export default function TodayPage() {
                               value={weekAddTitle}
                               onChange={e => setWeekAddTitle(e.target.value)}
                               placeholder="추가..."
-                              className="flex-1 min-w-0 text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-leaf-500"
+                              className="flex-1 min-w-0 text-11px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-gray-500"
                               onKeyDown={async e => {
-                                if (e.key === 'Enter') {
+                                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                                   const t = weekAddTitle.trim();
                                   if (t) await addTodo({ title: t, completed: false, categoryId: null, subcategoryId: null, date: dateStr, startTime: null, notes: '' });
                                   setWeekAddTitle(''); setWeekAddDate(null);
@@ -779,7 +904,7 @@ export default function TodayPage() {
                           <button
                             onClick={() => { setWeekAddDate(dateStr); setWeekAddTitle(''); }}
                             aria-label="이 날에 할 일 추가"
-                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-leaf-600 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
+                            className="mt-1 w-full flex items-center justify-center rounded-md text-gray-300 dark:text-gray-600 hover:text-gray-900 hover:bg-white dark:hover:bg-gray-800 transition-colors flex-shrink-0 py-1"
                           >
                             <Plus size={12} />
                           </button>
@@ -799,7 +924,7 @@ export default function TodayPage() {
       <div className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-l border-gray-200/70 dark:border-gray-800 overflow-hidden transition-all duration-300 ease-in-out relative ${
         panelOpen ? 'w-[360px] wide:w-[400px] opacity-100' : 'w-0 opacity-0'
       }`}>
-        {panelOpen && (
+        {panelOpen && isDesktop && (
           <>
             {renderPanelHeader(false)}
             <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-1 pb-48">
@@ -812,22 +937,25 @@ export default function TodayPage() {
         )}
       </div>
 
-      {/* ── 모바일: 하단 패널 ── */}
-      <div className={`lg:hidden flex-shrink-0 flex flex-col bg-white dark:bg-gray-900 border-t border-gray-200/70 dark:border-gray-800 rounded-t-3xl shadow-[0_-8px_24px_-12px_rgb(27_30_25/0.15)] overflow-hidden transition-all duration-300 ease-in-out relative ${
-        panelOpen ? 'h-[50%] opacity-100' : 'h-0 opacity-0'
-      }`}>
-        <div className="mx-auto mt-2 w-9 h-1 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-        {renderPanelHeader(true)}
-        <div className="flex-1 overflow-y-auto px-4 pt-1 pb-44">
-          {renderDayGroups()}
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 pt-6 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90">
-          {renderQuickAdd()}
-        </div>
-      </div>
+      {/* ── 폰·태블릿: 날짜를 누르면 팝업으로 그날 할 일·일정·D-Day를 보고 바로 추가 ── */}
+      {!isDesktop && panelOpen && (
+        <Sheet onClose={() => setPanelOpen(false)} size="lg" footer={renderQuickAdd()}>
+          {renderPanelHeader(true)}
+          <div className="px-4 pt-1 pb-6">
+            {renderDayGroups()}
+          </div>
+        </Sheet>
+      )}
+      {!isDesktop && overviewSheet && (
+        <Sheet onClose={() => setOverviewSheet(null)}>
+          <div className="pt-3">
+            {overviewSheet === 'goal' ? goalColumn(true) : overviewSheet === 'dday' ? ddayColumn(true) : scheduleColumn(true)}
+          </div>
+        </Sheet>
+      )}
 
       {showOverdue && (
-        <OverdueModal todos={overdueTodos} onEdit={openEdit} getActions={getOverdueActions} onClose={() => setShowOverdue(false)} />
+        <OverdueModal onEdit={openEdit} onClose={() => setShowOverdue(false)} />
       )}
       {showModal && (
         <TodoModal

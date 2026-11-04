@@ -1,3 +1,4 @@
+import CalendarViewTabs from '../components/CalendarViewTabs';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Flag, Plus, ListChecks, PanelRightClose, PanelRightOpen, Repeat, X } from 'lucide-react';
@@ -22,17 +23,22 @@ import {
 import type { BlockSpan } from '../lib/timebox';
 import { timeRangeEnd } from '../lib/timeRange';
 import type { DDay, ScheduleItem, TimeBlock, Todo } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const HOUR_PX = 52;
 const MIN_PX = HOUR_PX / 60;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DRAG_THRESHOLD_PX = 4;
+// 폰·태블릿: 블록을 이만큼 꾹 누르면 손가락으로 끌어 옮길 수 있음 (그 전에 움직이면 그냥 스크롤)
+const LONG_PRESS_MS = 380;
+const LONG_PRESS_SLOP_PX = 10;
 const PANEL_PREF_KEY = 'timebox-panel-open';
 
 // 끌기 상태: 빈 곳을 끌어 새 블록 / 블록 옮기기 / 아래 끝을 끌어 길이 조절 / 할 일 목록에서 끌어오기
 type Drag =
   | { kind: 'create'; dateKey: string; anchor: number; current: number }
-  | { kind: 'move'; id: string; dateKey: string; startMin: number; duration: number; grab: number; originX: number; originY: number; active: boolean }
+  | { kind: 'move'; id: string; dateKey: string; startMin: number; duration: number; grab: number; originX: number; originY: number; active: boolean;
+      touch?: boolean; fromDateKey?: string; fromStartMin?: number } // touch: 꾹 눌러서 시작한 손가락 끌기
   | { kind: 'resize'; id: string; dateKey: string; startMin: number; endMin: number }
   | { kind: 'todo'; todo: Todo; x: number; y: number; originX: number; originY: number; active: boolean; target: { dateKey: string; startMin: number } | null };
 
@@ -42,12 +48,12 @@ type SourceModal = { schedule: ScheduleItem } | { dday: DDay } | { todo: Todo };
 
 function weekdayTone(dow: number) {
   if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
+  if (dow === 6) return 'text-gray-500 dark:text-gray-400';
   return 'text-gray-700 dark:text-gray-200';
 }
 
 export default function TimeboxPage() {
-  const { timeblocks, todos, categories, schedules, ddays, addTimeBlock, updateTimeBlock, toggleTimeBlock, toggleTodo, ensureTimeBlocksFrom } = useApp();
+  const { timeblocks, todos, categories, schedules, ddays, addTimeBlock, updateTimeBlock, toggleTimeBlock, toggleTodo, toggleSchedule, ensureTimeBlocksFrom } = useApp();
   const now = useNow();
   const todayKey = format(now, 'yyyy-MM-dd');
   const nowMin = minutesNow(now);
@@ -61,6 +67,7 @@ export default function TimeboxPage() {
     try { return localStorage.getItem(PANEL_PREF_KEY) !== '0'; } catch { return true; }
   });
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEscapeKey(() => setSheetOpen(false), sheetOpen);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [sourceModal, setSourceModal] = useState<SourceModal | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -70,6 +77,7 @@ export default function TimeboxPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const suppressClickRef = useRef(false);
   const lastPointerTypeRef = useRef<string>('mouse');
+  const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
 
   const weekStart = startOfWeek(weekRef);
   const days = eachDayOfInterval({ start: weekStart, end: endOfWeek(weekRef) }).map(d => format(d, 'yyyy-MM-dd'));
@@ -166,6 +174,7 @@ export default function TimeboxPage() {
     move(e) {
       const d = dragRef.current;
       if (!d) return;
+      if (d.kind === 'move' && d.touch) autoScroll(e.clientY);
       if (d.kind === 'create') {
         const min = minuteInColumn(d.dateKey, e.clientY);
         if (min !== null) setDragState({ ...d, current: clamp(snapMinutes(min), 0, DAY_MINUTES) });
@@ -204,6 +213,12 @@ export default function TimeboxPage() {
         setModal({ draft: { dateKey: d.dateKey, startMin: lo, endMin: hi } });
       } else if (d.kind === 'move' && d.active) {
         suppressNextClick();
+        // 꾹 누르기만 하고 움직이지 않았으면 옮기지 않고 편집 창을 엶
+        if (d.touch && d.dateKey === d.fromDateKey && d.startMin === d.fromStartMin) {
+          const block = timeblocks.find(b => b.id === d.id);
+          if (block) setModal({ block });
+          return;
+        }
         updateTimeBlock(d.id, spanToRange(d.dateKey, d.startMin, d.startMin + d.duration));
       } else if (d.kind === 'resize') {
         suppressNextClick();
@@ -221,12 +236,23 @@ export default function TimeboxPage() {
     },
   };
 
+  // 손가락으로 끌 때 시간표 위·아래 끝에 닿으면 그쪽으로 조금씩 스크롤
+  function autoScroll(clientY: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (clientY < r.top + 48) el.scrollTop -= 12;
+    else if (clientY > r.bottom - 48) el.scrollTop += 12;
+  }
+
   const dragging = drag !== null;
   useEffect(() => {
     if (!dragging) return;
-    const move = (e: PointerEvent) => handlersRef.current.move(e);
-    const up = (e: PointerEvent) => handlersRef.current.up(e);
-    const cancel = () => setDragState(null);
+    // 손가락 끌기는 아래 터치 이벤트가 맡음 (포인터 이벤트와 두 번 처리되지 않게)
+    const isTouchDrag = () => { const d = dragRef.current; return d?.kind === 'move' && !!d.touch; };
+    const move = (e: PointerEvent) => { if (!isTouchDrag()) handlersRef.current.move(e); };
+    const up = (e: PointerEvent) => { if (!isTouchDrag()) handlersRef.current.up(e); };
+    const cancel = () => { if (!isTouchDrag()) setDragState(null); };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', cancel);
@@ -236,6 +262,78 @@ export default function TimeboxPage() {
       window.removeEventListener('pointercancel', cancel);
     };
   }, [dragging]);
+
+  // ── 폰·태블릿: 블록을 꾹 눌러서 옮기기 ─────────────────────
+  // 꾹 누르는 동안 손가락이 움직이면 스크롤로 보고 취소. 끌기가 시작되면 화면이 스크롤되지 않게 막음.
+  // 터치 이벤트는 손가락을 처음 댄 요소로만 계속 전달됨. 다른 요일 칸으로 끌면 블록이 그 칸에 새로 그려지면서
+  // 처음 요소가 화면에서 떨어져 이벤트가 document까지 올라오지 않으므로, 처음 요소에 직접 리스너를 붙임
+  const touchSessionRef = useRef<{ start: (target: EventTarget) => void } | null>(null);
+  useEffect(() => {
+    let target: EventTarget | null = null;
+    function clearPress() {
+      if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+      longPressRef.current = null;
+    }
+    function release() {
+      if (!target) return;
+      target.removeEventListener('touchmove', onTouchMove as EventListener);
+      target.removeEventListener('touchend', onTouchEnd as EventListener);
+      target.removeEventListener('touchcancel', onTouchEnd as EventListener);
+      target = null;
+    }
+    function onTouchMove(e: TouchEvent) {
+      const t = e.touches[0];
+      if (!t) return;
+      const pending = longPressRef.current;
+      if (pending && Math.hypot(t.clientX - pending.x, t.clientY - pending.y) > LONG_PRESS_SLOP_PX) clearPress();
+      const d = dragRef.current;
+      if (d?.kind === 'move' && d.touch) {
+        e.preventDefault();
+        handlersRef.current.move({ clientX: t.clientX, clientY: t.clientY } as PointerEvent);
+      }
+    }
+    function onTouchEnd(e: TouchEvent) {
+      clearPress();
+      release();
+      const d = dragRef.current;
+      if (d?.kind === 'move' && d.touch) {
+        if (e.type === 'touchcancel') setDragState(null);
+        else handlersRef.current.up({} as PointerEvent);
+      }
+    }
+    touchSessionRef.current = {
+      start(t) {
+        release();
+        target = t;
+        t.addEventListener('touchmove', onTouchMove as EventListener, { passive: false });
+        t.addEventListener('touchend', onTouchEnd as EventListener);
+        t.addEventListener('touchcancel', onTouchEnd as EventListener);
+      },
+    };
+    return () => {
+      clearPress();
+      release();
+      touchSessionRef.current = null;
+    };
+  }, []);
+
+  function handleBlockTouchStart(e: React.TouchEvent, block: TimeBlock, span: BlockSpan) {
+    if (e.touches.length !== 1 || dragRef.current) return;
+    if ((e.target as HTMLElement).closest('button, [data-resize]')) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    touchSessionRef.current?.start(e.target);
+    const timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      const min = minuteInColumn(span.dateKey, y) ?? span.startMin;
+      setDragState({
+        kind: 'move', id: block.id, dateKey: span.dateKey, startMin: span.startMin,
+        duration: span.endMin - span.startMin, grab: min - span.startMin,
+        originX: x, originY: y, active: true, touch: true, fromDateKey: span.dateKey, fromStartMin: span.startMin,
+      });
+      try { navigator.vibrate?.(12); } catch { /* 진동이 없는 기기 */ }
+    }, LONG_PRESS_MS);
+    longPressRef.current = { timer, x, y };
+  }
 
   // ── 끌기 시작 ─────────────────────────────────────────
   function handleColumnPointerDown(e: React.PointerEvent, dateKey: string) {
@@ -360,7 +458,9 @@ export default function TimeboxPage() {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="min-w-0">
-              <h1 className="page-title">타임박스</h1>
+              {/* 폰·태블릿은 하단 탭에 타임박스가 없어서, 달력의 월·주와 오가는 전환을 제목 자리에 둠 */}
+              <div className="lg:hidden mb-1"><CalendarViewTabs value="timebox" /></div>
+              <h1 className="page-title hidden lg:block">타임박스</h1>
               <p className="page-subtitle">
                 {weekLabel}
                 {weekItems.length > 0 && (
@@ -372,9 +472,9 @@ export default function TimeboxPage() {
           <div className="flex items-center gap-1.5">
             <button onClick={() => shiftWeek(-1)} aria-label="이전 주" className="btn-icon"><ChevronLeft size={18} /></button>
             <button onClick={() => shiftWeek(1)} aria-label="다음 주" className="btn-icon"><ChevronRight size={18} /></button>
-            <button onClick={goToday} className="btn-secondary h-8 px-3 text-[13px]">오늘</button>
+            <button onClick={goToday} className="btn-secondary h-8 px-3 text-13px">오늘</button>
             {isDesktop && (
-              <button onClick={openNewBlock} className="btn-primary h-8 px-3 text-[13px]">
+              <button onClick={openNewBlock} className="btn-primary h-8 px-3 text-13px">
                 <Plus size={15} strokeWidth={2.4} />
                 추가
               </button>
@@ -385,8 +485,8 @@ export default function TimeboxPage() {
                 {panelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
               </button>
             ) : (
-              <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-[13px]">
-                <ListChecks size={15} className="text-leaf-600 dark:text-leaf-400" />
+              <button onClick={() => setSheetOpen(true)} className="btn-secondary h-8 px-3 text-13px">
+                <ListChecks size={15} className="text-gray-500 dark:text-gray-400" />
                 할 일 넣기
               </button>
             )}
@@ -404,17 +504,17 @@ export default function TimeboxPage() {
               return (
                 <button key={dateKey} role="tab" aria-selected={selected} onClick={() => setFocusDay(dateKey)}
                   className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
-                    selected ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    selected ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}>
-                  <span className={`text-[10.5px] font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <span className={`text-10.5px font-medium ${selected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                     {format(day, 'EEEEE', { locale: ko })}
                   </span>
-                  <span className={`text-[15px] font-bold tabular-nums leading-tight ${
-                    selected ? 'text-white' : isToday ? 'text-leaf-600 dark:text-leaf-400' : weekdayTone(day.getDay())
+                  <span className={`text-15px font-bold tabular-nums leading-tight ${
+                    selected ? 'text-white dark:text-gray-900' : isToday ? 'text-gray-900 dark:text-white underline underline-offset-4 decoration-2' : weekdayTone(day.getDay())
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white' : 'bg-leaf-500') : 'bg-transparent'}`} />
+                  <span className={`w-1 h-1 rounded-full ${count ? (selected ? 'bg-white dark:bg-gray-900' : 'bg-gray-400') : 'bg-transparent'}`} />
                 </button>
               );
             })}
@@ -424,7 +524,7 @@ export default function TimeboxPage() {
 
       {/* ── 본문: 시간표 + (데스크톱) 할 일 패널 ── */}
       <div className="flex-1 min-h-0 flex gap-4 px-4 sm:px-6 xl:px-8 pb-4">
-        <div className="flex-1 min-w-0 rounded-2xl surface overflow-hidden flex flex-col">
+        <div className="flex-1 min-w-0 rounded-xl surface overflow-hidden flex flex-col">
           {/* 요일 머리글 (넓은 화면) */}
           {isWide && (
             <div className="flex-shrink-0 flex border-b border-gray-100 dark:border-gray-800 pr-[4px]">
@@ -437,16 +537,16 @@ export default function TimeboxPage() {
                 return (
                   <div key={dateKey} className="flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 px-2 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[11px] font-semibold ${isToday ? 'text-leaf-700 dark:text-leaf-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <span className={`text-11px font-semibold ${isToday ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
                         {format(day, 'EEE', { locale: ko })}
                       </span>
-                      <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-[13px] font-bold tabular-nums ${
-                        isToday ? 'bg-leaf-600 dark:bg-leaf-500 text-white' : weekdayTone(day.getDay())
+                      <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1 rounded-full text-13px font-bold tabular-nums ${
+                        isToday ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : weekdayTone(day.getDay())
                       }`}>
                         {format(day, 'd')}
                       </span>
                     </div>
-                    <p className="text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                    <p className="text-10.5px tabular-nums text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                       {planned ? durationLabel(planned) : ' '}
                     </p>
                     <AllDayChips items={agenda.get(dateKey)?.allDay ?? []} onClick={handleAllDayClick} compact />
@@ -469,7 +569,7 @@ export default function TimeboxPage() {
               {/* 시간 눈금 */}
               <div className="relative w-12 flex-shrink-0">
                 {HOURS.slice(1).map(h => (
-                  <span key={h} className="absolute right-2 -translate-y-1/2 text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500"
+                  <span key={h} className="absolute right-2 -translate-y-1/2 text-10.5px tabular-nums text-gray-400 dark:text-gray-500"
                     style={{ top: h * HOUR_PX }}>
                     {formatMinutes(h * 60)}
                   </span>
@@ -505,7 +605,7 @@ export default function TimeboxPage() {
                     ref={el => { if (el) colRefs.current.set(dateKey, el); else colRefs.current.delete(dateKey); }}
                     onPointerDown={e => handleColumnPointerDown(e, dateKey)}
                     onClick={e => handleColumnClick(e, dateKey)}
-                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-leaf-50/40 dark:bg-leaf-900/10' : ''}`}
+                    className={`relative flex-1 min-w-0 border-l border-gray-100 dark:border-gray-800 ${isToday && isWide ? 'bg-gray-50/70 dark:bg-gray-800/20' : ''}`}
                   >
                     {items.map(({ block, span }) => (
                       <BlockView
@@ -520,6 +620,7 @@ export default function TimeboxPage() {
                         isPast={dateKey < todayKey || (isToday && span.endMin <= nowMin)}
                         lifted={(drag?.kind === 'move' && drag.active && drag.id === block.id) || (drag?.kind === 'resize' && drag.id === block.id)}
                         onPointerDown={e => handleBlockPointerDown(e, block, span)}
+                        onTouchStart={e => handleBlockTouchStart(e, block, span)}
                         onResizePointerDown={e => handleResizePointerDown(e, block, span)}
                         onClick={() => { if (!suppressClickRef.current) setModal({ block }); }}
                         onToggle={() => toggleTimeBlock(block.id)}
@@ -534,14 +635,14 @@ export default function TimeboxPage() {
                         isPast={dateKey < todayKey || (isToday && item.endMin <= nowMin)}
                         onPointerDown={item.kind === 'todo' ? e => { e.stopPropagation(); handleTodoDragStart(e, item.todo); } : undefined}
                         onClick={() => handleAgendaClick(item, dateKey)}
-                        onToggle={item.kind === 'todo' ? () => toggleTodo(item.todo.id) : undefined}
+                        onToggle={item.kind === 'todo' ? () => toggleTodo(item.todo.id) : () => toggleSchedule(item.schedule.id)}
                       />
                     ))}
 
                     {ghost && (
-                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-leaf-500 bg-leaf-100/60 dark:bg-leaf-900/30 pointer-events-none px-1.5 py-0.5"
+                      <div className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-gray-500 bg-gray-100/70 dark:bg-gray-800/60 pointer-events-none px-1.5 py-0.5"
                         style={{ top: ghost.lo * MIN_PX, height: (ghost.hi - ghost.lo) * MIN_PX }}>
-                        <span className="text-[10.5px] font-semibold tabular-nums text-leaf-800 dark:text-leaf-200">
+                        <span className="text-10.5px font-semibold tabular-nums text-gray-800 dark:text-gray-200">
                           {formatMinutes(ghost.lo)} – {formatMinutes(ghost.hi)}
                         </span>
                       </div>
@@ -562,10 +663,10 @@ export default function TimeboxPage() {
 
         {/* 데스크톱: 할 일 패널 - 눌러서 넣거나 시간표로 끌어다 놓기 */}
         {showPanel && (
-          <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-2xl surface p-3.5 flex flex-col min-h-0">
+          <aside className="w-[340px] wide:w-[408px] flex-shrink-0 rounded-xl surface p-3.5 flex flex-col min-h-0">
             <div className="flex-shrink-0 mb-2.5">
-              <p className="text-[13px] font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
-              <p className="text-[11.5px] text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>
+              <p className="text-13px font-semibold text-gray-900 dark:text-white">할 일 넣기</p>
+              <p className="text-11.5px text-gray-500 dark:text-gray-400 mt-0.5">시간표로 끌어다 놓거나 눌러서 시간을 정하세요</p>
             </div>
             <div className="flex-1 min-h-0">
               <TodoPicker rangeFrom={days[0]} rangeTo={days[6]} rangeLabel="이번 주" onPick={handleTodoPick} onDragStart={handleTodoDragStart} />
@@ -577,7 +678,7 @@ export default function TimeboxPage() {
       {/* 새 블록 버튼 (데스크톱은 머리글의 "추가" 버튼) */}
       {!isDesktop && (
         <button onClick={openNewBlock} aria-label="타임박스 추가"
-          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-leaf-900/20">
+          className="fixed bottom-20 right-6 z-30 w-14 h-14 rounded-2xl btn-primary shadow-lg shadow-gray-900/20">
           <Plus size={24} />
         </button>
       )}
@@ -635,12 +736,13 @@ interface BlockViewProps {
   isPast: boolean;
   lifted: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
+  onTouchStart: (e: React.TouchEvent) => void;
   onResizePointerDown: (e: React.PointerEvent) => void;
   onClick: () => void;
   onToggle: () => void;
 }
 
-function BlockView({ block, span, layout, title, color, done, isNow, isPast, lifted, onPointerDown, onResizePointerDown, onClick, onToggle }: BlockViewProps) {
+function BlockView({ block, span, layout, title, color, done, isNow, isPast, lifted, onPointerDown, onTouchStart, onResizePointerDown, onClick, onToggle }: BlockViewProps) {
   const height = Math.max((span.endMin - span.startMin) * MIN_PX, 18);
   const roomy = height >= 40;
   // 겹치는 블록은 칸을 똑같이 나누면 너무 좁아져서, 앞 블록을 넓게 두고 뒤 블록이 위에 살짝 겹쳐 올라오게 함
@@ -654,10 +756,12 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
       role="button"
       tabIndex={0}
       onPointerDown={onPointerDown}
+      onTouchStart={onTouchStart}
+      onContextMenu={e => e.preventDefault()}
       onClick={e => { e.stopPropagation(); onClick(); }}
       onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onClick(); }}
-      className={`group absolute rounded-lg overflow-hidden cursor-pointer select-none transition-[box-shadow,opacity] ${
-        lifted ? 'shadow-lg opacity-95' : 'hover:shadow-md'
+      className={`group absolute rounded-lg overflow-hidden cursor-pointer select-none [-webkit-touch-callout:none] transition-[box-shadow,opacity,transform] ${
+        lifted ? 'shadow-lg opacity-95 scale-[1.02]' : 'hover:shadow-md'
       } ${isPast && !isNow && !lifted ? 'opacity-60' : ''} ${layout.col > 0 ? 'ring-1 ring-white dark:ring-gray-900' : ''}`}
       style={{
         top: span.startMin * MIN_PX + 1,
@@ -674,21 +778,23 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
           aria-label={done ? '완료 취소' : '완료'}
-          className={`flex-shrink-0 w-3.5 h-3.5 mt-px rounded-[4px] border-[1.5px] flex items-center justify-center bg-white/70 dark:bg-gray-900/50 ${roomy ? '' : 'hidden sm:flex'}`}
-          style={{ borderColor: color, backgroundColor: done ? color : undefined }}
+          className={`flex-shrink-0 -m-1.5 p-1.5 ${roomy ? '' : 'hidden sm:block'}`}
         >
-          {done && (
-            <svg width="7" height="7" viewBox="0 0 8 8" fill="none" aria-hidden>
-              <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
+          <span className="w-4 h-4 sm:w-3.5 sm:h-3.5 mt-px rounded-[4px] border-[1.5px] flex items-center justify-center bg-white/70 dark:bg-gray-900/50"
+            style={{ borderColor: color, backgroundColor: done ? color : undefined }}>
+            {done && (
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
         </button>
         <div className="min-w-0 flex-1">
-          <p className={`text-[11.5px] leading-[1.3] font-semibold text-gray-900 dark:text-white ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+          <p className={`text-11.5px leading-[1.3] font-semibold text-gray-900 dark:text-white ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
             {title}
           </p>
           {roomy && (
-            <p className="flex items-center gap-1 text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300 truncate">
+            <p className="flex items-center gap-1 text-10.5px tabular-nums text-gray-600 dark:text-gray-300 truncate">
               {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
               {block.seriesId && <Repeat size={9} className="flex-shrink-0" aria-label="반복" />}
             </p>
@@ -700,9 +806,10 @@ function BlockView({ block, span, layout, title, color, done, isNow, isPast, lif
         data-resize
         onPointerDown={onResizePointerDown}
         onClick={e => e.stopPropagation()}
-        className="absolute bottom-0 inset-x-0 h-2 cursor-ns-resize touch-none flex items-end justify-center"
+        className={`absolute bottom-0 inset-x-0 cursor-ns-resize touch-none flex items-end justify-center ${roomy ? 'h-3.5 can-hover:h-2' : 'h-2'}`}
       >
-        <span className="mb-[2px] w-6 h-[3px] rounded-full opacity-0 group-hover:opacity-60 transition-opacity" style={{ backgroundColor: color }} />
+        {/* 터치 화면은 손잡이를 늘 보여줌 (마우스는 올렸을 때만) */}
+        <span className={`mb-[3px] w-7 h-[3px] rounded-full transition-opacity group-hover:opacity-60 ${roomy ? 'opacity-50 can-hover:opacity-0' : 'opacity-0'}`} style={{ backgroundColor: color }} />
       </div>
     </div>
   );
@@ -717,10 +824,10 @@ function AllDayChips({ items, onClick, compact }: { items: AgendaAllDay[]; onCli
         const isDday = item.kind === 'dday';
         return (
           <button key={item.key} onClick={() => onClick(item)} title={`${isDday ? 'D-Day' : '일정'} · ${item.title}`}
-            className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-[10.5px] font-medium text-left ${
+            className={`flex items-center gap-1 min-w-0 max-w-full px-1.5 py-0.5 rounded-md text-10.5px font-medium text-left ${
               isDday
-                ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                ? 'bg-leaf-50 text-leaf-800 dark:bg-leaf-900/30 dark:text-leaf-300'
+                : 'bg-ink-50 text-ink-700 dark:bg-ink-900/30 dark:text-ink-300'
             }`}>
             {isDday ? <Flag size={10} className="flex-shrink-0" /> : <CalendarDays size={10} className="flex-shrink-0" />}
             <span className="truncate">{item.title}</span>
@@ -793,11 +900,11 @@ function AgendaView({ item, layout, isPast, onPointerDown, onClick, onToggle }: 
           <CalendarDays size={11} className={`flex-shrink-0 mt-px ${roomy ? '' : 'hidden sm:block'}`} style={{ color }} />
         )}
         <div className="min-w-0 flex-1">
-          <p className={`text-[11.5px] leading-[1.3] font-medium text-gray-800 dark:text-gray-100 ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+          <p className={`text-11.5px leading-[1.3] font-medium text-gray-800 dark:text-gray-100 ${roomy ? 'line-clamp-2' : 'truncate'} ${done ? 'line-through decoration-gray-500/70' : ''}`}>
             {item.title}
           </p>
           {roomy && (
-            <p className="text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400 truncate">
+            <p className="text-10.5px tabular-nums text-gray-500 dark:text-gray-400 truncate">
               {formatMinutes(item.startMin)} · {label}
             </p>
           )}

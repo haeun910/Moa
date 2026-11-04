@@ -27,10 +27,10 @@ done
 # 1) 새 프로젝트: schema.sql 하나만
 "${PSQL[@]}" -d $FRESH -f schema.sql 2>"$TMP/fresh.err" || { cat "$TMP/fresh.err"; exit 1; }
 
-# 2) 운영 DB가 거쳐온 길: 008 직전 schema + 마이그레이션 (017 cron은 Supabase 전용 확장이 필요해서 제외)
+# 2) 운영 DB가 거쳐온 길: 008 직전 schema + 마이그레이션 (017·026 cron은 Supabase 전용 확장이 필요해서 제외)
 "${PSQL[@]}" -d $MIGRATED -f tests/legacy_schema.sql 2>/dev/null
 for f in migrations/0*.sql; do
-  case "$f" in *017_*) continue ;; esac
+  case "$f" in *017_*|*026_*) continue ;; esac
   "${PSQL[@]}" -d $MIGRATED -f "$f" 2>"$TMP/migrate.err" || { echo "실패: $f"; cat "$TMP/migrate.err"; exit 1; }
 done
 

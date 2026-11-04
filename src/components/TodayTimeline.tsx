@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { Timer, ChevronRight, Plus } from 'lucide-react';
+import { Timer, ChevronRight, ChevronDown, Plus } from 'lucide-react';
+import { useCollapsed } from '../hooks/useCollapsed';
 import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -76,11 +77,13 @@ export default function TodayTimeline() {
 
   // 처음 열 때 지금 시각 앞뒤 3시간이 보이도록 스크롤 (예: 15시 → 12시~18시)
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 홈에서 접어 둘 수 있음 (접으면 지금/다음 한 줄만)
+  const [collapsed, toggleCollapsed] = useCollapsed('home-timebox');
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || collapsed) return;
     el.scrollTop = Math.max(0, (minutesNow(new Date()) - (VISIBLE_HOURS / 2) * 60) * MIN_PX);
-  }, []);
+  }, [collapsed]);
 
   function addBlockAt(fromMin: number) {
     const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), fromMin, DEFAULT_BLOCK_MINUTES);
@@ -95,12 +98,12 @@ export default function TodayTimeline() {
       : null;
 
   return (
-    <section className="flex-shrink-0 rounded-2xl surface px-4 pt-3 pb-3.5" aria-label="오늘 타임박스">
+    <section className="flex-shrink-0 rounded-xl surface px-4 pt-3 pb-3.5" aria-label="오늘 타임박스">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2.5">
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Timer size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />
+          <Timer size={15} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
           <button onClick={() => setCurrentScreen('timebox')}
-            className="text-[13px] font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-leaf-700 dark:hover:text-leaf-300 transition-colors">
+            className="text-13px font-semibold whitespace-nowrap text-gray-900 dark:text-white hover:text-gray-900 dark:hover:text-white transition-colors">
             오늘 타임박스
           </button>
           <HelpTip text={GUIDES.timebox} label="오늘 타임박스" />
@@ -108,9 +111,9 @@ export default function TodayTimeline() {
         </div>
         <div className="order-last basis-full min-w-0">
           {statusText && (
-            <p className="min-w-0 flex items-center gap-1.5 text-[12.5px]">
-              <span className={`flex-shrink-0 text-[10.5px] font-bold px-1.5 py-px rounded ${
-                current ? 'bg-leaf-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+            <p className="min-w-0 flex items-center gap-1.5 text-12.5px">
+              <span className={`flex-shrink-0 text-10.5px font-bold px-1.5 py-px rounded ${
+                current ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
               }`}>
                 {statusText.label}
               </span>
@@ -126,17 +129,21 @@ export default function TodayTimeline() {
           <button onClick={() => setCurrentScreen('timebox')} aria-label="주간 타임박스 열기" title="주간 타임박스 열기" className="btn-icon w-7 h-7">
             <ChevronRight size={16} />
           </button>
+          <button onClick={toggleCollapsed} aria-label={collapsed ? '오늘 타임박스 펼치기' : '오늘 타임박스 접기'} aria-expanded={!collapsed}
+            title={collapsed ? '펼치기' : '접기'} className="btn-icon w-7 h-7">
+            <ChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          </button>
         </div>
       </div>
 
-        <div ref={scrollRef} className="overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1" style={{ height: VISIBLE_HOURS * HOUR_PX + 12 }}>
+        <div ref={scrollRef} className={`overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1 ${collapsed ? 'hidden' : ''}`} style={{ height: VISIBLE_HOURS * HOUR_PX + 12 }}>
           <div className="relative" style={{ height: hours.length * HOUR_PX }}>
             {/* 시간 눈금: 빈 칸을 누르면 그 시각에 블록 추가 */}
             {hours.map((h, i) => (
               <button key={h} onClick={() => addBlockAt(h * 60)} aria-label={`${h}시에 타임박스 추가`}
-                className="group absolute inset-x-0 flex items-start text-left hover:bg-leaf-50/50 dark:hover:bg-leaf-900/10 transition-colors"
+                className="group absolute inset-x-0 flex items-start text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 style={{ top: i * HOUR_PX, height: HOUR_PX }}>
-                <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-[10.5px] tabular-nums text-gray-400 dark:text-gray-500">
+                <span className="w-10 flex-shrink-0 -mt-[7px] pr-2 text-right text-10.5px tabular-nums text-gray-400 dark:text-gray-500">
                   {h}시
                 </span>
                 <span className={`flex-1 h-full ${i > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}`} />
@@ -162,11 +169,11 @@ export default function TodayTimeline() {
                     boxShadow: isNow ? `0 0 0 1.5px ${color}` : undefined,
                   }}
                 >
-                  <span className={`block truncate text-[12px] leading-tight font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}>
+                  <span className={`block truncate text-12px leading-tight font-semibold text-gray-900 dark:text-white ${done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {title}
                   </span>
                   {(span.endMin - span.startMin) * MIN_PX >= 34 && (
-                    <span className="block truncate text-[10.5px] tabular-nums text-gray-600 dark:text-gray-300">
+                    <span className="block truncate text-10.5px tabular-nums text-gray-600 dark:text-gray-300">
                       {formatMinutes(span.startMin)} – {formatMinutes(span.endMin)}
                     </span>
                   )}
@@ -194,11 +201,11 @@ export default function TodayTimeline() {
                     borderLeft: `3px solid ${item.color}`,
                   }}
                 >
-                  <span className={`block truncate text-[12px] leading-tight font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}>
+                  <span className={`block truncate text-12px leading-tight font-medium text-gray-800 dark:text-gray-100 ${item.done ? 'line-through decoration-gray-500/70' : ''}`}>
                     {item.title}
                   </span>
                   {(item.endMin - item.startMin) * MIN_PX >= 34 && (
-                    <span className="block truncate text-[10.5px] tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
+                    <span className="block truncate text-10.5px tabular-nums text-gray-500 dark:text-gray-400">{formatMinutes(item.startMin)} · {kindLabel}</span>
                   )}
                 </button>
               );

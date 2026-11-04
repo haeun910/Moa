@@ -1,20 +1,28 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { deleteMyAccount } from '../lib/db';
+import { deleteGuestAccount, deleteMyAccount, isMissingGuestDeleteFunction } from '../lib/db';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 // 체험 끝내기: 게스트 계정은 로그아웃하면 다시 들어올 방법이 없어서, 남기지 않고 데이터째 지움
 export default function EndGuestModal({ onClose, onUpgrade }: { onClose: () => void; onUpgrade: () => void }) {
   const { user, signOut } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  useEscapeKey(onClose, !loading);
 
   async function handleEnd() {
     if (!user) return;
     setLoading(true);
     setError('');
     try {
-      await deleteMyAccount(user.id);
+      // 체험 계정만 지우는 함수로 (다른 창에서 회원 계정으로 바뀌었으면 서버가 거절). 024 전 DB면 예전 방식
+      try {
+        await deleteGuestAccount(user.id);
+      } catch (e) {
+        if (!isMissingGuestDeleteFunction(e) || !user.is_anonymous) throw e;
+        await deleteMyAccount(user.id);
+      }
       await signOut().catch(() => {});
     } catch {
       setError('체험을 끝내지 못했어요. 잠시 후 다시 시도해 주세요.');

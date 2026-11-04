@@ -1,3 +1,8 @@
+// 글자 크기 배율(--fs)을 곱한 크기
+const fs = size => `calc(${size} * var(--fs, 1))`
+// 화면에서 쓰는 px 글자 크기들 (새 크기가 필요하면 여기에 추가)
+const PX_SIZES = [9, 10, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 17, 22, 26, 28, 40, 46]
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -7,6 +12,24 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      // 글자 크기: 설정 > 글자 크기(작게/보통/크게)에 따라 앱 전체 글자가 같은 비율로 커지고 작아지도록
+      // 모든 글자 크기에 --fs(배율, 기본 1)를 곱함. 여백·칸 크기는 그대로 두고 글자만 바뀜.
+      // text-xs 같은 기본 크기 + text-13px 같은 px 크기(예전 text-[13px] 대신 이걸 씀)
+      fontSize: {
+        xs: [fs('0.75rem'), { lineHeight: fs('1rem') }],
+        sm: [fs('0.875rem'), { lineHeight: fs('1.25rem') }],
+        base: [fs('1rem'), { lineHeight: fs('1.5rem') }],
+        lg: [fs('1.125rem'), { lineHeight: fs('1.75rem') }],
+        xl: [fs('1.25rem'), { lineHeight: fs('1.75rem') }],
+        '2xl': [fs('1.5rem'), { lineHeight: fs('2rem') }],
+        '3xl': [fs('1.875rem'), { lineHeight: fs('2.25rem') }],
+        '4xl': [fs('2.25rem'), { lineHeight: fs('2.5rem') }],
+        '5xl': [fs('3rem'), { lineHeight: '1' }],
+        ...Object.fromEntries(PX_SIZES.map(n => [`${n}px`, fs(`${n}px`)])),
+      },
+      // 오프라인·저장 대기 안내 띠가 위에 떠 있을 때는 그 높이(--strip-h, Toaster가 정함)만큼 뺀 화면 높이
+      height: { screen: 'calc(100vh - var(--strip-h, 0px))' },
+      minHeight: { screen: 'calc(100vh - var(--strip-h, 0px))' },
       // 사이드바를 이름까지 펼쳐도 달력이 답답하지 않은 너비 (14인치 노트북 이상)
       screens: { wide: '1400px' },
       fontFamily: {
@@ -44,18 +67,18 @@ export default {
           900: '#1B1E19',
           950: '#111310',
         },
-        // 일정(시간이 정해진 이벤트) 색 - 초록과 어울리는 차분한 슬레이트 블루
-        blue: {
-          50: '#F0F4F9',
-          100: '#E0E8F3',
-          200: '#C2D1E7',
-          300: '#98B1D5',
-          400: '#6E90C0',
-          500: '#4F73A8',
-          600: '#3F5E8E',
-          700: '#344C73',
-          800: '#2A3C5B',
-          900: '#1E2B41',
+        // 일정(시간이 정해진 이벤트) 색 - 화면을 단색 위주로 정리하면서 파랑 대신 먹색(진한 무채색)
+        ink: {
+          50: '#F3F4F2',
+          100: '#E9EBE6',
+          200: '#D6D9D2',
+          300: '#B4B9AF',
+          400: '#8B9186',
+          500: '#61675D',
+          600: '#4B5148',
+          700: '#3A3F37',
+          800: '#2A2E27',
+          900: '#1B1E19',
         },
       },
       boxShadow: {
@@ -89,5 +112,8 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // can-hover: 마우스가 있는 기기에서만 (터치 화면에서는 "올려야 보이는" 버튼이 안 보이는 문제 방지)
+    ({ addVariant }) => addVariant('can-hover', '@media (hover: hover) and (pointer: fine)'),
+  ],
 }

@@ -17,9 +17,9 @@ interface Props {
 
 // 반복 설정 UI (할 일/일정 공용): 매일/매주/격주/매월 + (매주·격주면) 요일 + 종료일
 export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false, defaultUntil = defaultRepeatUntil }: Props) {
-  const on = accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-600 border-leaf-600 text-white';
+  const on = 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900';
   const off = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
-  const ring = accent === 'blue' ? 'focus:ring-blue-400' : 'focus:ring-leaf-400';
+  const ring = accent === 'blue' ? 'focus:ring-ink-400' : 'focus:ring-gray-400';
 
   function selectFreq(freq: RepeatFreq) {
     if (freq === rule.freq) return;
@@ -41,7 +41,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
 
   return (
     <div>
-      <label className="flex items-center gap-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+      <label className="flex items-center gap-1 text-13px font-medium text-gray-700 dark:text-gray-300 mb-1.5">
         <Repeat size={11} />
         반복
       </label>
@@ -64,7 +64,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
                 {WEEKDAY_LABELS.map((label, d) => (
                   <button key={d} type="button" onClick={() => toggleWeekday(d)}
                     className={`flex-1 h-8 rounded-lg text-xs font-semibold border transition-all ${
-                      rule.weekdays.includes(d) ? on : `${off} ${d === 0 ? '!text-red-400' : d === 6 ? '!text-blue-400' : ''}`
+                      rule.weekdays.includes(d) ? on : `${off} ${d === 0 ? '!text-red-400' : d === 6 ? '!text-ink-400' : ''}`
                     }`}>
                     {label}
                   </button>
@@ -81,7 +81,7 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
                 className={`flex-1 min-w-0 px-3 py-2 rounded-lg bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${ring} transition text-sm`}
               />
             </div>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-11px text-gray-400">
               {rule.until
                 ? occurrenceCount > 0
                   ? convertingExisting

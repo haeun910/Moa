@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
-import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag, Search } from 'lucide-react';
+import { setCategoriesOrigin } from '../lib/navBack';
+import { openSearch } from '../lib/searchStore';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -29,7 +31,7 @@ interface TodoGroup {
 function DroppableGroup({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={`rounded-xl transition-shadow ${isOver ? 'ring-2 ring-leaf-500/60 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
+    <div ref={setNodeRef} className={`rounded-xl transition-shadow ${isOver ? 'ring-2 ring-gray-500/60 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
       {children}
     </div>
   );
@@ -68,11 +70,11 @@ function SubcategorySection({
     <div className="mt-4 pl-3.5 border-l-2 border-gray-200/80 dark:border-gray-800">
       <button onClick={() => setCollapsed(v => !v)} aria-expanded={!collapsed} className="flex items-center gap-1.5 mb-2 -ml-1 px-1 py-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors">
         {collapsed ? <ChevronRight size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />}
-        <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{subcat.name}</span>
+        <span className="text-13px font-semibold text-gray-700 dark:text-gray-200">{subcat.name}</span>
         <span className="count-pill">{group.todos.length}</span>
       </button>
       {subcat.notes && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1 leading-relaxed">{subcat.notes}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1 leading-relaxed whitespace-pre-line break-words">{subcat.notes}</p>
       )}
       {!collapsed && (
         <>
@@ -105,7 +107,7 @@ function SendToDateButton({ todo }: { todo: Todo }) {
           type="date"
           autoFocus
           defaultValue={todo.date ?? ''}
-          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-500/25 focus:border-leaf-500"
+          className="absolute left-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500"
           onChange={e => {
             if (e.target.value) updateTodo(todo.id, { date: e.target.value });
             setOpen(false);
@@ -132,15 +134,15 @@ function CategoryQuickAdd({ categoryId, subcategoryId, onAdd, placeholder = '할
 
   return (
     <div className="flex items-center gap-2 pl-2.5 pr-1.5 h-9 rounded-lg mt-1.5 text-gray-400 hover:bg-gray-100/70 dark:hover:bg-gray-900/60 focus-within:bg-white dark:focus-within:bg-gray-900 focus-within:ring-1 focus-within:ring-gray-200 dark:focus-within:ring-gray-700 focus-within:shadow-sm transition-colors group">
-      <Plus size={15} className="flex-shrink-0 group-focus-within:text-leaf-600" />
+      <Plus size={15} className="flex-shrink-0 group-focus-within:text-gray-900 dark:group-focus-within:text-white" />
       <input maxLength={LIMITS.title}
         ref={ref}
         type="text"
         value={title}
         onChange={e => setTitle(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 min-w-0 text-[13px] bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
-        onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+        className="flex-1 min-w-0 text-13px bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit(); }}
       />
       {title.trim() && (
         <button onClick={submit} disabled={loading} aria-label="추가" className="btn-primary w-6 h-6 rounded-md">
@@ -171,7 +173,7 @@ function CategoryBlock({ cat, subGroups, bare, onEdit, actions, onAdd }: Categor
     <section className="mb-9">
       <button onClick={() => setCollapsed(v => !v)} aria-expanded={!collapsed} className="group w-full flex items-center gap-2.5 mb-1 text-left">
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-        <span className="text-[15px] font-bold tracking-[-0.02em] text-gray-900 dark:text-white">{cat.name}</span>
+        <span className="text-15px font-bold tracking-[-0.02em] text-gray-900 dark:text-white">{cat.name}</span>
         <span className="count-pill">{totalCount}</span>
         <span className="flex-1 h-px bg-gray-200/80 dark:bg-gray-800 ml-1" />
         {collapsed
@@ -180,7 +182,7 @@ function CategoryBlock({ cat, subGroups, bare, onEdit, actions, onAdd }: Categor
       </button>
       {/* 카테고리 설명은 저장소 화면에서만 노출 */}
       {cat.description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 pl-5 leading-relaxed">{cat.description}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 pl-5 leading-relaxed whitespace-pre-line break-words">{cat.description}</p>
       )}
       <div className="h-3" />
 
@@ -232,7 +234,7 @@ function ListDisplayBadges({ settings }: { settings: Pick<Settings, 'listSortBy'
 }
 
 export default function AllTodosPage() {
-  const { todos: allTodos, categories, subcategories, settings, addTodo, updateTodo, reorderTodos } = useApp();
+  const { todos: allTodos, categories, subcategories, settings, addTodo, updateTodo, reorderTodos, setCurrentScreen } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
@@ -303,7 +305,7 @@ export default function AllTodosPage() {
       <>
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
-          className="row-action !bg-leaf-50 !text-leaf-700 hover:!bg-leaf-100 dark:!bg-leaf-900/30 dark:!text-leaf-300 dark:hover:!bg-leaf-900/60"
+          className="row-action !bg-gray-100 !text-gray-800 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-100 dark:hover:!bg-gray-700"
           title="오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
@@ -322,8 +324,8 @@ export default function AllTodosPage() {
     );
   }
 
-  const repoTodoCount = repoTodos.length;
-  const completedCount = repoTodos.filter(t => t.completed).length;
+  const repoTodoCount = repoTodos.filter(t => !t.skipped).length;
+  const completedCount = repoTodos.filter(t => t.completed && !t.skipped).length;
 
   // ── 그룹 구성 헬퍼 ──────────────────────────────────────────
   function subcatGroupsOf(catId: string) {
@@ -392,6 +394,11 @@ export default function AllTodosPage() {
 
   const completedPct = repoTodoCount ? Math.round((completedCount / repoTodoCount) * 100) : 0;
 
+  function openCategories() {
+    setCategoriesOrigin('all');
+    setCurrentScreen('categories');
+  }
+
   function renderHeader() {
     return (
       <>
@@ -401,14 +408,26 @@ export default function AllTodosPage() {
             <p className="page-subtitle">날짜를 정하지 않은 할 일 {repoTodoCount}개 · 완료 {completedCount}개</p>
             <ListDisplayBadges settings={settings} />
           </div>
-          {repoTodoCount > 0 && (
-            <div className="flex items-center gap-2 mb-1 flex-shrink-0">
-              <div className="w-24 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full bg-leaf-500 rounded-full transition-[width] duration-500" style={{ width: `${completedPct}%` }} />
-              </div>
-              <span className="text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">{completedPct}%</span>
+          <div className="flex flex-col items-end gap-3 mb-1 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
+                <Search size={15} />
+              </button>
+              {/* 카테고리 관리 바로가기 (예전엔 설정 안에서 찾아 들어가야 했음) */}
+              <button onClick={openCategories} className="btn-secondary h-8 px-3 text-13px">
+                <Tag size={14} />
+                카테고리 관리
+              </button>
             </div>
-          )}
+            {repoTodoCount > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-leaf-500 rounded-full transition-[width] duration-500" style={{ width: `${completedPct}%` }} />
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">{completedPct}%</span>
+              </div>
+            )}
+          </div>
         </header>
         <div className="mb-7">
           <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
@@ -422,13 +441,13 @@ export default function AllTodosPage() {
     return (
       <div className="fixed bottom-[62px] lg:bottom-0 left-0 lg:left-[76px] wide:left-[232px] right-0 z-40 pointer-events-none">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 pb-3 lg:pb-6 pt-8 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent dark:from-gray-950 dark:via-gray-950/90">
-          <div className="pointer-events-auto bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-leaf-500 transition-shadow flex items-center gap-1 pl-3.5 pr-1.5 py-1.5">
+          <div className="pointer-events-auto bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 shadow-lg focus-within:ring-2 focus-within:ring-gray-500 transition-shadow flex items-center gap-1 pl-3.5 pr-1.5 py-1.5">
             <Plus size={16} className="text-gray-400 flex-shrink-0" />
             <input maxLength={LIMITS.title} ref={quickInputRef} type="text" value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
               placeholder={placeholder}
               className="flex-1 min-w-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none py-1.5 px-1.5"
-              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleQuickAdd(); }} />
             <button onClick={openNewDetail} aria-label="상세 옵션으로 추가" title="날짜·시간·마감일·반복 등 상세 옵션으로 추가"
               className="btn-icon w-auto px-2.5 gap-1 text-xs font-semibold whitespace-nowrap">
               <SlidersHorizontal size={14} />
@@ -518,7 +537,7 @@ export default function AllTodosPage() {
             <section className="mb-9">
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-300 dark:bg-gray-600" />
-                <span className="text-[15px] font-bold tracking-[-0.02em] text-gray-600 dark:text-gray-300">분류 없음</span>
+                <span className="text-15px font-bold tracking-[-0.02em] text-gray-600 dark:text-gray-300">분류 없음</span>
                 <span className="count-pill">{noCategoryGroup.todos.length}</span>
                 <span className="flex-1 h-px bg-gray-200/80 dark:bg-gray-800 ml-1" />
               </div>

@@ -12,6 +12,8 @@ export interface Todo {
   createdAt: string;
   notes?: string;
   seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
+  skipped?: boolean; // '안 하기'로 정리한 할 일 (밀린 일·달성률에서 빠지고, 그 날짜에 흐리게 남음)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (시간이 없으면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
 }
 
 export interface Category {
@@ -51,7 +53,7 @@ export interface Settings {
   listSortBy: 'manual' | 'date' | 'name'; // 목록 정렬 기준
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
   hiddenCategoryIds: string[]; // 목록에서 숨길 카테고리
-  calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
+  calendarTextSize: 'small' | 'medium' | 'large'; // 앱 전체 글자 크기 (예전엔 월 달력 칸 글자만 바꿨어서 이름이 calendar_text_size)
   showHolidays: boolean; // 달력·홈에 한국 공휴일(빨간 날) 표시
   hiddenFeatures: OptionalFeature[]; // 메뉴에서 숨긴 기능 (데이터는 그대로)
 }
@@ -88,6 +90,8 @@ export interface ScheduleItem {
   notes?: string | null;
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
+  completed: boolean; // 끝낸 일정 (완료 체크하면 위쪽 일정 목록에서 빠짐)
+  remindMinutes?: number | null; // 알림: 시작 몇 분 전 (하루 종일이면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
 }
 
 // 타임박스: "이 시간엔 이걸 하겠다"는 시간 블록. 정해진 약속(일정)과 달리 자유롭게 옮기고 늘리고 줄임.

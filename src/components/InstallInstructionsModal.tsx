@@ -1,4 +1,5 @@
 import { X, Share, Menu, MonitorSmartphone } from 'lucide-react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 function detectPlatform(): 'ios' | 'ios-non-safari' | 'android' | 'desktop' {
   const ua = navigator.userAgent;
@@ -12,6 +13,7 @@ function detectPlatform(): 'ios' | 'ios-non-safari' | 'android' | 'desktop' {
 }
 
 export default function InstallInstructionsModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
   const platform = detectPlatform();
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
@@ -48,13 +50,13 @@ export default function InstallInstructionsModal({ onClose }: { onClose: () => v
           {steps.map((step, i) => (
             <div key={i} className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center flex-shrink-0">
-                <step.Icon size={15} className="text-leaf-600" />
+                <step.Icon size={15} className="text-gray-500 dark:text-gray-400" />
               </div>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pt-1">{step.text}</p>
             </div>
           ))}
           <button onClick={onClose}
-            className="w-full py-2.5 rounded-lg bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold transition-colors mt-2">
+            className="w-full py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold transition-colors mt-2">
             확인
           </button>
         </div>

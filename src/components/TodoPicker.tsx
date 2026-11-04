@@ -76,18 +76,18 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
         onClick={() => onPick(todo)}
         onPointerDown={onDragStart ? e => onDragStart(e, todo) : undefined}
         title={onDragStart ? '눌러서 시간 정하기 · 타임라인으로 끌어다 놓기' : undefined}
-        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200/80 dark:ring-gray-800 hover:ring-leaf-400 dark:hover:ring-leaf-600 transition-shadow select-none ${
+        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left bg-white dark:bg-gray-900 ring-1 ring-inset ring-gray-200/80 dark:ring-gray-800 hover:ring-gray-400 dark:hover:ring-leaf-600 transition-shadow select-none ${
           onDragStart ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
       >
-        <span className="flex-1 min-w-0 text-[13px] text-gray-800 dark:text-gray-100 truncate">{todo.title}</span>
+        <span className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-100 truncate">{todo.title}</span>
         {showDate && (
-          <span className="flex-shrink-0 text-[10.5px] tabular-nums text-gray-400">
+          <span className="flex-shrink-0 text-10.5px tabular-nums text-gray-400">
             {format(parseISO(todo.date!), 'E d', { locale: ko })}
           </span>
         )}
         {placed && (
-          <span className="flex-shrink-0 flex items-center gap-0.5 text-[10.5px] font-semibold tabular-nums text-leaf-700 dark:text-leaf-300 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-px rounded">
+          <span className="flex-shrink-0 flex items-center gap-0.5 text-10.5px font-semibold tabular-nums text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-1.5 py-px rounded">
             <Clock size={9} strokeWidth={2.6} />{placed}
           </span>
         )}
@@ -97,7 +97,7 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      <div className="flex-shrink-0 flex p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-[13px] font-medium" role="tablist">
+      <div className="flex-shrink-0 flex p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-13px font-medium" role="tablist">
         {([['range', rangeLabel], ['storage', '저장소']] as const).map(([value, label]) => (
           <button key={value} role="tab" aria-selected={tab === value} onClick={() => setTab(value)}
             className={`flex-1 h-7 rounded-md transition-all ${
@@ -110,15 +110,15 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
         ))}
       </div>
 
-      <label className="flex-shrink-0 mt-2 flex items-center gap-2 h-8 px-2.5 rounded-lg bg-white dark:bg-gray-800/60 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-leaf-500">
+      <label className="flex-shrink-0 mt-2 flex items-center gap-2 h-8 px-2.5 rounded-lg bg-white dark:bg-gray-800/60 ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-gray-500">
         <Search size={13} className="text-gray-400 flex-shrink-0" />
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="할 일 검색"
-          className="flex-1 min-w-0 bg-transparent text-[13px] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none" />
+          className="flex-1 min-w-0 bg-transparent text-13px text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none" />
       </label>
 
       <div className={`mt-2 flex-1 min-h-0 overflow-y-auto scrollbar-thin -mx-1 px-1 ${compact ? 'max-h-56' : ''}`}>
         {list.length === 0 ? (
-          <p className="text-[13px] text-gray-400 dark:text-gray-500 text-center py-6">
+          <p className="text-13px text-gray-400 dark:text-gray-500 text-center py-6">
             {q ? '찾는 할 일이 없어요' : tab === 'storage' ? '저장소가 비어 있어요' : `${rangeLabel} 남은 할 일이 없어요`}
           </p>
         ) : (
@@ -139,7 +139,7 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
                 {bare.length > 0 && <div className="space-y-1">{bare.map(renderItem)}</div>}
                 {subGroups.map(({ subcat, items }) => (
                   <div key={subcat.id} className={`${bare.length ? 'mt-2' : ''} pl-2.5 border-l-2 border-gray-200/80 dark:border-gray-800`}>
-                    <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-gray-500 dark:text-gray-400 mb-1 px-0.5">
+                    <p className="flex items-center gap-1.5 text-11.5px font-medium text-gray-500 dark:text-gray-400 mb-1 px-0.5">
                       <span className="truncate">{subcat.name}</span>
                       <span className="count-pill">{items.length}</span>
                     </p>

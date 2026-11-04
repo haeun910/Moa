@@ -9,7 +9,7 @@ interface Props {
 
 // 반복 항목을 목록에서 바로 지울 때: 이것만 / 이후 모두 / 전체 를 한 번에 고르기
 export default function SeriesDeleteChoice({ seriesCount, followingCount, onDelete, onCancel }: Props) {
-  const btn = 'text-[11px] px-2 py-1 rounded-md font-semibold whitespace-nowrap';
+  const btn = 'text-11px px-2 py-1 rounded-md font-semibold whitespace-nowrap';
   return (
     <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
       <button onClick={onCancel} className={`${btn} font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}>취소</button>

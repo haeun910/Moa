@@ -5,16 +5,19 @@ import {
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
   UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
   UserPlus,
+  ALargeSmall, LogIn,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
+import { pendingFor } from '../lib/outbox';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import type { PushState } from '../hooks/usePushNotifications';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import UpgradeAccountModal from '../components/UpgradeAccountModal';
 import EndGuestModal from '../components/EndGuestModal';
+import GuestLoginModal from '../components/GuestLoginModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import ChangelogModal from '../components/ChangelogModal';
 import AdminStatsModal from '../components/AdminStatsModal';
@@ -26,6 +29,7 @@ import { exportAllUserData } from '../lib/db';
 import { showToast } from '../lib/toast';
 import { reportError } from '../lib/monitoring';
 import type { OptionalFeature, Settings } from '../types';
+import { setCategoriesOrigin } from '../lib/navBack';
 
 // ── 설정 화면 구성 ─────────────────────────────────────────
 // 휴대폰: 분류별로 묶인 한 줄 목록 (아이폰 설정처럼). "일반"은 현재 값만 보여주고 누르면 상세 화면으로
@@ -76,7 +80,7 @@ const labelOf = <T,>(opts: { value: T; label: string }[], v: T) => opts.find(o =
 function Group({ title, children, footer }: { title?: string; children: React.ReactNode; footer?: string }) {
   return (
     <div>
-      {title && <p className="px-1 mb-2 text-[13px] font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
+      {title && <p className="px-1 mb-2 text-13px font-semibold text-gray-500 dark:text-gray-400">{title}</p>}
       <div className="rounded-xl surface overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
         {children}
       </div>
@@ -109,7 +113,7 @@ function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, r
         <span className={`block text-sm font-medium ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{label}</span>
         {desc && <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{desc}</span>}
       </span>
-      {value && <span className="flex-shrink-0 text-[13px] tabular-nums text-gray-500 dark:text-gray-400">{value}</span>}
+      {value && <span className="flex-shrink-0 text-13px tabular-nums text-gray-500 dark:text-gray-400">{value}</span>}
       {right}
       {chevron && <ChevronRight size={16} className="flex-shrink-0 text-gray-300 dark:text-gray-600" />}
     </>
@@ -123,8 +127,8 @@ function Row({ Icon, label, desc, value, onClick, danger, chevron = !!onClick, r
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
     <button onClick={onChange} role="switch" aria-checked={checked} aria-label={label}
-      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-leaf-600 dark:bg-leaf-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
-      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+      className={`relative w-11 h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${checked ? 'bg-gray-900 dark:bg-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+      <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.2)] transition-transform duration-200 ${checked ? 'translate-x-[18px] dark:bg-gray-900' : 'translate-x-0'}`} />
     </button>
   );
 }
@@ -135,7 +139,7 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
     <div className="p-3"><div role="radiogroup" className="grid gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map(({ value: v, label, Icon }) => (
         <button key={v} onClick={() => onChange(v)} role="radio" aria-checked={value === v}
-          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] transition-all ${
+          className={`flex items-center justify-center gap-1.5 h-8 rounded-md text-13px transition-all ${
             value === v
               ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-semibold shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
@@ -149,15 +153,15 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
 }
 
 const PUSH_DESC: Record<PushState, string> = {
-  on: '타임박스가 시작할 때 이 기기로 알려드려요',
-  off: '타임박스가 시작할 때 이 기기로 알림 받기',
+  on: '할 일·일정·타임박스 시간에 맞춰 이 기기로 알려드려요',
+  off: '할 일·일정·타임박스 시간에 맞춰 이 기기로 알림 받기',
   denied: '알림이 차단되어 있어요. 브라우저(앱) 설정에서 알림을 허용해주세요',
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
   'ios-needs-install': '아이폰·아이패드는 홈 화면에 앱을 설치한 뒤 켤 수 있어요',
   'not-configured': '알림 서버 설정이 아직 안 되어 있어요 (README 참고)',
 };
 
-// 타임박스 알림 (웹 푸시) - 기기마다 따로 켜고 끔
+// 알림 (웹 푸시): 할 일·일정 미리 알림, 타임박스 시작 알림 - 기기마다 따로 켜고 끔
 function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void }) {
   const { state, busy, error, enable, disable, test } = usePushNotifications();
   const [testSent, setTestSent] = useState(false);
@@ -196,6 +200,7 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showEndGuestModal, setShowEndGuestModal] = useState(false);
+  const [showGuestLogin, setShowGuestLogin] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAdminStats, setShowAdminStats] = useState(false);
@@ -207,7 +212,14 @@ export default function SettingsPage() {
   const [mobileGeneralOpen, setMobileGeneralOpen] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
-  async function handleSignOut() { setSigningOut(true); await signOut(); }
+  // 아직 서버에 보내지 못한 변경(오프라인에서 바꾼 것)이 있으면 한 번 더 확인
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const unsent = pendingFor(user?.id ?? null);
+  async function handleSignOut() {
+    if (unsent > 0 && !confirmSignOut) { setConfirmSignOut(true); return; }
+    setSigningOut(true);
+    await signOut();
+  }
 
   async function handleInstallClick() {
     if (canPromptDirectly) await promptInstall();
@@ -257,7 +269,7 @@ export default function SettingsPage() {
   }
 
   const avatar = (size: 'sm' | 'lg') => (
-    <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-leaf-50 dark:ring-leaf-900/30' : 'w-9 h-9 text-xs'} rounded-full bg-leaf-600 dark:bg-leaf-500 text-white font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
+    <span className={`${size === 'lg' ? 'w-12 h-12 text-base ring-4 ring-gray-100 dark:ring-gray-800' : 'w-9 h-9 text-xs'} rounded-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold flex items-center justify-center flex-shrink-0 overflow-hidden`}>
       {user?.user_metadata?.avatar_url
         ? <img src={user.user_metadata.avatar_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
         : (initials || '?')}
@@ -269,6 +281,9 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <Group title="테마">
         <Segmented options={THEME_OPTS} value={settings.theme} onChange={v => updateSettings({ theme: v })} />
+      </Group>
+      <Group title="글자 크기" footer="앱 전체 글자 크기예요. 달력 칸의 일정 글자도 함께 바뀌어요.">
+        <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
       </Group>
       <Group title="시작 화면" footer="앱을 열었을 때 처음 보이는 화면이에요.">
         <Segmented options={screenOpts} value={settings.defaultScreen} onChange={v => updateSettings({ defaultScreen: v })} />
@@ -294,7 +309,7 @@ export default function SettingsPage() {
                         : [...settings.hiddenCategoryIds, cat.id],
                     })}
                     aria-pressed={!hidden}
-                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-[13px] font-medium transition-all ${
+                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-13px font-medium transition-all ${
                       hidden
                         ? 'border-dashed border-gray-300 dark:border-gray-700 text-gray-400 line-through'
                         : 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900'
@@ -308,13 +323,9 @@ export default function SettingsPage() {
           </div>
         )}
       </Group>
-      <Group title="달력 표시" footer="글자 크기는 월 달력 칸에 보이는 일정·D-Day 글자 크기예요.">
+      <Group title="달력 표시">
         <Row Icon={CalendarHeart} label="공휴일 표시" desc="설날·추석 같은 빨간 날을 달력과 홈에 보여줘요"
           right={<Toggle checked={settings.showHolidays} onChange={() => updateSettings({ showHolidays: !settings.showHolidays })} label="공휴일 표시" />} />
-        <div>
-          <p className="px-4 pt-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">글자 크기</p>
-          <Segmented options={CAL_SIZE_OPTS} value={settings.calendarTextSize} onChange={v => updateSettings({ calendarTextSize: v })} />
-        </div>
       </Group>
       <Group title="사용할 기능" footer="끈 기능은 메뉴와 홈에서 숨겨져요. 적어 둔 내용은 지워지지 않고, 다시 켜면 그대로 보여요. 타임박스를 끄면 타임박스 알림도 오지 않아요.">
         {FEATURE_OPTS.map(({ value, label, desc, Icon }) => (
@@ -327,7 +338,7 @@ export default function SettingsPage() {
 
   const organizeRows = (
     <>
-      <Row Icon={Tag} label="카테고리 관리" value={`${categories.length}개`} onClick={() => setCurrentScreen('categories')} />
+      <Row Icon={Tag} label="카테고리 관리" value={`${categories.length}개`} onClick={() => { setCategoriesOrigin('settings'); setCurrentScreen('categories'); }} />
       <Row Icon={Milestone} label="프로젝트 로드맵" desc="카테고리 하나를 골라 타임라인으로 보기" onClick={() => setCurrentScreen('project')} />
       <PushRows onEnabledChange={on => updateSettings({ notifications: on })} />
     </>
@@ -337,6 +348,7 @@ export default function SettingsPage() {
   const accountRows = isGuest ? (
     <>
       <Row Icon={UserPlus} label="계정 만들기" desc="적어 둔 내용을 그대로 옮기고 다른 기기에서도 로그인" onClick={() => setShowUpgradeModal(true)} />
+      <Row Icon={LogIn} label="기존 계정으로 로그인" desc="이미 모아 계정이 있다면 바로 로그인 (체험 내용은 지워져요)" onClick={() => setShowGuestLogin(true)} />
       <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
       <Row Icon={LogOut} label="체험 끝내기" desc="체험 중에 적은 내용이 모두 지워져요" onClick={() => setShowEndGuestModal(true)} danger chevron={false} />
     </>
@@ -344,7 +356,9 @@ export default function SettingsPage() {
     <>
       {hasEmailPassword && <Row Icon={KeyRound} label="비밀번호 변경" onClick={() => setShowPasswordModal(true)} />}
       <Row Icon={FileDown} label="데이터 내보내기" desc={exporting ? '서버에서 전체 데이터를 받는 중...' : '할 일 · 메모 등을 JSON 파일로 백업'} onClick={handleExport} chevron={false} />
-      <Row Icon={LogOut} label={signingOut ? '로그아웃 중...' : '로그아웃'} onClick={handleSignOut} chevron={false} />
+      <Row Icon={LogOut} label={signingOut ? '로그아웃 중...' : confirmSignOut ? '그래도 로그아웃' : '로그아웃'}
+        desc={confirmSignOut ? `저장 안 된 변경 ${unsent}개가 사라져요` : undefined}
+        onClick={handleSignOut} danger={confirmSignOut} chevron={false} />
       <Row Icon={UserX} label="계정 삭제" onClick={() => setShowDeleteModal(true)} danger chevron={false} />
     </>
   );
@@ -370,7 +384,7 @@ export default function SettingsPage() {
   const adminRows = (
     <>
       <Row Icon={Inbox} label="받은 의견" desc="사용자들이 보낸 의견" onClick={() => setShowFeedbackList(true)} />
-      <Row Icon={BarChart3} label="관리자 통계" desc="가입자 · 활성 사용자 등" onClick={() => setShowAdminStats(true)} />
+      <Row Icon={BarChart3} label="관리자 통계" desc="회원·사용자 추이, 기능별 사용" onClick={() => setShowAdminStats(true)} />
     </>
   );
 
@@ -385,7 +399,7 @@ export default function SettingsPage() {
             <div className="px-4 py-4 flex items-center gap-3">
               {avatar('lg')}
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                <p className="text-15px font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
               </div>
             </div>
@@ -408,7 +422,7 @@ export default function SettingsPage() {
         {mobileGeneralOpen ? (
           <>
             <button onClick={() => setMobileGeneralOpen(false)}
-              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-leaf-700 dark:text-leaf-400">
+              className="flex items-center gap-0.5 -ml-1 mb-3 text-sm font-medium text-gray-900 dark:text-white">
               <ChevronLeft size={18} /> 설정
             </button>
             <h1 className="page-title mb-6">일반</h1>
@@ -423,7 +437,7 @@ export default function SettingsPage() {
                 <div className="px-4 py-3.5 flex items-center gap-3">
                   {avatar('lg')}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
+                    <p className="text-15px font-semibold text-gray-900 dark:text-white truncate">{displayName || '사용자'}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{isGuest ? '체험 계정 · 이 기기에서만 쓸 수 있어요' : user?.email}</p>
                   </div>
                 </div>
@@ -432,10 +446,11 @@ export default function SettingsPage() {
               {/* 일반: 현재 값만 보여주고 누르면 상세 화면 */}
               <Group title="일반">
                 <Row Icon={Palette} label="테마" value={labelOf(THEME_OPTS, settings.theme)} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={ALargeSmall} label="글자 크기" value={labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={House} label="시작 화면" value={labelOf(SCREEN_OPTS, settings.defaultScreen)} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={LayoutGrid} label="사용할 기능" value={`${FEATURE_OPTS.length - settings.hiddenFeatures.length}/${FEATURE_OPTS.length}개 켬`} onClick={() => setMobileGeneralOpen(true)} />
                 <Row Icon={ListFilter} label="목록 표시" value={labelOf(SORT_OPTS, settings.listSortBy)} onClick={() => setMobileGeneralOpen(true)} />
-                <Row Icon={CalendarDays} label="달력 표시" value={`공휴일 ${settings.showHolidays ? '켬' : '끔'} · ${labelOf(CAL_SIZE_OPTS, settings.calendarTextSize)}`} onClick={() => setMobileGeneralOpen(true)} />
+                <Row Icon={CalendarDays} label="달력 표시" value={`공휴일 ${settings.showHolidays ? '켬' : '끔'}`} onClick={() => setMobileGeneralOpen(true)} />
               </Group>
               <Group title="할 일 정리">{organizeRows}</Group>
               <Group title="계정 · 데이터">{accountRows}</Group>
@@ -466,7 +481,7 @@ export default function SettingsPage() {
                   <button onClick={() => setActiveSection(id)} aria-current={on ? 'page' : undefined}
                     className={`w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-sm transition-colors ${
                       on
-                        ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold [&>svg]:text-leaf-600 dark:[&>svg]:text-leaf-400'
+                        ? 'bg-white dark:bg-gray-900 shadow-card text-gray-900 dark:text-white font-semibold [&>svg]:text-gray-900 dark:[&>svg]:text-white'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 font-medium'
                     }`}>
                     <Icon size={16} />
@@ -486,7 +501,8 @@ export default function SettingsPage() {
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
       {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
-      {showUpgradeModal && <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} />}
+      {showUpgradeModal && <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} onLogin={() => { setShowUpgradeModal(false); setShowGuestLogin(true); }} />}
+      {showGuestLogin && <GuestLoginModal onClose={() => setShowGuestLogin(false)} onUpgrade={() => { setShowGuestLogin(false); setShowUpgradeModal(true); }} />}
       {showEndGuestModal && (
         <EndGuestModal onClose={() => setShowEndGuestModal(false)}
           onUpgrade={() => { setShowEndGuestModal(false); setShowUpgradeModal(true); }} />

@@ -7,6 +7,10 @@
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정(끝 시간 길이대로), 여러 날 일정, D-Day가 타임박스에 보이는지
 // 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 // 6) 설정: 끈 기능(타임박스)은 메뉴·홈에서 빠지고, 공휴일(한글날)이 홈과 달력에 보이는지
+// 7~8) 폰 하단 메뉴·날짜 팝업, 태블릿 타임박스 끌어 옮기기
+// 9) 검색(Ctrl+K, 초성)으로 메모를 찾아 열고, 마크다운 링크·체크리스트가 동작하는지
+// 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
+// 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -71,6 +75,10 @@ async function mockSupabase(page, seen, settingsOverride = {}) {
       const limit = Number(url.searchParams.get('limit') ?? 1000);
       seen.todoPages.push(offset);
       return route.fulfill({ json: todos.slice(offset, offset + limit) });
+    }
+    if (table === 'schedules' && route.request().method() === 'PATCH') {
+      seen.scheduleUpdates?.push(`${url.searchParams.get('id')} ${route.request().postData()}`);
+      return route.fulfill({ json: [] });
     }
     if (table === 'timeblocks' && route.request().method() === 'POST') {
       seen.timeblockInserts.push(JSON.parse(route.request().postData() ?? '[]'));
@@ -161,8 +169,8 @@ try {
   }
 
   // 로그인한 상태의 새 브라우저 창
-  async function loggedInContext({ settings, fixedTime } = {}) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'Asia/Seoul' });
+  async function loggedInContext({ settings, fixedTime, viewport = { width: 1280, height: 900 } } = {}) {
+    const context = await browser.newContext({ viewport, timezoneId: 'Asia/Seoul', hasTouch: viewport.width < 1024 });
     const exp = Math.floor(Date.now() / 1000) + 3600;
     const session = {
       access_token: fakeJwt({ sub: USER_ID, role: 'authenticated', exp, aud: 'authenticated' }),
@@ -177,7 +185,7 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const seen = { todoPages: [], timeblockInserts: [] };
+    const seen = { todoPages: [], timeblockInserts: [], scheduleUpdates: [] };
     if (fixedTime) await page.clock.setFixedTime(fixedTime);
     await mockSupabase(page, seen, settings);
     return { context, page, errors, seen };
@@ -296,6 +304,196 @@ try {
       fail(`끈 기능은 숨겨지고 공휴일이 보여야 함 (${e.message})`);
     }
     if (errors.length) fail(`설정 테스트 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 7) 폰: 하단 메뉴 4칸, 날짜를 누르면 팝업, 일정 완료 체크 저장, 글자 크기 '크게'가 앱 전체에 적용
+  {
+    const { context, page, errors, seen } = await loggedInContext({ settings: { calendar_text_size: 'large' }, viewport: { width: 390, height: 844 } });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      const fs = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fs').trim());
+      if (fs !== '1.15') throw new Error(`글자 크기 배율이 1.15가 아님: ${fs}`);
+      const bottomNav = page.locator('nav[aria-label="주요 메뉴"]').last();
+      const labels = (await bottomNav.getByRole('button').allTextContents()).map(t => t.trim());
+      if (labels.join(',') !== '홈,달력,메모,설정') throw new Error(`하단 메뉴: ${labels.join(',')}`);
+      await bottomNav.getByRole('button', { name: '달력' }).click();
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+      await page.getByRole('button', { name: new RegExp(`^${Number(today.slice(5, 7))}월 ${Number(today.slice(8, 10))}일`) }).first().click();
+      const sheet = page.getByRole('dialog');
+      await sheet.getByRole('button', { name: '일정', exact: false }).first().waitFor({ timeout: 5000 }); // 팝업 안 "+ 일정"
+      await sheet.getByText('치과 예약').waitFor({ timeout: 5000 });
+      await sheet.getByRole('button', { name: '일정 완료', exact: true }).first().click();
+      for (let i = 0; i < 20 && seen.scheduleUpdates.length === 0; i++) await page.waitForTimeout(100);
+      if (!seen.scheduleUpdates.some(w => w.includes('"completed":true'))) throw new Error(`일정 완료가 저장되지 않음: ${seen.scheduleUpdates.join(' / ')}`);
+      await sheet.getByRole('button', { name: '일정 완료 취소' }).first().waitFor({ timeout: 5000 });
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-day-sheet-mobile.png` });
+      console.log('✅ 폰: 하단 메뉴 4칸, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
+    } catch (e) {
+      fail(`폰 달력 팝업·일정 완료·글자 크기 (${e.message})`);
+    }
+    if (errors.length) fail(`폰 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 8) 태블릿 타임박스: 블록을 꾹 눌러 다른 요일 칸으로 끌어도 놓으면 저장됨
+  //    (다른 칸으로 옮겨 그려지면서 처음 누른 요소가 화면에서 떨어져도 손을 뗀 것을 놓치지 않아야 함)
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 810, height: 1080 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const block = {
+      id: 'tb-drag', user_id: USER_ID, title: '집중 작업', todo_id: null, color: null,
+      start_at: new Date(`${today}T09:00:00+09:00`).toISOString(), end_at: new Date(`${today}T10:30:00+09:00`).toISOString(),
+      completed: false, remind_minutes: null, notified_at: null, series_id: null, created_at: '2026-01-01T00:00:00Z',
+    };
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/timeblocks**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: [block] });
+      if (m === 'PATCH') patches.push(route.request().postData() ?? '');
+      return route.fulfill({ json: [] });
+    });
+    await page.goto(`${BASE}/?screen=timebox`);
+    try {
+      const el = page.locator('[data-block]').filter({ hasText: '집중 작업' }).first();
+      await el.waitFor({ timeout: 15000 });
+      await el.scrollIntoViewIfNeeded();
+      const box = await el.boundingBox();
+      const cdp = await context.newCDPSession(page);
+      const x = box.x + box.width / 2, y = box.y + 20;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await page.waitForTimeout(600); // 꾹 누르기
+      for (let i = 1; i <= 12; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + i * 9, y }] });
+        await page.waitForTimeout(30);
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      const moved = patches.map(p => JSON.parse(p)).find(p => p.start_at && p.start_at !== block.start_at);
+      if (!moved) throw new Error(`옮긴 위치가 저장되지 않음 (${patches.join(' / ') || '요청 없음'})`);
+      if (new Date(moved.start_at).getTime() - new Date(block.start_at).getTime() < 20 * 3600 * 1000) throw new Error(`다른 날로 옮겨지지 않음: ${moved.start_at}`);
+      console.log('✅ 태블릿 타임박스: 꾹 눌러 다른 요일로 끌어 놓으면 저장됨');
+    } catch (e) {
+      fail(`태블릿 타임박스 요일 넘겨 끌기 (${e.message})`);
+    }
+    if (errors.length) fail(`태블릿 타임박스 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 9) 검색 → 메모 열기 → 마크다운 (링크는 새 창, 주소 뒤 한글은 링크에서 빠짐, 체크리스트는 눌러서 체크)
+  {
+    const { context, page, errors } = await loggedInContext();
+    const note = {
+      id: 'note-md', user_id: USER_ID, title: '회의 준비', folder_id: null, pinned: false,
+      content: '## 안건\n- [ ] 자료 공유\n- 참고 https://example.com에서 확인',
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-03T00:00:00Z',
+    };
+    const notePatches = [];
+    await page.route(`${SUPABASE}/rest/v1/notes**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: [note] });
+      if (m === 'PATCH') notePatches.push(route.request().postData() ?? '');
+      return route.fulfill({ json: [] });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.keyboard.press('Control+k');
+      const box = page.getByRole('dialog', { name: '검색' });
+      await box.getByRole('searchbox', { name: '검색어' }).fill('ㅎㅇ ㅈㅂ');
+      await box.getByRole('option').filter({ hasText: '회의 준비' }).waitFor({ timeout: 5000 });
+      await page.keyboard.press('Enter');
+      await page.getByRole('heading', { name: '안건' }).waitFor({ timeout: 10000 });
+      const link = page.locator('.md a').first();
+      if (!/^https:\/\/example\.com\/?$/.test(await link.getAttribute('href') ?? '') || await link.getAttribute('target') !== '_blank') throw new Error(`링크: ${await link.getAttribute('href')} ${await link.textContent()}`);
+      await page.locator('.md').getByRole('checkbox').first().click();
+      for (let i = 0; i < 30 && !notePatches.some(p => p.includes('[x] 자료 공유')); i++) await page.waitForTimeout(100);
+      if (!notePatches.some(p => p.includes('[x] 자료 공유'))) throw new Error(`체크가 저장되지 않음: ${notePatches.join(' / ') || '요청 없음'}`);
+      console.log('✅ 검색: Ctrl+K·초성으로 메모를 찾아 열고, 마크다운 링크(새 창)·체크리스트 체크가 저장됨');
+    } catch (e) {
+      fail(`검색·마크다운 메모 (${e.message})`);
+    }
+    if (errors.length) fail(`검색·메모 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 10) 오프라인 저장
+  {
+    const { context, page, errors } = await loggedInContext();
+    const writes = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fallback();
+      writes.push(`${m} ${route.request().postData() ?? ''}`);
+      const body = JSON.parse(route.request().postData() ?? '{}');
+      return route.fulfill({ status: 201, json: Array.isArray(body) ? body : [body] });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByText(`할 일 ${TOTAL_TODOS}`, { exact: true }).first().waitFor({ timeout: 15000 });
+      await context.setOffline(true);
+      await page.getByRole('button', { name: '완료 처리' }).first().click();
+      await page.getByRole('button', { name: /에 할 일 추가/ }).first().click();
+      const sheet = page.getByRole('dialog', { name: '할 일 추가' });
+      const pick = sheet.getByRole('button', { name: /공부/ });
+      if (await pick.count()) await pick.first().click();
+      await sheet.getByPlaceholder('할 일을 적어주세요').fill('비행기에서 적은 일');
+      await sheet.getByPlaceholder('할 일을 적어주세요').press('Enter');
+      await page.keyboard.press('Escape');
+      await page.getByText('비행기에서 적은 일').first().waitFor({ timeout: 5000 });
+      await page.getByText('(2개 대기)', { exact: false }).first().waitFor({ timeout: 5000 });
+      if (writes.length) throw new Error(`끊긴 동안 요청이 나감: ${writes.join(' / ')}`);
+      await context.setOffline(false);
+      for (let i = 0; i < 50 && writes.length < 2; i++) await page.waitForTimeout(100);
+      if (writes.length !== 2 || !writes[0].startsWith('PATCH') || !writes[0].includes('"completed":true') || !writes[1].startsWith('POST') || !writes[1].includes('"id":')) {
+        throw new Error(`다시 연결된 뒤 저장 순서/내용이 다름: ${writes.join(' / ')}`);
+      }
+      await page.getByText('오프라인에서 바꾼 내용을 모두 저장했어요').waitFor({ timeout: 5000 });
+      console.log('✅ 오프라인: 끊긴 동안 체크·추가가 화면에 남고, 다시 연결되면 순서대로 저장됨');
+    } catch (e) {
+      fail(`오프라인 저장 (${e.message})`);
+    }
+    if (errors.filter(e => !/ERR_INTERNET_DISCONNECTED|Failed to load resource|WebSocket/.test(e)).length) fail(`오프라인 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 11) 밀린 할 일: 매일 반복은 가장 최근에 놓친 한 번만, '안 하기' 저장
+  {
+    const { context, page, errors } = await loggedInContext();
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const shift = (days) => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+    const base = { user_id: USER_ID, completed: false, category_id: null, subcategory_id: null, due_date: null, is_dday: false, start_time: null, notes: null, sort_order: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+    const rows = [
+      { ...base, id: 'r1', title: '스트레칭', date: shift(-3), series_id: 's-daily' },
+      { ...base, id: 'r2', title: '스트레칭', date: shift(-2), series_id: 's-daily' },
+      { ...base, id: 'r3', title: '스트레칭', date: shift(-1), series_id: 's-daily' },
+      { ...base, id: 'o1', title: '서류 제출', date: shift(-2), series_id: null },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const m = route.request().method();
+      if (m === 'GET') return route.fulfill({ json: new URL(route.request().url()).searchParams.get('offset') === '0' || !new URL(route.request().url()).searchParams.get('offset') ? rows : [] });
+      if (m === 'PATCH') patches.push(`${new URL(route.request().url()).searchParams.get('id')} ${route.request().postData()}`);
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('heading', { name: '오늘 할 일' }).waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: /밀린 할 일/ }).first().click();
+      const dlg = page.getByRole('dialog', { name: '밀린 할 일' });
+      await dlg.getByText('서류 제출').waitFor({ timeout: 5000 });
+      const repeats = await dlg.getByText('스트레칭').count();
+      if (repeats !== 1) throw new Error(`반복 할 일이 ${repeats}번 보임 (1번이어야 함)`);
+      await dlg.locator('li').filter({ hasText: '서류 제출' }).getByRole('button', { name: /안 하기/ }).click();
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.o1') && p.includes('"skipped":true'))) throw new Error(`안 하기가 저장되지 않음: ${patches.join(' / ')}`);
+      console.log('✅ 밀린 할 일: 반복은 가장 최근 한 번만 보이고, 안 하기가 저장됨');
+    } catch (e) {
+      fail(`밀린 할 일 정리 (${e.message})`);
+    }
+    if (errors.length) fail(`밀린 할 일 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

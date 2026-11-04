@@ -61,8 +61,15 @@ create table if not exists public.todos (
   subcategory_id uuid references public.subcategories(id) on delete set null,
   series_id      uuid,                       -- 같은 반복으로 만들어진 할 일 묶음
   end_time       text,                       -- 끝나는 시간 (없으면 시작부터 1시간)
+  skipped        boolean not null default false, -- '안 하기'로 정리한 할 일 (흐리게 남고 밀린 일·진행률에서 빠짐)
+  remind_minutes integer,                    -- 미리 알림: 몇 분 전 (시간이 없으면 그날 오전 9시 기준)
+  time_zone      text,                       -- 알림 시각을 정한 기기의 시간대
+  remind_at      timestamptz,                -- 실제로 알릴 시각 (트리거가 계산)
+  notified_at    timestamptz,                -- 알림을 보낸 시각
   constraint todos_title_length check (char_length(title) <= 500),
-  constraint todos_notes_length check (char_length(notes) <= 20000)
+  constraint todos_notes_length check (char_length(notes) <= 20000),
+  constraint todos_remind_minutes_range check (remind_minutes between 0 and 10080),
+  constraint todos_time_zone_length check (char_length(time_zone) <= 64)
 );
 
 -- 메모 폴더
@@ -137,9 +144,16 @@ create table if not exists public.schedules (
   series_id   uuid,                          -- 같은 반복으로 만들어진 일정 묶음
   end_time    text,                          -- 끝나는 시간 (없으면 시작부터 1시간)
   end_date    date,                          -- 여러 날에 걸친 일정의 마지막 날 (없으면 하루짜리)
+  completed   boolean not null default false, -- 끝낸 일정
+  remind_minutes integer,                     -- 미리 알림: 몇 분 전 (시간이 없으면 그날 오전 9시 기준)
+  time_zone   text,                           -- 알림 시각을 정한 기기의 시간대
+  remind_at   timestamptz,                    -- 실제로 알릴 시각 (트리거가 계산)
+  notified_at timestamptz,                    -- 알림을 보낸 시각
   constraint schedules_title_length check (char_length(title) <= 500),
   constraint schedules_end_date_order check (end_date is null or end_date >= date),
-  constraint schedules_notes_length check (char_length(notes) <= 20000)
+  constraint schedules_notes_length check (char_length(notes) <= 20000),
+  constraint schedules_remind_minutes_range check (remind_minutes between 0 and 10080),
+  constraint schedules_time_zone_length check (char_length(time_zone) <= 64)
 );
 
 -- 공지사항 (관리자만 작성, 로그인한 모두가 읽음)
@@ -216,6 +230,10 @@ create index if not exists idx_timeblocks_series          on public.timeblocks(s
 create index if not exists idx_timeblocks_pending_reminder on public.timeblocks(start_at)
   where notified_at is null and remind_minutes is not null;
 create index if not exists idx_push_subscriptions_user    on public.push_subscriptions(user_id);
+create index if not exists idx_todos_pending_reminder     on public.todos(remind_at)
+  where remind_at is not null and notified_at is null;
+create index if not exists idx_schedules_pending_reminder on public.schedules(remind_at)
+  where remind_at is not null and notified_at is null;
 
 -- ============================================================
 -- updated_at 자동 갱신
@@ -243,6 +261,46 @@ create or replace trigger user_settings_updated_at
 create or replace trigger notices_updated_at
   before update on public.notices
   for each row execute function public.set_updated_at();
+
+-- 날짜·시간·알림을 바꿀 때마다 알릴 시각을 다시 계산 (시각이 바뀌면 다시 보낼 수 있게 notified_at도 비움)
+create or replace function public.set_item_remind_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  base_time time;
+begin
+  if new.remind_minutes is null or new.date is null then
+    new.remind_at := null;
+  else
+    base_time := case when new.start_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then new.start_time::time else time '09:00' end;
+    begin
+      new.remind_at := ((new.date + base_time) at time zone coalesce(nullif(new.time_zone, ''), 'Asia/Seoul'))
+                       - make_interval(mins => new.remind_minutes);
+    exception when invalid_parameter_value then
+      -- 모르는 시간대 이름이면 한국 시간으로
+      new.remind_at := ((new.date + base_time) at time zone 'Asia/Seoul') - make_interval(mins => new.remind_minutes);
+    end;
+  end if;
+  if tg_op = 'INSERT' then
+    new.notified_at := null;
+  elsif new.remind_at is distinct from old.remind_at then
+    new.notified_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists todos_set_remind_at on public.todos;
+create trigger todos_set_remind_at
+  before insert or update of date, start_time, remind_minutes, time_zone on public.todos
+  for each row execute function public.set_item_remind_at();
+
+drop trigger if exists schedules_set_remind_at on public.schedules;
+create trigger schedules_set_remind_at
+  before insert or update of date, start_time, remind_minutes, time_zone on public.schedules
+  for each row execute function public.set_item_remind_at();
 
 -- ============================================================
 -- 신규 가입 시 기본 카테고리 + 설정 자동 생성
@@ -429,7 +487,8 @@ create policy "feedback: admin can delete" on public.feedback
 -- 함수 (앱에서 rpc로 호출)
 -- ============================================================
 
--- 관리자 통계: 집계 숫자만 반환. SECURITY DEFINER라 함수 안의 관리자 확인이 유일한 방어선
+-- 관리자 통계: 집계 숫자만 반환 (회원/체험 구분, 한국 날짜 기준, 최근 14일 추이, 기능별 사용자 수)
+-- SECURITY DEFINER라 함수 안의 관리자 확인이 유일한 방어선
 create or replace function public.get_admin_stats()
 returns json
 language plpgsql
@@ -438,33 +497,102 @@ set search_path = public
 as $$
 declare
   result json;
+  today date := (now() at time zone 'Asia/Seoul')::date;
 begin
   if auth.uid() is null or auth.uid() <> '17478ff6-7e7a-419e-ba64-7bb9db8bbcea' then
     raise exception 'not authorized';
   end if;
 
+  with
+  -- 계정: 체험(익명) 여부, 가입일(한국 날짜), 구글 연결 여부
+  u as (
+    select id,
+           coalesce(is_anonymous, false) as guest,
+           (created_at at time zone 'Asia/Seoul')::date as joined,
+           coalesce(raw_app_meta_data -> 'providers' ? 'google', false) as google
+    from auth.users
+  ),
+  -- 최근 31일 동안 기록을 만들거나 고친 흔적 (어느 기능인지 + 한국 날짜).
+  -- 할 일·메모는 만든 날과 마지막으로 고친 날을 둘 다 셈 (고칠 때마다 updated_at이 덮어써져서
+  -- 고친 날만 세면 예전 날의 사용자가 빠짐). 그 사이에 고친 날은 기록이 없어 세지 못함
+  act as (
+    select user_id, src, (ts at time zone 'Asia/Seoul')::date as day
+    from (
+      select user_id, 'todos' as src, created_at as ts from public.todos
+      union all select user_id, 'todos', updated_at from public.todos
+      union all select user_id, 'notes', created_at from public.notes
+      union all select user_id, 'notes', updated_at from public.notes
+      union all select user_id, 'schedules', created_at from public.schedules
+      union all select user_id, 'timeblocks', created_at from public.timeblocks
+      union all select user_id, 'ddays', created_at from public.ddays
+      union all select user_id, 'goals', created_at from public.monthly_goals
+    ) a
+    where ts >= now() - interval '31 days'
+  ),
+  -- 최근 14일 (오늘 포함)
+  days as (
+    select today - 13 + i as day from generate_series(0, 13) i
+  ),
+  -- 지난주(8~14일 전)에 가입한 회원
+  cohort as (
+    select id from u where not guest and joined between today - 13 and today - 7
+  )
   select json_build_object(
-    'totalUsers',       (select count(*) from auth.users),
-    'newUsersToday',    (select count(*) from auth.users where created_at >= date_trunc('day', now())),
-    'newUsersThisWeek', (select count(*) from auth.users where created_at >= now() - interval '7 days'),
-    'activeUsers7d',    (
-      select count(distinct user_id) from (
-        select user_id, updated_at as ts from public.todos
-        union all
-        select user_id, updated_at as ts from public.notes
-      ) a where a.ts >= now() - interval '7 days'
+    'version',            2,
+    -- 예전 키 (v1 화면용)
+    'totalUsers',         (select count(*) from u),
+    'newUsersToday',      (select count(*) from u where not guest and joined = today),
+    'newUsersThisWeek',   (select count(*) from u where not guest and joined > today - 7),
+    'activeUsers7d',      (select count(distinct user_id) from act where day > today - 7),
+    'activeUsers30d',     (select count(distinct user_id) from act where day > today - 30),
+    'totalTodos',         (select count(*) from public.todos),
+    'completedTodos',     (select count(*) from public.todos where completed),
+    'totalNotes',         (select count(*) from public.notes),
+    'totalCategories',    (select count(*) from public.categories),
+    -- 계정
+    'registeredUsers',    (select count(*) from u where not guest),
+    'guestUsers',         (select count(*) from u where guest),
+    'googleUsers',        (select count(*) from u where not guest and google),
+    'newUsers30d',        (select count(*) from u where not guest and joined > today - 30),
+    'newGuestsToday',     (select count(*) from u where guest and joined = today),
+    'newGuests7d',        (select count(*) from u where guest and joined > today - 7),
+    -- 사용
+    'activeUsersToday',   (select count(distinct user_id) from act where day = today),
+    'cohortSize',         (select count(*) from cohort),
+    'cohortRetained',     (select count(distinct a.user_id) from act a join cohort c on c.id = a.user_id where a.day > today - 7),
+    'features',           (
+      select json_build_object(
+        'todos',      count(distinct user_id) filter (where src = 'todos'),
+        'schedules',  count(distinct user_id) filter (where src = 'schedules'),
+        'timeblocks', count(distinct user_id) filter (where src = 'timeblocks'),
+        'notes',      count(distinct user_id) filter (where src = 'notes'),
+        'ddays',      count(distinct user_id) filter (where src = 'ddays'),
+        'goals',      count(distinct user_id) filter (where src = 'goals')
+      ) from act where day > today - 30
     ),
-    'activeUsers30d',   (
-      select count(distinct user_id) from (
-        select user_id, updated_at as ts from public.todos
-        union all
-        select user_id, updated_at as ts from public.notes
-      ) a where a.ts >= now() - interval '30 days'
+    'daily',              (
+      select json_agg(json_build_object(
+        'day',     to_char(d.day, 'YYYY-MM-DD'),
+        'signups', (select count(*) from u where not guest and joined = d.day),
+        'guests',  (select count(*) from u where guest and joined = d.day),
+        'active',  (select count(distinct user_id) from act where act.day = d.day)
+      ) order by d.day) from days d
     ),
-    'totalTodos',       (select count(*) from public.todos),
-    'completedTodos',   (select count(*) from public.todos where completed),
-    'totalNotes',       (select count(*) from public.notes),
-    'totalCategories',  (select count(*) from public.categories)
+    -- 누적 기록
+    'totalSchedules',     (select count(*) from public.schedules),
+    'totalTimeblocks',    (select count(*) from public.timeblocks),
+    'totalDdays',         (select count(*) from public.ddays),
+    -- 기타
+    'feedbackTotal',      (select count(*) from public.feedback),
+    'feedback7d',         (select count(*) from public.feedback where created_at >= now() - interval '7 days'),
+    'pushUsers',          (select count(distinct user_id) from public.push_subscriptions),
+    'hiddenFeatures',     (
+      select json_build_object(
+        'timebox', count(*) filter (where 'timebox' = any(hidden_features)),
+        'all',     count(*) filter (where 'all' = any(hidden_features)),
+        'notes',   count(*) filter (where 'notes' = any(hidden_features))
+      ) from public.user_settings
+    )
   ) into result;
 
   return result;
@@ -494,6 +622,75 @@ $$;
 revoke all on function public.delete_my_account() from public;
 revoke all on function public.delete_my_account() from anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- 체험(익명) 계정만 지움: 지금 로그인한 계정이 그 체험 계정이고 익명일 때만 (회원 계정은 절대 안 지워짐)
+create or replace function public.delete_guest_account(p_guest_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or auth.uid() <> p_guest_id then
+    raise exception 'not this guest account';
+  end if;
+
+  delete from auth.users where id = p_guest_id and is_anonymous;
+  if not found then
+    raise exception 'not a guest account';
+  end if;
+end;
+$$;
+
+revoke all on function public.delete_guest_account(uuid) from public;
+revoke all on function public.delete_guest_account(uuid) from anon;
+grant execute on function public.delete_guest_account(uuid) to authenticated;
+
+-- 30일 넘게 쓰지 않은 체험(익명) 계정 정리 (매일 pg_cron이 부름 → 026_guest_cleanup_cron.sql)
+-- 마지막으로 쓴 때 = 가입·로그인·로그인 유지(토큰 갱신) 중 가장 최근. 앱을 열어 두기만 해도 토큰이 갱신되므로 "쓴 것"으로 봄.
+-- 계정을 지우면 할 일·메모 등 그 사람 데이터도 함께 지워짐 (모든 표가 on delete cascade).
+-- 정식 계정(이메일·구글 연결)은 절대 지우지 않음. 한 번에 최대 500개씩.
+create or replace function public.cleanup_inactive_guests(p_days integer default 30)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  removed integer;
+begin
+  if p_days is null or p_days < 7 then
+    raise exception 'p_days must be 7 or more';
+  end if;
+
+  with stale as (
+    select u.id
+      from auth.users u
+     where u.is_anonymous
+       and greatest(
+             u.created_at,
+             u.last_sign_in_at,
+             u.updated_at,
+             (select max(s.updated_at) from auth.sessions s where s.user_id = u.id),
+             (select max(r.updated_at) from auth.refresh_tokens r where r.user_id = u.id::text)
+           ) < now() - make_interval(days => p_days)
+     order by u.created_at
+     limit 500
+  ),
+  gone as (
+    delete from auth.users u
+     using stale
+     where u.id = stale.id
+       and u.is_anonymous
+    returning 1
+  )
+  select count(*) into removed from gone;
+  return removed;
+end;
+$$;
+
+revoke all on function public.cleanup_inactive_guests(integer) from public, anon, authenticated;
+grant execute on function public.cleanup_inactive_guests(integer) to service_role;
 
 -- 웹 푸시 구독 등록: 같은 브라우저에서 다른 계정으로 로그인하면 기존 줄을 지우고 새로 등록
 create or replace function public.register_push_subscription(
@@ -534,6 +731,7 @@ as $$
        and b.notified_at is null
        and not b.completed
        and not coalesce(t.completed, false)
+       and not coalesce(t.skipped, false)
        -- 설정에서 타임박스를 끈 사람에게는 알림을 보내지 않음
        and not exists (
          select 1 from public.user_settings s
@@ -558,6 +756,60 @@ $$;
 
 revoke all on function public.claim_due_timeblock_reminders() from public, anon, authenticated;
 grant execute on function public.claim_due_timeblock_reminders() to service_role;
+
+-- 지금 알려야 할 할 일·일정을 가져가면서 "보냄"으로 표시 (알림 발송 함수 전용)
+-- 끝낸 일, 안 하기로 한 일은 보내지 않음. 10분 넘게 지난 알림은 버림 (서버가 잠깐 멈췄다 돌아와도 한꺼번에 쏟아지지 않게)
+create or replace function public.claim_due_item_reminders()
+returns table (
+  item_kind text, item_id uuid, owner_id uuid, item_title text,
+  item_date date, item_start text, item_end text, item_remind integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with due_todos as (
+    select t.id
+      from public.todos t
+     where t.remind_at is not null
+       and t.notified_at is null
+       and t.remind_at <= now()
+       and t.remind_at > now() - interval '10 minutes'
+       and not t.completed
+       and not t.skipped
+     for update of t skip locked
+  ),
+  sent_todos as (
+    update public.todos t
+       set notified_at = now()
+      from due_todos d
+     where t.id = d.id
+    returning 'todo'::text, t.id, t.user_id, t.title, t.date, t.start_time, t.end_time, t.remind_minutes
+  ),
+  due_schedules as (
+    select s.id
+      from public.schedules s
+     where s.remind_at is not null
+       and s.notified_at is null
+       and s.remind_at <= now()
+       and s.remind_at > now() - interval '10 minutes'
+       and not s.completed
+     for update of s skip locked
+  ),
+  sent_schedules as (
+    update public.schedules s
+       set notified_at = now()
+      from due_schedules d
+     where s.id = d.id
+    returning 'schedule'::text, s.id, s.user_id, s.title, s.date, s.start_time, s.end_time, s.remind_minutes
+  )
+  select * from sent_todos
+  union all
+  select * from sent_schedules;
+$$;
+
+revoke all on function public.claim_due_item_reminders() from public, anon, authenticated;
+grant execute on function public.claim_due_item_reminders() to service_role;
 
 -- 순서 바꾸기를 요청 한 번으로 저장 (RLS 그대로 적용 → 본인 행만 바뀜)
 create or replace function public.reorder_items(p_table text, p_ids uuid[])

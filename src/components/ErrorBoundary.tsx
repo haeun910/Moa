@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full py-2.5 rounded-xl bg-leaf-600 hover:bg-leaf-700 text-white text-sm font-semibold transition-colors"
+            className="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-white dark:text-gray-900 text-white text-sm font-semibold transition-colors"
           >
             새로고침
           </button>
