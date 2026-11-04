@@ -3,7 +3,7 @@ import type React from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  Archive, CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
+  Archive, ChevronDown, CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -19,6 +19,8 @@ import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { isValidTimeRange, timeRangeEnd, timeRangeLabel } from '../lib/timeRange';
 import { requestOpenNote } from '../lib/openNote';
 import TodayTimeline from '../components/TodayTimeline';
+import ScheduleCheck from '../components/ScheduleCheck';
+import { useCollapsed } from '../hooks/useCollapsed';
 import HelpTip from '../components/HelpTip';
 import { GUIDES } from '../data/guides';
 import CategoryTodoGroups from '../components/CategoryTodoGroups';
@@ -59,8 +61,9 @@ function ProgressRing({ pct, size = 44 }: { pct: number; size?: number }) {
 }
 
 // 위쪽 숫자 카드 한 칸
-function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: {
+function StatCard({ label, shortLabel, value, unit, sub, icon, onClick, tone = 'default' }: {
   label: string;
+  shortLabel: string; // 폰·태블릿의 작은 칸에 들어가는 짧은 이름
   value: React.ReactNode;
   unit?: string;
   sub?: React.ReactNode;
@@ -71,16 +74,19 @@ function StatCard({ label, value, unit, sub, icon, onClick, tone = 'default' }: 
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag onClick={onClick}
-      className={`surface rounded-2xl p-4 flex items-center justify-between gap-3 text-left min-w-0 ${onClick ? 'hover:ring-1 hover:ring-leaf-200 dark:hover:ring-leaf-800 transition-shadow' : ''}`}>
+      className={`surface rounded-xl lg:rounded-2xl px-2.5 py-2.5 lg:p-4 flex items-center justify-between gap-3 text-left min-w-0 ${onClick ? 'hover:ring-1 hover:ring-leaf-200 dark:hover:ring-leaf-800 transition-shadow' : ''}`}>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
-        <p className={`mt-1 text-26px leading-none font-bold tracking-[-0.03em] tabular-nums ${tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
-          {value}{unit && <span className="ml-0.5 text-sm font-semibold text-gray-400 dark:text-gray-500">{unit}</span>}
+        <p className="text-11px lg:text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
+          <span className="lg:hidden">{shortLabel}</span>
+          <span className="hidden lg:inline">{label}</span>
         </p>
-        {sub && <p className="mt-1.5 text-11.5px leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">{sub}</p>}
+        <p className={`mt-1 text-lg lg:text-26px leading-none font-bold tracking-[-0.03em] tabular-nums whitespace-nowrap ${tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
+          {value}{unit && <span className="ml-0.5 text-11px lg:text-sm font-semibold text-gray-400 dark:text-gray-500">{unit}</span>}
+        </p>
+        {/* 폰·태블릿은 숫자만 한 줄로 (홈 첫 화면에서 할 일이 바로 보이도록) */}
+        {sub && <p className="hidden lg:block mt-1.5 text-11.5px leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">{sub}</p>}
       </div>
-      {/* 폰에서는 두 칸씩 좁아서 아이콘은 빼고 숫자·설명에 자리를 줌 */}
-      <span className="hidden sm:flex">{icon}</span>
+      <span className="hidden lg:flex">{icon}</span>
     </Tag>
   );
 }
@@ -99,22 +105,41 @@ function ScheduleTime({ s }: { s: ScheduleItem }) {
 }
 
 // 카드 묶음 머리글
-function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
+// collapsed/onToggle을 주면 제목을 눌러 내용을 접고 펼 수 있음 (접으면 제목과 개수만)
+function SectionHeader({ icon, title, help, meta, actionLabel, onAction, collapsed, onToggle }: {
   icon: React.ReactNode; title: string; help?: string; meta?: React.ReactNode; actionLabel?: string; onAction?: () => void;
+  collapsed?: boolean; onToggle?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="text-14px font-semibold text-gray-900 dark:text-white">{title}</h2>
+    <div className={`flex items-center justify-between gap-2 ${collapsed ? '' : 'mb-3'}`}>
+      <div className="flex items-center gap-2 min-w-0">
+        {onToggle ? (
+          <button onClick={onToggle} aria-expanded={!collapsed} className="flex items-center gap-2 min-w-0 -my-1 py-1">
+            {icon}
+            <h2 className="text-14px font-semibold text-gray-900 dark:text-white whitespace-nowrap">{title}</h2>
+          </button>
+        ) : (
+          <>
+            {icon}
+            <h2 className="text-14px font-semibold text-gray-900 dark:text-white">{title}</h2>
+          </>
+        )}
         {help && <HelpTip text={help} label={title} />}
         {meta}
       </div>
-      {onAction && (
-        <button onClick={onAction} className="flex items-center text-xs font-medium text-gray-500 hover:text-leaf-700 dark:text-gray-400 dark:hover:text-leaf-300 transition-colors">
-          {actionLabel}<ChevronRight size={14} />
-        </button>
-      )}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {onAction && !collapsed && (
+          <button onClick={onAction} className="flex items-center text-xs font-medium text-gray-500 hover:text-leaf-700 dark:text-gray-400 dark:hover:text-leaf-300 transition-colors py-1">
+            {actionLabel}<ChevronRight size={14} />
+          </button>
+        )}
+        {onToggle && (
+          <button onClick={onToggle} aria-label={collapsed ? `${title} 펼치기` : `${title} 접기`} aria-expanded={!collapsed}
+            title={collapsed ? '펼치기' : '접기'} className="btn-icon w-7 h-7 -mr-1.5">
+            <ChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,6 +147,7 @@ function SectionHeader({ icon, title, help, meta, actionLabel, onAction }: {
 // 홈의 빠른 메모: 떠오른 생각을 바로 적고, 최근 메모 몇 개를 눌러 이어 쓰기
 function MemoSection() {
   const { notes, addNote, setCurrentScreen } = useApp();
+  const [collapsed, toggleCollapsed] = useCollapsed('home-memo');
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -163,7 +189,10 @@ function MemoSection() {
         meta={notes.length > 0 && <span className="count-pill">{notes.length}</span>}
         actionLabel="전체"
         onAction={() => setCurrentScreen('notes')}
+        collapsed={collapsed}
+        onToggle={toggleCollapsed}
       />
+      {!collapsed && <>
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-leaf-400 dark:focus-within:border-leaf-600 transition-colors">
         <textarea
           value={text}
@@ -206,6 +235,7 @@ function MemoSection() {
           })}
         </ul>
       )}
+      </>}
     </section>
   );
 }
@@ -222,6 +252,12 @@ export default function HomePage() {
   const monthKey = format(now, 'yyyy-MM');
   const holidays = useHolidays(todayKey, todayKey);
 
+  // 홈 카드는 제목(또는 오른쪽 화살표)을 눌러 접어 둘 수 있음. 기기에 기억됨
+  const [todoCollapsed, toggleTodoCollapsed] = useCollapsed('home-todo');
+  const [scheduleCollapsed, toggleScheduleCollapsed] = useCollapsed('home-schedule');
+  const [ddayCollapsed, toggleDdayCollapsed] = useCollapsed('home-dday');
+  const [goalCollapsed, toggleGoalCollapsed] = useCollapsed('home-goal');
+  const [showDoneSchedules, setShowDoneSchedules] = useState(false);
   const [todoModal, setTodoModal] = useState<{ todo?: Todo; categoryId?: string | null; subcategoryId?: string | null; title?: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ schedule?: ScheduleItem } | null>(null);
   const [ddayModal, setDdayModal] = useState<DDay | null>(null);
@@ -256,9 +292,12 @@ export default function HomePage() {
 
   // ── 오늘 목록 ──
   const todayTodos = applyListDisplaySettings(todos.filter(t => t.date === todayKey), settings);
-  const todaySchedules = schedules
+  const todayAllSchedules = schedules
     .filter(s => scheduleOnDate(s, todayKey))
     .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+  // 완료한 일정은 목록에서 빠짐 ("완료 n개"를 누르면 다시 보여서 체크를 풀 수 있음)
+  const todaySchedules = todayAllSchedules.filter(s => !s.completed);
+  const todayDoneSchedules = todayAllSchedules.filter(s => s.completed);
   const upcoming = nextSchedule(schedules, now);
   const upcomingDdays = [...ddays, ...todoDdays(todos, todayKey)]
     .filter(d => d.targetDate >= todayKey)
@@ -322,9 +361,10 @@ export default function HomePage() {
         </header>
 
         {/* ── 요약 숫자 4칸 ── */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4" aria-label="오늘 요약">
+        <section className="grid grid-cols-4 gap-2 lg:gap-3 mb-4" aria-label="오늘 요약">
           <StatCard
             label="오늘 진행률"
+            shortLabel="오늘"
             value={today.total ? todayRate : '–'}
             unit={today.total ? '%' : undefined}
             sub={today.total ? `할 일 ${today.total}개 중 ${today.done}개 완료` : '오늘 할 일이 아직 없어요'}
@@ -332,6 +372,7 @@ export default function HomePage() {
           />
           <StatCard
             label="연속 달성"
+            shortLabel="연속"
             value={streak}
             unit="일"
             sub={streak > 0 ? '하루 1개 이상 완료한 날' : '오늘 하나 끝내면 시작돼요'}
@@ -340,6 +381,7 @@ export default function HomePage() {
           />
           <StatCard
             label="이번 주 달성률"
+            shortLabel="이번 주"
             value={weekRate ?? '–'}
             unit={weekRate !== null ? '%' : undefined}
             sub={weekDiff === null
@@ -353,6 +395,7 @@ export default function HomePage() {
           />
           <StatCard
             label="밀린 할 일"
+            shortLabel="밀린 일"
             value={overdue.length}
             unit="개"
             tone={overdue.length > 0 ? 'warn' : 'default'}
@@ -373,7 +416,10 @@ export default function HomePage() {
                 meta={today.total > 0 && <span className="count-pill">{today.done}/{today.total}</span>}
                 actionLabel="달력에서 보기"
                 onAction={() => goCalendar(todayKey)}
+                collapsed={todoCollapsed}
+                onToggle={toggleTodoCollapsed}
               />
+              {!todoCollapsed && <>
               {todayTodos.length === 0 && (
                 <p className="text-13px text-gray-400 dark:text-gray-500 py-2">오늘 할 일을 아래에 적어보세요</p>
               )}
@@ -402,6 +448,7 @@ export default function HomePage() {
                   </ul>
                 </div>
               )}
+              </>}
             </section>
 
           </div>
@@ -425,19 +472,22 @@ export default function HomePage() {
                 meta={todaySchedules.length > 0 && <span className="count-pill">{todaySchedules.length}</span>}
                 actionLabel="추가"
                 onAction={() => setScheduleModal({})}
+                collapsed={scheduleCollapsed}
+                onToggle={toggleScheduleCollapsed}
               />
+              {!scheduleCollapsed && <>
               {todaySchedules.length === 0 ? (
                 <p className="text-13px text-gray-400 dark:text-gray-500">
-                  오늘은 정해진 일정이 없어요
+                  {todayDoneSchedules.length > 0 ? '오늘 일정을 모두 끝냈어요' : '오늘은 정해진 일정이 없어요'}
                   {upcoming && <><br /><span className="text-gray-500 dark:text-gray-400">다음 일정: {format(new Date(upcoming.date + 'T00:00'), 'M/d(EEE)', { locale: ko })} {timeRangeLabel(upcoming.startTime, upcoming.endTime)} {upcoming.title}</span></>}
                 </p>
               ) : (
                 <ul className="space-y-1">
                   {todaySchedules.map(s => (
-                    <li key={s.id}>
+                    <li key={s.id} className={`flex items-center gap-2.5 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 ${isPast(s) ? 'opacity-50' : ''}`}>
+                      <ScheduleCheck schedule={s} />
                       <button onClick={() => setScheduleModal({ schedule: s })}
-                        className={`w-full flex items-center gap-2.5 text-left px-2 py-1.5 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 ${isPast(s) ? 'opacity-50' : ''}`}>
-                        <span className="w-1 self-stretch rounded-full bg-[#4F73A8] flex-shrink-0" />
+                        className="flex-1 min-w-0 flex items-center gap-2.5 text-left py-1.5">
                         <ScheduleTime s={s} />
                         <span className="text-13px text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
                         {isMultiDay(s) && <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">~{format(parseISO(scheduleEndDate(s)), 'M/d')}</span>}
@@ -447,6 +497,29 @@ export default function HomePage() {
                   ))}
                 </ul>
               )}
+              {todayDoneSchedules.length > 0 && (
+                <div className="mt-2">
+                  <button onClick={() => setShowDoneSchedules(v => !v)} aria-expanded={showDoneSchedules}
+                    className="flex items-center gap-1 text-12px font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1">
+                    완료한 일정 {todayDoneSchedules.length}개
+                    <ChevronDown size={13} className={`transition-transform ${showDoneSchedules ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showDoneSchedules && (
+                    <ul className="space-y-1">
+                      {todayDoneSchedules.map(s => (
+                        <li key={s.id} className="flex items-center gap-2.5 px-2 -mx-2 rounded-lg opacity-60">
+                          <ScheduleCheck schedule={s} />
+                          <button onClick={() => setScheduleModal({ schedule: s })} className="flex-1 min-w-0 flex items-center gap-2.5 text-left py-1.5">
+                            <ScheduleTime s={s} />
+                            <span className="text-13px text-gray-500 line-through truncate">{s.title}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              </>}
             </section>
 
             {/* ── 다가오는 D-Day ── */}
@@ -457,8 +530,10 @@ export default function HomePage() {
                 help={GUIDES.dday}
                 actionLabel="달력"
                 onAction={() => goCalendar()}
+                collapsed={ddayCollapsed}
+                onToggle={toggleDdayCollapsed}
               />
-              {upcomingDdays.length === 0 ? (
+              {!ddayCollapsed && (upcomingDdays.length === 0 ? (
                 <p className="text-13px text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
               ) : (
                 <ul className="space-y-1">
@@ -475,7 +550,7 @@ export default function HomePage() {
                     );
                   })}
                 </ul>
-              )}
+              ))}
             </section>
 
             {/* ── 이번 달 목표 ── */}
@@ -487,8 +562,10 @@ export default function HomePage() {
                 meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
                 actionLabel="달력"
                 onAction={() => goCalendar()}
+                collapsed={goalCollapsed}
+                onToggle={toggleGoalCollapsed}
               />
-              {goals.length === 0 ? (
+              {!goalCollapsed && (goals.length === 0 ? (
                 <p className="text-13px text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
               ) : (
                 <>
@@ -508,7 +585,7 @@ export default function HomePage() {
                     ))}
                   </ul>
                 </>
-              )}
+              ))}
             </section>
 
             {/* ── 메모 ── */}

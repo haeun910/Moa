@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { Timer, ChevronRight, Plus } from 'lucide-react';
+import { Timer, ChevronRight, ChevronDown, Plus } from 'lucide-react';
+import { useCollapsed } from '../hooks/useCollapsed';
 import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -76,11 +77,13 @@ export default function TodayTimeline() {
 
   // 처음 열 때 지금 시각 앞뒤 3시간이 보이도록 스크롤 (예: 15시 → 12시~18시)
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 홈에서 접어 둘 수 있음 (접으면 지금/다음 한 줄만)
+  const [collapsed, toggleCollapsed] = useCollapsed('home-timebox');
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || collapsed) return;
     el.scrollTop = Math.max(0, (minutesNow(new Date()) - (VISIBLE_HOURS / 2) * 60) * MIN_PX);
-  }, []);
+  }, [collapsed]);
 
   function addBlockAt(fromMin: number) {
     const startMin = findFreeSlot(entries.map(e => ({ dateKey: todayKey, startMin: e.startMin, endMin: e.endMin })), fromMin, DEFAULT_BLOCK_MINUTES);
@@ -126,10 +129,14 @@ export default function TodayTimeline() {
           <button onClick={() => setCurrentScreen('timebox')} aria-label="주간 타임박스 열기" title="주간 타임박스 열기" className="btn-icon w-7 h-7">
             <ChevronRight size={16} />
           </button>
+          <button onClick={toggleCollapsed} aria-label={collapsed ? '오늘 타임박스 펼치기' : '오늘 타임박스 접기'} aria-expanded={!collapsed}
+            title={collapsed ? '펼치기' : '접기'} className="btn-icon w-7 h-7">
+            <ChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          </button>
         </div>
       </div>
 
-        <div ref={scrollRef} className="overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1" style={{ height: VISIBLE_HOURS * HOUR_PX + 12 }}>
+        <div ref={scrollRef} className={`overflow-y-auto scrollbar-thin -mx-1 px-1 pt-2 pb-1 ${collapsed ? 'hidden' : ''}`} style={{ height: VISIBLE_HOURS * HOUR_PX + 12 }}>
           <div className="relative" style={{ height: hours.length * HOUR_PX }}>
             {/* 시간 눈금: 빈 칸을 누르면 그 시각에 블록 추가 */}
             {hours.map((h, i) => (
