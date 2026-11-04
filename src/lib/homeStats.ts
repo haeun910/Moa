@@ -82,6 +82,7 @@ export function nextSchedule(schedules: ScheduleItem[], now: Date, withinDays = 
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const sortMin = (s: ScheduleItem) => (s.startTime ? parseMinutes(s.startTime) ?? -1 : -1);
   const candidates = schedules.filter(s => {
+    if (s.completed) return false;
     if (s.date > lastKey || s.date < todayKey) return false;
     if (s.date > todayKey) return true;
     const m = s.startTime ? parseMinutes(s.startTime) : null;

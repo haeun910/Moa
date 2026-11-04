@@ -16,6 +16,15 @@ const NAV_ITEMS: { screen: Screen; label: string; Icon: React.FC<{ size?: number
   { screen: 'settings', label: '설정', Icon: Settings },
 ];
 
+// 폰·태블릿 하단 탭은 4칸만 (6칸은 너무 빽빽함): 타임박스는 달력 화면 위 "월·주·타임박스" 전환으로,
+// 저장소는 홈 화면 위 버튼으로 들어감
+const MOBILE_TABS: Screen[] = ['today', 'month', 'notes', 'settings'];
+function mobileOwner(screen: Screen): Screen {
+  if (screen === 'timebox') return 'month';
+  if (screen === 'all' || screen === 'project') return 'today';
+  return navOwner(screen);
+}
+
 // 하위 화면(카테고리 관리, 약관 등)에 있을 때도 어느 메뉴 아래인지 표시되도록 묶어줌
 function navOwner(screen: Screen): Screen {
   if (screen === 'categories' || screen === 'terms' || screen === 'privacy') return 'settings';
@@ -57,6 +66,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = NAV_ITEMS.filter(({ screen }) => !(settings.hiddenFeatures as Screen[]).includes(screen));
   const rawOwner = navOwner(currentScreen);
   const owner = navItems.some(n => n.screen === rawOwner) ? rawOwner : 'settings';
+  const mobileItems = navItems.filter(n => MOBILE_TABS.includes(n.screen));
+  const rawMobileOwner = mobileOwner(currentScreen);
+  const mobileActive = mobileItems.some(n => n.screen === rawMobileOwner) ? rawMobileOwner : 'settings';
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -103,8 +115,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── 모바일/태블릿 하단 탭 ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-gray-950/85 backdrop-blur-xl border-t border-gray-200/70 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]" aria-label="주요 메뉴">
         <div className="flex items-stretch justify-around h-[62px] max-w-lg mx-auto px-2">
-          {navItems.map(({ screen, label, Icon }) => {
-            const active = owner === screen;
+          {mobileItems.map(({ screen, label, Icon }) => {
+            const active = mobileActive === screen;
             return (
               <button
                 key={screen}
@@ -114,10 +126,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   active ? 'text-leaf-600 dark:text-leaf-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-600'
                 }`}
               >
-                <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active ? 'bg-leaf-100 dark:bg-leaf-900/40' : ''}`}>
-                  <Icon size={19} strokeWidth={active ? 2.2 : 1.8} />
+                <span className={`flex items-center justify-center w-14 h-7 rounded-full transition-colors ${active ? 'bg-leaf-100 dark:bg-leaf-900/40' : ''}`}>
+                  <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
                 </span>
-                <span className={`text-10.5px leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                <span className={`text-11px leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
               </button>
             );
           })}

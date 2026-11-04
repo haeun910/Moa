@@ -7,7 +7,7 @@ const todo = (id: string, extra: Partial<Todo>): Todo => ({
   id, title: id, completed: false, categoryId: null, subcategoryId: null, date: null, createdAt: '', ...extra,
 });
 const schedule = (id: string, date: string, startTime: string | null = null): ScheduleItem => ({
-  id, title: id, date, startTime, createdAt: '',
+  id, title: id, date, startTime, createdAt: '', completed: false,
 });
 
 // 2026-10-17은 토요일
@@ -88,5 +88,10 @@ describe('nextSchedule', () => {
     expect(nextSchedule(list, today)?.id).toBe('later');
     expect(nextSchedule(list.filter(s => s.id !== 'later'), today)?.id).toBe('tomorrow');
     expect(nextSchedule([schedule('far', '2026-11-30')], today)).toBeNull();
+  });
+
+  it('완료 체크한 일정은 다음 일정으로 보여주지 않음', () => {
+    const list = [{ ...schedule('done', '2026-10-17', '14:00'), completed: true }, schedule('tomorrow', '2026-10-18', '08:00')];
+    expect(nextSchedule(list, today)?.id).toBe('tomorrow');
   });
 });

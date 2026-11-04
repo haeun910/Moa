@@ -114,6 +114,7 @@ export interface DbSchedule {
   end_date?: string | null;
   notes: string | null;
   series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
+  completed?: boolean; // 022 마이그레이션 전에는 컬럼이 없을 수 있음
   created_at: string;
 }
 

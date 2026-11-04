@@ -70,7 +70,7 @@ export default function FeedbackListModal({ onClose }: { onClose: () => void }) 
                   {format(parseISO(f.created_at), 'yyyy.M.d HH:mm')}{f.app_version ? ` · v${f.app_version}` : ''}
                 </span>
                 <button onClick={() => remove(f.id)} aria-label="삭제"
-                  className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
+                  className="opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                   <Trash2 size={13} />
                 </button>
               </div>

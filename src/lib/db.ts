@@ -417,7 +417,7 @@ export async function createSchedule(
   return data;
 }
 
-export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'end_time' | 'end_date' | 'notes'>>): Promise<void> {
+export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'end_time' | 'end_date' | 'notes' | 'completed'>>): Promise<void> {
   const { error } = await supabase.from('schedules').update(updates).eq('id', id);
   if (error) throw error;
 }

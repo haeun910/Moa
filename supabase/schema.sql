@@ -137,6 +137,7 @@ create table if not exists public.schedules (
   series_id   uuid,                          -- 같은 반복으로 만들어진 일정 묶음
   end_time    text,                          -- 끝나는 시간 (없으면 시작부터 1시간)
   end_date    date,                          -- 여러 날에 걸친 일정의 마지막 날 (없으면 하루짜리)
+  completed   boolean not null default false, -- 끝낸 일정
   constraint schedules_title_length check (char_length(title) <= 500),
   constraint schedules_end_date_order check (end_date is null or end_date >= date),
   constraint schedules_notes_length check (char_length(notes) <= 20000)

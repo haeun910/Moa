@@ -59,7 +59,7 @@ function toDDay(d: DbDDay): DDay {
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
-  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null };
+  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, endTime: s.end_time ?? null, endDate: s.end_date ?? null, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null, completed: s.completed ?? false };
 }
 
 function toTimeBlock(b: DbTimeBlock): TimeBlock {
@@ -157,6 +157,7 @@ interface AppContextType {
   addSchedule: (fields: ScheduleFields & { date: string; endDate?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: Partial<ScheduleFields> & { date?: string; endDate?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  toggleSchedule: (id: string) => Promise<void>;
   addScheduleSeries: (fields: ScheduleFields, dates: string[], existingId?: string) => Promise<void>;
   updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: Partial<ScheduleFields>) => Promise<void>;
   deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
@@ -800,6 +801,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.updateSchedule(id, dbUpdates);
   }, []);
 
+  // 일정 완료 체크 (끝낸 일정은 위쪽 일정 목록에서 빠지고 달력에는 흐리게 남음)
+  const toggleSchedule = useCallback(async (id: string) => {
+    const schedule = schedulesRef.current.find(s => s.id === id);
+    if (!schedule) return;
+    const completed = !schedule.completed;
+    schedulesRef.current = schedulesRef.current.map(s => s.id === id ? { ...s, completed } : s);
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, completed } : s));
+    await serialWriteRef.current(`schedule:${id}`, () => db.updateSchedule(id, { completed }));
+  }, []);
+
   const deleteSchedule = useCallback(async (id: string) => {
     setSchedules(prev => prev.filter(s => s.id !== id));
     await db.deleteSchedule(id);
@@ -1069,6 +1080,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addSchedule: guard(addSchedule, S, true),
       updateSchedule: guard(updateSchedule, S),
       deleteSchedule: guard(deleteSchedule, S),
+      toggleSchedule: guard(toggleSchedule, S),
       addScheduleSeries: guard(addScheduleSeries, S, true),
       updateScheduleSeries: guard(updateScheduleSeries, S),
       deleteScheduleSeries: guard(deleteScheduleSeries, S),

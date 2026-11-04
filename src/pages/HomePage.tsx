@@ -3,7 +3,7 @@ import type React from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
+  Archive, CalendarDays, CalendarClock, CalendarCheck, Flame, TrendingUp, TrendingDown, AlertCircle, Flag, Target, ChevronRight, Clock, Megaphone, BarChart3, StickyNote, Pin,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNow } from '../hooks/useNow';
@@ -303,6 +303,13 @@ export default function HomePage() {
             </h1>
           </div>
           <div className="flex items-center gap-2 pt-1">
+            {/* 폰·태블릿은 하단 탭에 저장소가 없어서 여기서 들어감 */}
+            {!hidden.has('all') && (
+              <button onClick={() => setCurrentScreen('all')} className="lg:hidden btn-secondary h-8 px-3 text-13px">
+                <Archive size={15} className="text-gray-500 dark:text-gray-400" />
+                저장소
+              </button>
+            )}
             <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
               <Megaphone size={15} />
               {hasUnreadNotice && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />}

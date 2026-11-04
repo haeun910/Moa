@@ -88,6 +88,7 @@ export interface ScheduleItem {
   notes?: string | null;
   createdAt: string;
   seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
+  completed: boolean; // 끝낸 일정 (완료 체크하면 위쪽 일정 목록에서 빠짐)
 }
 
 // 타임박스: "이 시간엔 이걸 하겠다"는 시간 블록. 정해진 약속(일정)과 달리 자유롭게 옮기고 늘리고 줄임.

@@ -1,3 +1,4 @@
+import CalendarViewTabs from '../components/CalendarViewTabs';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Flag, Plus, ListChecks, PanelRightClose, PanelRightOpen, Repeat, X } from 'lucide-react';
@@ -47,7 +48,7 @@ function weekdayTone(dow: number) {
 }
 
 export default function TimeboxPage() {
-  const { timeblocks, todos, categories, schedules, ddays, addTimeBlock, updateTimeBlock, toggleTimeBlock, toggleTodo, ensureTimeBlocksFrom } = useApp();
+  const { timeblocks, todos, categories, schedules, ddays, addTimeBlock, updateTimeBlock, toggleTimeBlock, toggleTodo, toggleSchedule, ensureTimeBlocksFrom } = useApp();
   const now = useNow();
   const todayKey = format(now, 'yyyy-MM-dd');
   const nowMin = minutesNow(now);
@@ -360,7 +361,9 @@ export default function TimeboxPage() {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="min-w-0">
-              <h1 className="page-title">타임박스</h1>
+              {/* 폰·태블릿은 하단 탭에 타임박스가 없어서, 달력의 월·주와 오가는 전환을 제목 자리에 둠 */}
+              <div className="lg:hidden mb-1"><CalendarViewTabs value="timebox" /></div>
+              <h1 className="page-title hidden lg:block">타임박스</h1>
               <p className="page-subtitle">
                 {weekLabel}
                 {weekItems.length > 0 && (
@@ -534,7 +537,7 @@ export default function TimeboxPage() {
                         isPast={dateKey < todayKey || (isToday && item.endMin <= nowMin)}
                         onPointerDown={item.kind === 'todo' ? e => { e.stopPropagation(); handleTodoDragStart(e, item.todo); } : undefined}
                         onClick={() => handleAgendaClick(item, dateKey)}
-                        onToggle={item.kind === 'todo' ? () => toggleTodo(item.todo.id) : undefined}
+                        onToggle={item.kind === 'todo' ? () => toggleTodo(item.todo.id) : () => toggleSchedule(item.schedule.id)}
                       />
                     ))}
 

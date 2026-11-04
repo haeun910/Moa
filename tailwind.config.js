@@ -109,5 +109,8 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // can-hover: 마우스가 있는 기기에서만 (터치 화면에서는 "올려야 보이는" 버튼이 안 보이는 문제 방지)
+    ({ addVariant }) => addVariant('can-hover', '@media (hover: hover) and (pointer: fine)'),
+  ],
 }

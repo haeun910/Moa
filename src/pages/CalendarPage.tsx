@@ -283,7 +283,7 @@ function ScheduleChip({ schedule, onOpen }: { schedule: ScheduleItem; onOpen: (s
     <button onClick={() => onOpen(schedule)}
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left bg-blue-50 dark:bg-blue-900/25 border-l-[3px] border-blue-500">
       <CalendarDays size={13} className="flex-shrink-0 text-blue-600 dark:text-blue-300" />
-      <span className="text-xs font-medium flex-1 truncate text-gray-800 dark:text-gray-100">{schedule.title}</span>
+      <span className={`text-xs font-medium flex-1 truncate ${schedule.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>{schedule.title}</span>
       {schedule.startTime && !isMultiDay(schedule) && <span className="text-10px tabular-nums text-gray-500 dark:text-gray-400">{timeRangeLabel(schedule.startTime, schedule.endTime)}</span>}
     </button>
   );

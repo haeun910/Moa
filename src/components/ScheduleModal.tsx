@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, CalendarClock, Trash2 } from 'lucide-react';
+import { X, CalendarClock, Trash2, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { buildRecurringDates } from '../lib/recurrence';
 import type { RepeatRule } from '../lib/recurrence';
@@ -20,10 +20,12 @@ interface Props {
 
 export default function ScheduleModal({ schedule, defaultDate, onClose }: Props) {
   const {
-    schedules, addSchedule, updateSchedule, deleteSchedule,
+    schedules, addSchedule, updateSchedule, deleteSchedule, toggleSchedule,
     addScheduleSeries, updateScheduleSeries, deleteScheduleSeries,
   } = useApp();
   const isEdit = !!schedule;
+  // 완료 체크는 바로 저장되므로 목록의 최신 값을 따라감
+  const liveSchedule = schedule ? schedules.find(s => s.id === schedule.id) : undefined;
   const [title, setTitle] = useState(schedule?.title ?? '');
   const [date, setDate] = useState(schedule?.date ?? defaultDate ?? '');
   const [endDate, setEndDate] = useState(schedule?.endDate ?? '');
@@ -117,6 +119,17 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             <CalendarClock size={16} className="text-blue-500" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? '일정 수정' : '일정 추가'}</h2>
           </div>
+          {liveSchedule && (
+            <button onClick={() => toggleSchedule(liveSchedule.id)} aria-pressed={liveSchedule.completed}
+              className={`ml-auto mr-1 h-8 px-3 rounded-full flex items-center gap-1 text-12.5px font-semibold transition-colors ${
+                liveSchedule.completed
+                  ? 'bg-blue-500 text-white dark:bg-blue-400 dark:text-gray-900'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}>
+              <Check size={13} strokeWidth={3} />
+              {liveSchedule.completed ? '완료함' : '완료'}
+            </button>
+          )}
           <button onClick={onClose} aria-label="닫기"
             className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X size={17} />
