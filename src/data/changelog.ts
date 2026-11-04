@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.3',
+    date: '2026-11-04',
+    changes: [
+      '컴퓨터 달력: "11월 목표"·"11월 일정" 제목을 누르면 팝업 창으로 크게 열림 (D-Day 제목은 지난 것까지 전체 목록)',
+      '밀린 할 일을 하나씩 "저장소로" 보내기 (되돌리기 가능)',
+    ],
+  },
+  {
     version: '2.12.2',
     date: '2026-11-04',
     changes: [

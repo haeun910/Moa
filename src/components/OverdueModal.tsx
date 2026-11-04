@@ -13,7 +13,7 @@ interface Props {
   onClose: () => void;
 }
 
-// 지난 날짜에 못 끝낸 할 일 정리: 오늘로 옮기기 · 안 하기 · 끝냈으면 체크.
+// 지난 날짜에 못 끝낸 할 일 정리: 오늘로 옮기기 · 저장소로 보내기 · 안 하기 · 끝냈으면 체크.
 // 2주가 넘은 것은 "오래된 할 일"로 접어 두고 한 번에 정리할 수 있게 함.
 // (반복 할 일은 가장 최근에 놓친 회차만 보임 → homeStats.overdueTodos)
 export default function OverdueModal({ onEdit, onClose }: Props) {
@@ -35,11 +35,23 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
     }
   }
 
+  const short = (title: string) => (title.length > 18 ? `${title.slice(0, 18)}…` : title);
+
   function skip(t: Todo) {
     updateTodo(t.id, { skipped: true });
-    showToast(`'${t.title.length > 18 ? `${t.title.slice(0, 18)}…` : t.title}'을(를) 안 하기로 했어요`, 'info', 5000, {
+    showToast(`'${short(t.title)}'을(를) 안 하기로 했어요`, 'info', 5000, {
       label: '되돌리기',
       onClick: () => updateTodo(t.id, { skipped: false }),
+    });
+  }
+
+  // 날짜를 빼서 저장소에 보관 (나중에 다시 날짜를 정할 수 있게)
+  function toStorage(t: Todo) {
+    const prevDate = t.date;
+    updateTodo(t.id, { date: null });
+    showToast(`'${short(t.title)}'을(를) 저장소로 보냈어요`, 'info', 5000, {
+      label: '되돌리기',
+      onClick: () => updateTodo(t.id, { date: prevDate }),
     });
   }
 
@@ -71,6 +83,12 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
             title="오늘 할 일로 옮기기">
             <CalendarCheck size={11} />오늘로
           </button>
+          {/* 반복 할 일은 회차라서 저장소로 보내지 않음 (오늘로 / 안 하기만) */}
+          {!t.seriesId && (
+            <button onClick={() => toStorage(t)} className="row-action" title="날짜 없이 저장소에 보관">
+              <Archive size={11} />저장소로
+            </button>
+          )}
           <button onClick={() => skip(t)} className="row-action" title="하지 않기로 정리 (그 날짜에 흐리게 남아요)">
             <Ban size={11} />안 하기
           </button>
@@ -102,7 +120,7 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
               <h2 className="text-base font-bold text-gray-900 dark:text-white">밀린 할 일</h2>
               {recent.length > 0 && <span className="count-pill">{recent.length}</span>}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">오늘로 옮기거나, 하지 않을 일은 '안 하기'로 정리하세요</p>
+            <p className="text-xs text-gray-400 mt-0.5">오늘로 옮기거나 저장소에 보관하고, 하지 않을 일은 '안 하기'로 정리하세요</p>
           </div>
           <button onClick={onClose} aria-label="닫기" className="btn-icon -mr-1.5"><X size={17} /></button>
         </div>

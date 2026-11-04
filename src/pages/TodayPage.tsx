@@ -78,7 +78,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 // 상단 요약 띠의 한 칸 (목표 / D-Day / 일정)
 function OverviewColumn({
-  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children, footer, inSheet,
+  icon, title, help, onTitleClick, titleHint, meta, onAdd, addLabel, emptyText, isEmpty, children, footer, inSheet, onClose, accent = 'leaf',
 }: {
   icon: React.ReactNode;
   title: string;
@@ -92,7 +92,9 @@ function OverviewColumn({
   isEmpty: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  inSheet?: boolean; // 폰·태블릿 팝업 안: 높이 제한 없이, 손가락으로 누르기 쉽게 크게
+  inSheet?: boolean; // 팝업 안: 높이 제한 없이, 손가락으로 누르기 쉽게 크게
+  onClose?: () => void; // 팝업 안에서 닫기 버튼
+  accent?: 'leaf' | 'blue'; // 팝업의 추가 버튼 색 (일정은 파랑)
 }) {
   return (
     <div className={`flex flex-col min-w-0 ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
@@ -111,10 +113,13 @@ function OverviewColumn({
           {meta}
         </div>
         {inSheet ? (
-          <button onClick={onAdd} className="btn-primary h-8 px-3 text-13px -mr-1">
-            <Plus size={14} />
-            추가
-          </button>
+          <div className="flex items-center gap-1 -mr-1.5">
+            <button onClick={onAdd} className={`btn-primary h-8 px-3 text-13px ${accent === 'blue' ? '!bg-blue-500 hover:!bg-blue-600' : ''}`}>
+              <Plus size={14} />
+              추가
+            </button>
+            {onClose && <button onClick={onClose} aria-label="닫기" className="btn-icon"><X size={18} /></button>}
+          </div>
         ) : (
           <button onClick={onAdd} aria-label={addLabel} title={addLabel} className="btn-icon w-7 h-7 -mr-1.5">
             <Plus size={15} />
@@ -427,6 +432,9 @@ export default function TodayPage() {
       icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400 flex-shrink-0" />}
       title={`${format(viewMonth, 'M월')} 목표`}
       help={GUIDES.goal}
+      onTitleClick={inSheet ? undefined : () => setOverviewSheet('goal')}
+      titleHint="창으로 크게 열기"
+      onClose={inSheet ? () => setOverviewSheet(null) : undefined}
       meta={monthGoals.length > 0 && <span className="count-pill">{completedGoals}/{monthGoals.length}</span>}
       onAdd={() => setGoalModalState({})}
       addLabel="목표 추가"
@@ -468,7 +476,8 @@ export default function TodayPage() {
       title="D-Day"
       help={GUIDES.dday}
       onTitleClick={() => setShowDdayListModal(true)}
-      titleHint="지난 D-Day까지 전체 보기"
+      titleHint="창으로 크게 열기 (지난 D-Day까지 전체)"
+      onClose={inSheet ? () => setOverviewSheet(null) : undefined}
       onAdd={() => setDdayModalState({})}
       addLabel="D-Day 추가"
       emptyText="다가오는 날을 등록해 카운트다운하세요"
@@ -508,6 +517,10 @@ export default function TodayPage() {
       icon={<CalendarClock size={14} className="text-blue-500 flex-shrink-0" />}
       title={`${format(viewMonth, 'M월')} 일정`}
       help={GUIDES.schedule}
+      onTitleClick={inSheet ? undefined : () => setOverviewSheet('schedule')}
+      titleHint="창으로 크게 열기"
+      accent="blue"
+      onClose={inSheet ? () => setOverviewSheet(null) : undefined}
       meta={monthSchedules.length > 0 && <span className="count-pill">{monthSchedules.length}</span>}
       onAdd={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })}
       addLabel="일정 추가"
@@ -958,7 +971,8 @@ export default function TodayPage() {
           </div>
         </Sheet>
       )}
-      {!isDesktop && overviewSheet && (
+      {/* 폰·태블릿은 요약 버튼, 컴퓨터는 칸 제목을 누르면 열리는 팝업 */}
+      {overviewSheet && (
         <Sheet onClose={() => setOverviewSheet(null)}>
           <div className="pt-3">
             {overviewSheet === 'goal' ? goalColumn(true) : overviewSheet === 'dday' ? ddayColumn(true) : scheduleColumn(true)}
