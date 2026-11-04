@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag } from 'lucide-react';
+import { CATEGORIES_BACK_KEY } from '../lib/navBack';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -232,7 +233,7 @@ function ListDisplayBadges({ settings }: { settings: Pick<Settings, 'listSortBy'
 }
 
 export default function AllTodosPage() {
-  const { todos: allTodos, categories, subcategories, settings, addTodo, updateTodo, reorderTodos } = useApp();
+  const { todos: allTodos, categories, subcategories, settings, addTodo, updateTodo, reorderTodos, setCurrentScreen } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
@@ -392,6 +393,11 @@ export default function AllTodosPage() {
 
   const completedPct = repoTodoCount ? Math.round((completedCount / repoTodoCount) * 100) : 0;
 
+  function openCategories() {
+    try { sessionStorage.setItem(CATEGORIES_BACK_KEY, 'all'); } catch { /* 뒤로 가기가 설정으로 갈 뿐 */ }
+    setCurrentScreen('categories');
+  }
+
   function renderHeader() {
     return (
       <>
@@ -401,14 +407,21 @@ export default function AllTodosPage() {
             <p className="page-subtitle">날짜를 정하지 않은 할 일 {repoTodoCount}개 · 완료 {completedCount}개</p>
             <ListDisplayBadges settings={settings} />
           </div>
-          {repoTodoCount > 0 && (
-            <div className="flex items-center gap-2 mb-1 flex-shrink-0">
-              <div className="w-24 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full bg-leaf-500 rounded-full transition-[width] duration-500" style={{ width: `${completedPct}%` }} />
+          <div className="flex flex-col items-end gap-3 mb-1 flex-shrink-0">
+            {/* 카테고리 관리 바로가기 (예전엔 설정 안에서 찾아 들어가야 했음) */}
+            <button onClick={openCategories} className="btn-secondary h-8 px-3 text-13px">
+              <Tag size={14} />
+              카테고리 관리
+            </button>
+            {repoTodoCount > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-leaf-500 rounded-full transition-[width] duration-500" style={{ width: `${completedPct}%` }} />
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">{completedPct}%</span>
               </div>
-              <span className="text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">{completedPct}%</span>
-            </div>
-          )}
+            )}
+          </div>
         </header>
         <div className="mb-7">
           <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />

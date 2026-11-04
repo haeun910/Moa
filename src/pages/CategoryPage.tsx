@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CATEGORIES_BACK_KEY } from '../lib/navBack';
 import { Plus, Trash2, Edit2, X, ChevronLeft, ChevronDown, ChevronUp, Check, GripVertical, Layers } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -295,6 +296,11 @@ function SortableCategoryItem({
 
 export default function CategoryPage() {
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories, setCurrentScreen } = useApp();
+  // 저장소의 바로가기로 들어왔으면 뒤로 가기도 저장소로
+  const [backTo] = useState<'all' | 'settings'>(() => {
+    try { return sessionStorage.getItem(CATEGORIES_BACK_KEY) === 'all' ? 'all' : 'settings'; } catch { return 'settings'; }
+  });
+  useEffect(() => { try { sessionStorage.removeItem(CATEGORIES_BACK_KEY); } catch { /* 없어도 됨 */ } }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState(PRESET_COLORS[0]);
@@ -348,7 +354,7 @@ export default function CategoryPage() {
   return (
     <div className="min-h-screen pb-24 lg:pb-12">
       <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 lg:px-8 pt-8 sm:pt-10 pb-5">
-        <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
+        <button onClick={() => setCurrentScreen(backTo)} aria-label={backTo === 'all' ? '저장소로 돌아가기' : '설정으로 돌아가기'}
           className="btn-icon w-9 h-9 -ml-2">
           <ChevronLeft size={20} />
         </button>
