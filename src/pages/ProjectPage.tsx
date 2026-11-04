@@ -27,11 +27,6 @@ const shortDay = (d: string) => format(parseISO(d), 'M월 d일', { locale: ko })
 const shortTitle = (t: string) => (t.length > 12 ? `${t.slice(0, 12)}…` : t);
 const ddayLabel = (diff: number) => (diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${-diff}`);
 
-// 여러 개를 한꺼번에 저장할 때 요청이 한 번에 몰리지 않게 몇 개씩 나눠 보냄
-async function runInChunks<T>(items: T[], size: number, fn: (item: T) => Promise<unknown>) {
-  for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(fn));
-}
-
 function useToday() {
   return format(new Date(), 'yyyy-MM-dd');
 }
@@ -119,7 +114,7 @@ export default function ProjectPage() {
 }
 
 function PlanView({ dday, onEditDday }: { dday: DDay; onEditDday: () => void }) {
-  const { todos, categories, subcategories, addPlanTodos, deleteTodos, updateTodo, updateDDay, toggleTodo } = useApp();
+  const { todos, categories, subcategories, addPlanTodos, deleteTodos, updateTodo, moveTodoDates, updateDDay, toggleTodo } = useApp();
   const desktop = useMediaQuery('(min-width: 1024px)');
   const todayStr = useToday();
   const linked = useMemo(() => planTodos(todos, dday.id), [todos, dday.id]);
@@ -127,8 +122,9 @@ function PlanView({ dday, onEditDday }: { dday: DDay; onEditDday: () => void }) 
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
   const diff = differenceInCalendarDays(parseISO(dday.targetDate), parseISO(todayStr));
   const isPast = diff < 0;
-  const openDated = linked.filter(t => isOpenPlanTodo(t) && t.date);
-  const overdue = openDated.filter(t => t.date! < todayStr);
+  // 다시 나눌 남은 일: 날짜가 있는 것(날짜순) 뒤에 저장소로 뺀 것까지
+  const openTodos = linked.filter(isOpenPlanTodo);
+  const overdue = openTodos.filter(t => t.date && t.date < todayStr);
   const unfinished = linked.filter(t => !t.completed);
 
   // 나누는 방법: D-Day에 저장해 둔 것, 없으면 D-Day 이름으로 하위 카테고리를 짐작 ("토익 시험" → 토익)
@@ -196,23 +192,26 @@ function PlanView({ dday, onEditDday }: { dday: DDay; onEditDday: () => void }) 
   const redoDays = useMemo(() => (redoRange ? planDays(redoRange.from, redoRange.to, plan.restDays) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [redoRange?.from, redoRange?.to, restKey]);
-  const redoResult: DistributeResult | null = openDated.length && redoRange ? distribute(openDated.length, redoDays, {}, plan.maxPerDay) : null;
+  const redoResult: DistributeResult | null = openTodos.length && redoRange ? distribute(openTodos.length, redoDays, {}, plan.maxPerDay) : null;
 
   async function handleRedistribute() {
     if (busy || !redoRange || !redoResult?.ok) return;
-    const moves = openDated
-      .map((t, i) => ({ id: t.id, from: t.date as string, to: redoResult.dates[i] }))
+    const moves = openTodos
+      .map((t, i) => ({ id: t.id, from: t.date, to: redoResult.dates[i] }))
       .filter(m => m.from !== m.to);
     setBusy(true);
     try {
-      await runInChunks(moves, 5, m => updateTodo(m.id, { date: m.to }));
+      // 하나라도 저장에 실패하면 저장 실패 알림만 뜨고(목록은 서버 내용으로 다시 맞춤) 다시 나누기 창은 그대로 둠
+      await moveTodoDates(moves.map(m => ({ id: m.id, date: m.to })));
       updateDDay(dday.id, { plan });
       setConfirm(null);
       if (moves.length === 0) showToast('이미 고르게 나뉘어 있어요', 'info');
-      else showToast(`'${shortTitle(dday.title)}' 남은 일 ${openDated.length}개를 오늘부터 다시 나눴어요`, 'success', 6000, {
+      else showToast(`'${shortTitle(dday.title)}' 남은 일 ${openTodos.length}개를 오늘부터 다시 나눴어요`, 'success', 6000, {
         label: '되돌리기',
-        onClick: () => { runInChunks(moves, 5, m => updateTodo(m.id, { date: m.from })); },
+        onClick: () => { moveTodoDates(moves.map(m => ({ id: m.id, date: m.from }))).catch(() => { /* 실패 알림은 이미 뜸 */ }); },
       });
+    } catch {
+      // 저장하지 못했다는 알림은 이미 떠 있음
     } finally {
       setBusy(false);
     }
@@ -279,7 +278,7 @@ function PlanView({ dday, onEditDday }: { dday: DDay; onEditDday: () => void }) 
           <p className="mt-3 text-12.5px text-gray-500 dark:text-gray-400">지난 D-Day예요. 날짜를 바꾸면 다시 계획을 세울 수 있어요.</p>
         )}
 
-        {!isPast && openDated.length > 0 && confirm !== 'redistribute' && (
+        {!isPast && openTodos.length > 0 && confirm !== 'redistribute' && (
           overdue.length > 0 ? (
             <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 px-3 py-2.5">
               <AlertCircle size={15} className="text-amber-500 flex-shrink-0" />
@@ -298,7 +297,7 @@ function PlanView({ dday, onEditDday }: { dday: DDay; onEditDday: () => void }) 
         {confirm === 'redistribute' && redoRange && (
           <div className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3.5 space-y-3.5">
             <p className="text-13px text-gray-700 dark:text-gray-200 leading-relaxed">
-              끝내지 않은 일 <b>{openDated.length}개</b>를 오늘부터 {shortDay(redoRange.to)}까지 다시 나눠요. 못 한 일이 앞쪽으로 오고, 직접 옮긴 날짜도 새로 정해져요.
+              끝내지 않은 일 <b>{openTodos.length}개</b>를 오늘부터 {shortDay(redoRange.to)}까지 다시 나눠요. 못 한 일이 앞쪽으로 오고, 직접 옮긴 날짜도 새로 정해져요.
             </p>
             <SpreadSettings plan={plan} onChange={setPlan} />
             <ResultLine result={redoResult} days={redoDays} restDays={plan.restDays} maxPerDay={plan.maxPerDay} />

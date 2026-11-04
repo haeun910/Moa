@@ -138,6 +138,7 @@ interface AppContextType {
   // 프로젝트 로드맵: D-Day 준비 할 일 여러 개를 날짜별로 한 번에 만들고, 만든 할 일을 돌려줌
   addPlanTodos: (ddayId: string, items: { title: string; date: string }[], common: { categoryId: string | null; subcategoryId: string | null }) => Promise<Todo[] | undefined>;
   deleteTodos: (ids: string[]) => Promise<void>;
+  moveTodoDates: (moves: { id: string; date: string | null }[]) => Promise<void>;
   deleteTodoSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
@@ -712,6 +713,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // 여러 할 일의 날짜를 한 번에 바꿈 (로드맵 "다시 나누기"). 하나라도 실패하면 알 수 있게 실패를 그대로 올려 보냄
+  const moveTodoDates = useCallback(async (moves: { id: string; date: string | null }[]) => {
+    for (let i = 0; i < moves.length; i += 5) {
+      await Promise.all(moves.slice(i, i + 5).map(m => updateTodo(m.id, { date: m.date })));
+    }
+  }, [updateTodo]);
+
   // 할 일의 날짜·시간을 바꾸면, 원래 날짜에 잡아 둔 연결 블록도 같이 옮김
   // (날짜만 바뀌면 같은 시각 그대로 새 날짜로, 시간이 바뀌면 길이는 그대로 두고 새 시각으로.
   //  저장소로 보내 날짜가 없어지면 그 날의 블록은 지움)
@@ -1224,6 +1232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTodoSeries: guard(addTodoSeries, T, true),
       addPlanTodos: guard(addPlanTodos, T, true),
       deleteTodos: guard(deleteTodos, B),
+      moveTodoDates: guard(moveTodoDates, B, true),
       updateTodoSeries: guard(updateTodoSeries, T),
       deleteTodoSeries: guard(deleteTodoSeries, B),
       updateTodo: guard(updateTodo, B),
