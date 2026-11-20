@@ -115,5 +115,9 @@ export default {
   plugins: [
     // can-hover: 마우스가 있는 기기에서만 (터치 화면에서는 "올려야 보이는" 버튼이 안 보이는 문제 방지)
     ({ addVariant }) => addVariant('can-hover', '@media (hover: hover) and (pointer: fine)'),
+    // cell-wide: 달력 칸(container)이 넉넉할 때만 (화면 너비가 아니라 칸 너비 기준. 오른쪽 날짜 창을 열면 칸이 좁아짐)
+    ({ addVariant }) => addVariant('cell-wide', '@container day-cell (min-width: 136px)'),
+    // ov-wide: 달력 위 요약 칸(목표·D-Day·일정)이 넉넉할 때만 (날짜 창을 열면 요약 칸도 좁아짐)
+    ({ addVariant }) => addVariant('ov-wide', '@container overview (min-width: 300px)'),
   ],
 }
