@@ -6,6 +6,11 @@ import { useEffect, useRef } from 'react';
 const stack: { current: () => void }[] = [];
 let listening = false;
 
+// 미니 창(다른 문서)에 뜬 팝업도 Esc로 닫히게 그 창의 문서에도 같은 처리를 붙임 (MiniTodayHost)
+export function handleEscapeKey(e: KeyboardEvent) {
+  onKeyDown(e);
+}
+
 function onKeyDown(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
   const top = stack[stack.length - 1];

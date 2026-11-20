@@ -12,7 +12,7 @@
 // 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
 // 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
 // 12) 월 달력 칸: 칸이 넉넉하면 4줄보다 많이 보이고, 숨긴 카테고리 할 일은 칸에서도 빠지며, 묶음에 끝낸 개수가 보이는지
-// 13) PC 미니 창: 사이드바 "미니 창"으로 오늘 할 일 창이 뜨고, 거기서 체크·추가하면 본 창과 저장에 같이 반영되는지
+// 13) PC 미니 창: 사이드바 "미니 창"으로 오늘 할 일 창이 뜨고, 거기서 체크·추가하면 본 창과 저장에 같이 반영되는지, 눌러서 미니 창 안에서 편집되는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -546,6 +546,8 @@ try {
       { ...base, id: 'q1', title: '출석', date: '2026-11-04', category_id: 'c-school', subcategory_id: 's1', completed: true },
       { ...base, id: 'q2', title: '발표', date: '2026-11-04', category_id: 'c-school', subcategory_id: 's1' },
     ];
+    // 11/13(금)~11/16(월) 여러 날 일정: 두 주에 걸쳐 이어진 막대 두 조각으로
+    const trips = [{ id: 'trip', user_id: USER_ID, title: '제주 여행', date: '2026-11-13', end_date: '2026-11-16', start_time: null, end_time: null, notes: null, series_id: null, completed: false, created_at: '2026-01-01T00:00:00Z' }];
     await page.route(`${SUPABASE}/rest/v1/**`, route => {
       const req = route.request();
       if (req.method() !== 'GET') return route.fallback();
@@ -555,6 +557,7 @@ try {
       if (table === 'todos') return route.fulfill({ json: first ? rows : [] });
       if (table === 'categories') return route.fulfill({ json: cats });
       if (table === 'subcategories') return route.fulfill({ json: subs });
+      if (table === 'schedules') return route.fulfill({ json: first ? trips : [] });
       return route.fallback();
     });
     await page.goto(BASE);
@@ -569,10 +572,18 @@ try {
       });
       if (shown <= 4) throw new Error(`큰 화면인데 ${shown}줄만 보임`);
       if (clipped) throw new Error('마지막 줄이 칸 밖으로 잘림');
-      const paper = page.getByRole('button', { name: /^11월 3일 화요일/ }).locator('div[title="논문"]');
-      if (!/line-through/.test(await paper.getAttribute('class') ?? '')) throw new Error('숨긴 카테고리 할 일 때문에 논문에 줄이 안 그어짐');
+      const paper = page.getByRole('button', { name: /^11월 3일 화요일/ }).locator('div[title="논문"] .line-through');
+      if (await paper.count() === 0) throw new Error('숨긴 카테고리 할 일 때문에 논문에 줄이 안 그어짐');
+      // 여러 날 일정은 칸마다 따로가 아니라 이어진 막대 (11/13~14, 11/15~16 두 조각, 각각 두 칸 너비)
+      const bars = page.locator('[data-bar]', { hasText: '제주 여행' });
+      if (await bars.count() !== 2) throw new Error(`여러 날 일정 막대가 ${await bars.count()}조각 (2조각이어야 함)`);
+      const cellW = (await page.getByRole('button', { name: /^11월 13일 금요일/ }).boundingBox()).width;
+      for (const b of await bars.all()) {
+        const w = (await b.boundingBox()).width;
+        if (w < cellW * 1.8) throw new Error(`막대가 두 칸에 이어지지 않음 (너비 ${Math.round(w)}px, 칸 ${Math.round(cellW)}px)`);
+      }
       await page.getByRole('button', { name: /^11월 4일 수요일/ }).locator('div[title="수업"]').getByText('1/2').waitFor({ timeout: 3000 });
-      console.log(`✅ 월 달력: 큰 화면에서 ${shown}줄까지 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)가 보임`);
+      console.log(`✅ 월 달력: 큰 화면에서 ${shown}줄까지 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
     } catch (e) {
       fail(`월 달력 칸 (${e.message})`);
     }
@@ -614,7 +625,13 @@ try {
       await btn.click();
       await page.waitForTimeout(300);
       if (context.pages().length !== 2) throw new Error(`창 개수 ${context.pages().length}`);
-      console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영됨');
+      // 제목을 누르면 미니 창 안에서 편집 창이 열리고 Esc로 닫힘 (본 창에는 안 뜸)
+      await pip.getByTitle('눌러서 편집').filter({ hasText: last }).click();
+      await pip.locator('.modal-panel').waitFor({ timeout: 3000 });
+      if (await page.locator('.modal-panel').count()) throw new Error('편집 창이 본 창에 열림');
+      await pip.keyboard.press('Escape');
+      await pip.locator('.modal-panel').waitFor({ state: 'detached', timeout: 3000 });
+      console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영되며, 눌러서 그 자리에서 편집됨');
     } catch (e) {
       fail(`미니 창 (${e.message})`);
     }

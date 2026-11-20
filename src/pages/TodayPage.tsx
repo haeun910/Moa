@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type React from 'react';
 import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
@@ -13,13 +13,15 @@ import HelpTip from '../components/HelpTip';
 import Sheet from '../components/Sheet';
 import ScheduleCheck from '../components/ScheduleCheck';
 import CalendarViewTabs from '../components/CalendarViewTabs';
+import MonthGrid from '../components/MonthGrid';
+import { DAY_LABELS, weekdayTone } from '../lib/calendarStyle';
 import { savedCalendarView } from '../lib/calendarView';
 import { openSearch } from '../lib/searchStore';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { GUIDES } from '../data/guides';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
-  startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
+  startOfWeek, endOfWeek, addMonths, subMonths, parseISO,
   differenceInCalendarDays, addWeeks, subWeeks, isToday as dateFnsIsToday,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -28,31 +30,13 @@ import { applyListDisplaySettings } from '../lib/listDisplay';
 import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
-import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
+import type { Todo, DDay, ScheduleItem, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
 import { todoDdays } from '../lib/agenda';
 import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
 import { timeRangeLabel } from '../lib/timeRange';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { overdueTodos as findOverdue, progressOf, rate, splitOverdue } from '../lib/homeStats';
-
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-
-// 설정 > 글자 크기에 맞춰 달력 칸의 최소 높이를 정함 (글자 자체는 앱 전체 배율로 커짐).
-// 칸에 몇 줄을 넣을지는 화면에서 칸 높이를 재서 정함(useFitChipLines). maxChips + 1줄은 최소 줄 수:
-// 화면이 낮아도 예전처럼 이만큼은 보여주고(칸이 그만큼 커짐), 칸이 넉넉하면 들어가는 만큼 더 보여줌.
-const CALENDAR_CHIP_STYLES: Record<Settings['calendarTextSize'], { chip: string; cellMinH: string; maxChips: number; icon: number }> = {
-  small: { chip: 'text-10.5px', cellMinH: 'min-h-[84px]', maxChips: 3, icon: 7 },
-  medium: { chip: 'text-10.5px', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
-  large: { chip: 'text-10.5px', cellMinH: 'min-h-[112px]', maxChips: 2, icon: 9 },
-};
-
-// 일요일/토요일 글자색 (달력 숫자, 요일 머리글 공통)
-function weekdayTone(dow: number) {
-  if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
-  return 'text-gray-700 dark:text-gray-200';
-}
 
 // 특정 날짜로 옮기는 작은 팝오버 버튼 (저장소로 보내기와 짝을 이루는, 홈 화면 전용 액션)
 function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string) => void }) {
@@ -98,7 +82,7 @@ function OverviewColumn({
   accent?: 'leaf' | 'blue'; // 팝업의 추가 버튼 색 (일정은 파랑)
 }) {
   return (
-    <div className={`flex flex-col min-w-0 ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
+    <div className={`flex flex-col min-w-0 [container:overview/inline-size] ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2 min-w-0">
           {icon}
@@ -137,73 +121,6 @@ function OverviewColumn({
       {footer}
     </div>
   );
-}
-
-// 월 달력 칸에 한 줄씩 보이는 것: 디데이·일정은 제목, 할 일은 하위 카테고리(없으면 카테고리) 이름으로 묶음
-interface CalendarChip {
-  key: string;
-  title: string;
-  kind: 'dday' | 'schedule' | 'todo';
-  done: boolean; // 할 일 묶음은 그 안의 할 일을 모두 끝냈을 때
-  color?: string; // 할 일 묶음의 카테고리 색
-  total?: number; // 할 일 묶음에 든 할 일 수 ('안 하기' 제외)
-  doneCount?: number; // 그중 끝낸 수
-}
-
-const CHIP_GAP = 3; // 칩 사이 간격(px), 칩 목록의 space-y-[3px]와 같아야 함
-
-// 월 달력 칸 하나에 칩이 몇 줄 들어가는지 화면에서 재서 돌려줌.
-// 칸 높이를 칸 안의 내용으로 재면 "칩을 더 넣음 → 칸이 커짐 → 더 넣음"으로 번질 수 있어서,
-// 내용과 상관없는 값(화면 높이, 달력이 시작하는 위치, 주 수)으로 칸 높이를 계산함.
-function useFitChipLines(minLines: number, active: boolean) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const probeRef = useRef<HTMLDivElement>(null);
-  const [fitted, setFitted] = useState(0);
-  const [, setTick] = useState(0);
-
-  const measure = useCallback(() => {
-    const grid = gridRef.current;
-    const probe = probeRef.current;
-    const cell = grid?.firstElementChild as HTMLElement | null;
-    const list = cell?.querySelector<HTMLElement>('[data-chip-list]');
-    const card = grid?.parentElement;
-    const inner = card?.parentElement;
-    const root = grid?.closest<HTMLElement>('[data-calendar-root]');
-    const scroller = grid?.closest<HTMLElement>('[data-calendar-scroller]');
-    if (!grid || !probe || !cell || !list || !card || !inner || !root || !scroller) return;
-    const weeks = Math.max(1, Math.round(grid.children.length / 7));
-    const rootStyle = getComputedStyle(root);
-    // min-h-screen = 화면 높이(오프라인 안내 줄 높이는 뺀 값). 폰·태블릿은 아래 메뉴 자리(padding-bottom)도 뺌
-    const screenH = parseFloat(rootStyle.minHeight) || window.innerHeight;
-    const gridRect = grid.getBoundingClientRect();
-    const gridTop = gridRect.top - root.getBoundingClientRect().top + scroller.scrollTop;
-    const below = (parseFloat(rootStyle.paddingBottom) || 0) + (parseFloat(getComputedStyle(inner).paddingBottom) || 0)
-      + (card.getBoundingClientRect().bottom - gridRect.bottom);
-    const cellStyle = getComputedStyle(cell);
-    const cellMin = parseFloat(cellStyle.minHeight) || 0;
-    const cellH = Math.max(cellMin, (screenH - below - gridTop) / weeks);
-    const room = cellH - list.offsetTop - (parseFloat(cellStyle.paddingBottom) || 0);
-    const chipH = probe.getBoundingClientRect().height;
-    if (!(chipH > 0)) return;
-    const next = Math.max(1, Math.floor((room + CHIP_GAP) / (chipH + CHIP_GAP)));
-    setFitted(prev => (prev === next ? prev : next));
-  }, []);
-
-  // 화면 크기·글자 배율이 바뀌면 다시 잼
-  useEffect(() => {
-    if (!active) return;
-    const onResize = () => setTick(t => t + 1);
-    window.addEventListener('resize', onResize);
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
-    if (ro && probeRef.current) ro.observe(probeRef.current);
-    if (ro && gridRef.current) ro.observe(gridRef.current);
-    return () => { window.removeEventListener('resize', onResize); ro?.disconnect(); };
-  }, [active]);
-
-  // 위쪽 요약 카드 높이 등이 바뀌어 달력 시작 위치가 달라질 수 있어서 그릴 때마다 확인 (값이 같으면 다시 그리지 않음)
-  useLayoutEffect(() => { if (active) measure(); });
-
-  return { gridRef, probeRef, lines: Math.max(minLines, fitted) };
 }
 
 // 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
@@ -263,10 +180,7 @@ export default function TodayPage() {
     start: startOfWeek(startOfMonth(viewMonth)),
     end: endOfWeek(endOfMonth(viewMonth)),
   });
-  const weekCount = Math.ceil(days.length / 7);
   const weekDays = eachDayOfInterval({ start: startOfWeek(weekRef, { weekStartsOn: 0 }), end: endOfWeek(weekRef, { weekStartsOn: 0 }) });
-  const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
-  const { gridRef: monthGridRef, probeRef: chipProbeRef, lines: fitLines } = useFitChipLines(chipStyle.maxChips + 1, calView === 'month');
   // 달력 칸·주간 보기도 날짜 창과 같은 기준: 설정에서 숨긴 카테고리의 할 일은 빼고 셈
   // (예전엔 달력 칸만 숨긴 카테고리 할 일까지 세서, 날짜 창에선 다 끝냈는데 칸에는 줄이 안 그어질 수 있었음)
   const calendarTodos = settings.hiddenCategoryIds.length
@@ -603,10 +517,13 @@ export default function TodayPage() {
           <span className="flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
             {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
           </span>
-          <span className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
+          <span title={s.title} className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
           {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
+          {/* 요약 칸에서는 시작 시각만, 칸이 좁으면(날짜 창을 연 때 등) 시각은 빼고 제목을 살림. 팝업 창에서는 전체 */}
           {s.startTime && (
-            <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
+            <span className={`flex-shrink-0 text-11px tabular-nums text-gray-400 ${inSheet ? '' : 'hidden ov-wide:inline'}`} title={timeRangeLabel(s.startTime, s.endTime)}>
+              {inSheet ? timeRangeLabel(s.startTime, s.endTime) : s.startTime}
+            </span>
           )}
           <ScheduleDeleteButton schedule={s} size={12}
             className="p-1.5 -m-1.5 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -719,133 +636,11 @@ export default function TodayPage() {
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
-            <div className="relative rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
-              {/* 칩 한 줄 높이를 재는 보이지 않는 줄 (useFitChipLines) */}
-              <div ref={chipProbeRef} aria-hidden="true" className={`absolute left-0 top-0 invisible pointer-events-none ${chipStyle.chip} leading-[1.35] py-px`}>가</div>
-              <div className="flex-shrink-0 grid grid-cols-7 border-b border-gray-100 dark:border-gray-800">
-                {DAY_LABELS.map((d, i) => (
-                  <div key={d} className={`py-2 px-2 text-11px font-semibold ${
-                    i === 0 ? 'text-red-500/80 dark:text-red-400/80' : i === 6 ? 'text-blue-500/80 dark:text-blue-400/80' : 'text-gray-400 dark:text-gray-500'
-                  }`}>{d}</div>
-                ))}
-              </div>
-              <div ref={monthGridRef} className="flex-1 grid grid-cols-7" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
-                {days.map((day, idx) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const isToday = dateStr === todayStr;
-                  const isSelected = dateStr === selectedDate && panelOpen;
-                  const inMonth = isSameMonth(day, viewMonth);
-                  const dayTodos = calendarTodos.filter(t => t.date === dateStr);
-                  const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
-                  const daySchedules = schedules.filter(s => scheduleOnDate(s, dateStr))
-                    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
-                  const dow = day.getDay();
-                  const isLastRow = idx >= days.length - 7;
-                  const holiday = holidayLabel(holidays, dateStr);
-
-                  // 달력 칸: 디데이·일정은 제목 칩으로, 할 일은 제목 대신 "하위 카테고리 이름"으로 묶어서 한 줄씩
-                  // (하위 카테고리가 없으면 카테고리 이름). 예: 자격증 > 토익에 할 일이 있으면 "토익"만 보임.
-                  // 칸 높이에 들어가는 만큼 보여주고, 넘치는 것만 "+N개 더"로 요약 (자세히 보려면 칸을 눌러 확인)
-                  const todoGroups = new Map<string, CalendarChip>();
-                  for (const t of dayTodos) {
-                    if (t.skipped) continue;
-                    // 날짜 창(CategoryTodoGroups)과 같은 묶음: 하위 카테고리가 이 할 일의 카테고리 소속일 때만 하위 카테고리로 묶음
-                    const sub = t.subcategoryId ? subcategories.find(s => s.id === t.subcategoryId && s.categoryId === t.categoryId) : undefined;
-                    const cat = categories.find(c => c.id === t.categoryId);
-                    const key = sub ? `sub-${sub.id}` : `cat-${cat ? cat.id : 'none'}`;
-                    const group = todoGroups.get(key);
-                    if (group) {
-                      group.done = group.done && t.completed;
-                      group.total = (group.total ?? 0) + 1;
-                      group.doneCount = (group.doneCount ?? 0) + (t.completed ? 1 : 0);
-                    } else {
-                      todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '분류 없음', kind: 'todo', done: t.completed, color: cat?.color, total: 1, doneCount: t.completed ? 1 : 0 });
-                    }
-                  }
-                  const chips: CalendarChip[] = [
-                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, kind: 'dday' as const, done: false })),
-                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, kind: 'schedule' as const, done: s.completed })),
-                    ...todoGroups.values(),
-                  ];
-                  // 넘치면 마지막 줄을 "+N개 더"에 내줘서 칸 높이가 늘 같은 줄 수 안에 들어가게
-                  const lineLimit = fitLines;
-                  const visibleChips = chips.length > lineLimit ? chips.slice(0, lineLimit - 1) : chips;
-                  const overflowCount = chips.length - visibleChips.length;
-
-                  return (
-                    <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
-                      aria-pressed={isSelected}
-                      className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1 sm:p-1.5 text-left transition-colors ${
-                        dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
-                      } ${!isLastRow ? 'border-b border-gray-100 dark:border-gray-800' : ''} ${
-                        // 오늘: 초록 테두리 + 연한 초록 배경으로 한눈에 보이게 / 고른 날: 진한 회색 테두리 (오늘과 구분)
-                        isToday
-                          ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
-                              ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
-                              : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
-                          : isSelected
-                            ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
-                            : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
-                      }`}
-                    >
-                      <div className="w-full min-w-0 flex items-center gap-1 mb-1">
-                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-12px tabular-nums ${
-                          isToday
-                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
-                            : !inMonth
-                              ? 'text-gray-300 dark:text-gray-600 font-medium'
-                              : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
-                        }`}>
-                          {format(day, 'd')}
-                        </span>
-                        {/* 공휴일 이름 (빨간 날) */}
-                        {holiday && (
-                          <span className={`min-w-0 truncate text-10px font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
-                        )}
-                      </div>
-                      <div data-chip-list className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
-                        {visibleChips.map(chip => (
-                          <div
-                            key={chip.key}
-                            title={chip.title}
-                            className={`w-full flex items-center gap-1 ${chipStyle.chip} leading-[1.35] px-0.5 sm:px-1.5 py-px rounded-[4px] font-medium ${
-                              chip.kind === 'todo'
-                                ? (chip.done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200')
-                                : chip.kind === 'dday'
-                                  ? 'bg-leaf-100 text-leaf-800 dark:bg-leaf-900/50 dark:text-leaf-200'
-                                  : chip.done
-                                    ? 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800 dark:text-gray-500'
-                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
-                            }`}
-                          >
-                            {/* 디데이는 깃발, 일정은 달력 아이콘 (폰은 칸이 좁아 색으로만 구분), 할 일은 카테고리 색 점 */}
-                            {chip.kind === 'todo'
-                              ? <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${chip.done ? 'opacity-40' : ''}`} style={{ backgroundColor: chip.color ?? '#9DA397' }} />
-                              : chip.kind === 'dday'
-                                ? <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />
-                                : <CalendarDays size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.6} />}
-                            {/* 폰은 칸이 좁아서 말줄임표(…) 없이 들어가는 만큼 글자를 보여줌 (전체는 눌러서 팝업으로) */}
-                            <span className={`min-w-0 overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.kind === 'dday' ? 'font-semibold' : ''}`}>{chip.title}</span>
-                            {/* 할 일이 여러 개 묶인 줄은 끝낸 개수를 같이 (다 끝내면 줄이 그어지고 숫자는 빠짐).
-                                폰 칸은 너무 좁아서 숫자가 이름을 가리므로 태블릿·컴퓨터에서만 */}
-                            {chip.kind === 'todo' && !chip.done && (chip.total ?? 0) > 1 && (
-                              <span className="hidden sm:inline flex-shrink-0 ml-auto pl-0.5 tabular-nums font-normal text-gray-400 dark:text-gray-500">{chip.doneCount}/{chip.total}</span>
-                            )}
-                          </div>
-                        ))}
-                        {overflowCount > 0 && (
-                          <p className={`${chipStyle.chip} leading-tight px-1.5 text-gray-400 dark:text-gray-500 font-medium`}>
-                            {/* 폰 칸은 좁아서 "+N"만 */}
-                            <span className="sm:hidden">+{overflowCount}</span><span className="hidden sm:inline">+{overflowCount}개 더</span>
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <MonthGrid
+              days={days} viewMonth={viewMonth} todayStr={todayStr} selectedDate={selectedDate} panelOpen={panelOpen}
+              todos={calendarTodos} ddays={allDdays} schedules={schedules} categories={categories} subcategories={subcategories}
+              holidays={holidays} textSize={settings.calendarTextSize} onDayClick={handleDayClick}
+            />
           ) : isPhone ? (
             /* ── 폰 주간 보기: 7칸으로 나누면 제목이 한두 글자씩 잘려서, 날짜별로 위아래로 쌓은 목록으로 ── */
             <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800" aria-label="이번 주 목록">
@@ -945,7 +740,7 @@ export default function TodayPage() {
                         }`}
                       >
                         <div className="mb-2 flex-shrink-0 px-0.5">
-                          <p className={`text-10px font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
+                          <p className={`text-11px font-semibold ${dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
                             <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
                             {dayCount.total > 0 && (
@@ -954,32 +749,35 @@ export default function TodayPage() {
                           </div>
                           {holiday && <p className="text-10px font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
                         </div>
-                        <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
+                        <div className="flex-1 space-y-1.5 overflow-y-auto scrollbar-thin">
                           {/* 월간 보기처럼 D-Day·일정도 함께 */}
                           {allDdays.filter(d => d.targetDate === dateStr).map(d => (
-                            <p key={`dday-${d.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-leaf-50 dark:bg-leaf-900/30 text-10.5px font-medium text-leaf-800 dark:text-leaf-300 truncate">
-                              <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
+                            <p key={`dday-${d.id}`} title={d.title} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-leaf-100 dark:bg-leaf-900/60 text-12px font-semibold text-leaf-800 dark:text-leaf-100">
+                              <Flag size={10} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
                             </p>
                           ))}
                           {schedules.filter(sc => scheduleOnDate(sc, dateStr)).sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
-                            <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-10.5px font-medium text-blue-700 dark:text-blue-300 truncate">
-                              <CalendarDays size={9} className="flex-shrink-0" />
-                              {sc.startTime && !isMultiDay(sc) && <span className="flex-shrink-0 tabular-nums">{timeRangeLabel(sc.startTime, sc.endTime)}</span>}
-                              <span className="truncate">{sc.title}</span>
-                            </p>
+                            // 칸이 좁아도 제목이 먼저 보이게: 제목(좁으면 두 줄까지), 시간은 그 아래 작은 줄 (예전엔 시간이 앞에 붙어 제목이 밀려 사라짐)
+                            <div key={`sch-${sc.id}`} title={sc.title}
+                              className={`px-1.5 py-0.5 rounded-md ${sc.completed
+                                ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                                : isMultiDay(sc) ? 'bg-blue-100 text-blue-900 dark:bg-blue-800/70 dark:text-blue-50' : 'bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-100'}`}>
+                              <p className={`line-clamp-2 break-words text-12px font-medium leading-snug ${sc.completed ? 'line-through' : ''}`}>{sc.title}</p>
+                              {sc.startTime && !isMultiDay(sc) && <p className="text-11px tabular-nums opacity-75">{timeRangeLabel(sc.startTime, sc.endTime)}</p>}
+                            </div>
                           ))}
                           {dayTodos.map(todo => (
                             <div key={todo.id}
                               className="flex items-start gap-1.5 cursor-pointer group"
                               onClick={() => toggleTodo(todo.id)}
                             >
-                              <div className={`flex-shrink-0 mt-[2px] w-3 h-3 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors ${
+                              <div className={`flex-shrink-0 mt-[3px] w-3.5 h-3.5 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors ${
                                 todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-500'
                               }`}>
-                                {todo.completed && <Check size={7} className="text-white" strokeWidth={3.5} />}
+                                {todo.completed && <Check size={9} className="text-white" strokeWidth={3.5} />}
                               </div>
-                              <span className={`text-11px leading-snug break-words ${
-                                todo.completed || todo.skipped ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
+                              <span className={`text-12.5px leading-snug break-words ${
+                                todo.completed || todo.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'
                               }`}>{todo.title}</span>
                             </div>
                           ))}

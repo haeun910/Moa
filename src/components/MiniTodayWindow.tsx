@@ -11,8 +11,12 @@ import { isMultiDay, scheduleOnDate } from '../lib/scheduleDates';
 import { timeRangeLabel } from '../lib/timeRange';
 import { LIMITS } from '../lib/limits';
 import { closeMiniWindow, subscribeMiniWindow } from '../lib/miniWindow';
+import { dismissToast, subscribeToasts } from '../lib/toast';
+import type { ToastItem } from '../lib/toast';
+import { handleEscapeKey } from '../hooks/useEscapeKey';
 import type { Todo } from '../types';
 import ScheduleCheck from './ScheduleCheck';
+import TodoModal from './TodoModal';
 
 // 할 일 추가 창(DayTodoComposer)과 같은 "마지막에 고른 카테고리" 기억을 같이 씀
 const LAST_CATEGORY_KEY = 'day-composer-last-category';
@@ -43,6 +47,9 @@ export default function MiniTodayHost() {
   useEffect(() => {
     if (!win) return;
     win.document.body.className = 'bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased';
+    // 미니 창 안에서 연 편집 창도 Esc로 닫히게
+    win.document.addEventListener('keydown', handleEscapeKey);
+    return () => win.document.removeEventListener('keydown', handleEscapeKey);
   }, [win]);
   if (!win) return null;
   return createPortal(<MiniToday />, win.document.body);
@@ -51,6 +58,9 @@ export default function MiniTodayHost() {
 function MiniToday() {
   const { todos, schedules, categories, subcategories, settings, toggleTodo, addTodo } = useApp();
   const now = useNow(60_000); // 자정이 지나면 다음 날로 바뀌게
+  // 제목을 누르면 미니 창 안에서 바로 편집 (본 창으로 넘어가지 않아도 되게)
+  const [editId, setEditId] = useState<string | null>(null);
+  const editTodo = editId ? todos.find(t => t.id === editId) : undefined;
   const todayKey = format(now, 'yyyy-MM-dd');
   const progress = dayProgress(todos, todayKey); // 홈·사이드바와 같은 숫자
   const pct = rate(progress) ?? 0;
@@ -121,11 +131,12 @@ function MiniToday() {
                       style={!t.completed && !t.skipped && g.color ? { borderColor: `${g.color}99` } : undefined}>
                       {t.skipped ? <Minus size={11} className="text-gray-400" strokeWidth={3} /> : t.completed && <Check size={11} className="text-white" strokeWidth={3} />}
                     </button>
-                    <span className={`flex-1 min-w-0 text-13px leading-[1.45] break-words ${t.completed || t.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+                    <button type="button" onClick={() => setEditId(t.id)} title="눌러서 편집"
+                      className={`flex-1 min-w-0 text-left text-13px leading-[1.45] break-words rounded-sm hover:underline decoration-gray-300 dark:decoration-gray-600 underline-offset-2 ${t.completed || t.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                       {t.title}
                       {/* inline-block: 끝낸 할 일의 취소선이 하위 카테고리 이름까지 번지지 않게 */}
                       {sub && <span className="inline-block ml-1.5 text-11px text-gray-400 dark:text-gray-500">{sub}</span>}
-                    </span>
+                    </button>
                     {t.startTime && <span className="flex-shrink-0 mt-0.5 text-11px tabular-nums text-gray-400 dark:text-gray-500">{t.startTime}</span>}
                   </li>
                 );
@@ -139,7 +150,33 @@ function MiniToday() {
         )}
       </main>
 
+      <MiniToasts />
       <QuickAdd date={todayKey} onAdd={addTodo} />
+      {editTodo && <TodoModal todo={editTodo} onClose={() => setEditId(null)} />}
+    </div>
+  );
+}
+
+// 저장 실패·개수 제한·오프라인 대기 같은 알림을 미니 창에도 (본 창 알림은 그대로 뜸)
+function MiniToasts() {
+  const [items, setItems] = useState<ToastItem[]>([]);
+  useEffect(() => subscribeToasts(setItems), []);
+  if (items.length === 0) return null;
+  return (
+    <div className="flex-shrink-0 px-3 pt-2 space-y-1.5" role="status" aria-live="polite">
+      {items.map(t => (
+        <div key={t.id} className={`flex items-start gap-2 rounded-lg px-3 py-2 text-12px leading-snug ${
+          t.kind === 'error'
+            ? 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-900'
+            : 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+        }`}>
+          <span className="flex-1 min-w-0">{t.message}</span>
+          {t.action && (
+            <button type="button" onClick={() => { t.action?.onClick(); dismissToast(t.id); }}
+              className="flex-shrink-0 font-semibold underline underline-offset-2">{t.action.label}</button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
