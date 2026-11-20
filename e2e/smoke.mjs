@@ -629,6 +629,10 @@ try {
       await pip.getByTitle('눌러서 편집').filter({ hasText: last }).click();
       await pip.locator('.modal-panel').waitFor({ timeout: 3000 });
       if (await page.locator('.modal-panel').count()) throw new Error('편집 창이 본 창에 열림');
+      // 본 창에서 누른 Esc는 미니 창 편집 창을 닫지 않음 (쓰던 내용이 사라지지 않게)
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      if (!(await pip.locator('.modal-panel').count())) throw new Error('본 창 Esc에 미니 창 편집 창이 닫힘');
       await pip.keyboard.press('Escape');
       await pip.locator('.modal-panel').waitFor({ state: 'detached', timeout: 3000 });
       console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영되며, 눌러서 그 자리에서 편집됨');
