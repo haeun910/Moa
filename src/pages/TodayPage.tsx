@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type React from 'react';
-import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search, CalendarPlus } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -14,6 +14,12 @@ import Sheet from '../components/Sheet';
 import ScheduleCheck from '../components/ScheduleCheck';
 import CalendarViewTabs from '../components/CalendarViewTabs';
 import MonthGrid from '../components/MonthGrid';
+import PlanPanel from '../components/PlanPanel';
+import { useTodoDateDrag } from '../hooks/useTodoDateDrag';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { clearPlanRequest, peekPlanRequest } from '../lib/placement';
+import type { PlanTab } from '../lib/placement';
+import { showToast } from '../lib/toast';
 import { DAY_LABELS, weekdayTone } from '../lib/calendarStyle';
 import { savedCalendarView } from '../lib/calendarView';
 import { openSearch } from '../lib/searchStore';
@@ -146,6 +152,11 @@ export default function TodayPage() {
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [panelOpen, setPanelOpen] = useState(false);
+  // 할 일 배치 창 (오른쪽, 날짜 창과 번갈아 열림). 저장소 화면의 "달력에 배치하기"로 열려 들어올 수도 있음
+  const [planOpen, setPlanOpen] = useState(() => peekPlanRequest() !== null);
+  const [planTab, setPlanTab] = useState<PlanTab>(() => peekPlanRequest() ?? 'storage');
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  useEffect(() => { clearPlanRequest(); }, []);
   // 날짜 패널 입력창에서 상세 옵션으로 넘어갈 때 고른 카테고리/하위카테고리를 모달 기본값으로 전달
   const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null; title: string }>({ categoryId: null, subcategoryId: null, title: '' });
 
@@ -204,7 +215,35 @@ export default function TodayPage() {
   // 지난 날짜에 못 끝낸 할 일 (홈과 같은 기준: 반복은 최근 회차만, 2주 넘은 것은 접어 둬서 숫자에 안 셈)
   const overdueTodos = splitOverdue(findOverdue(todos, todayStr), todayStr).recent;
 
+  // ── 할 일 배치: 컴퓨터·큰 태블릿(가로 1024px 이상)에서만 ──
+  const planVisible = planOpen && isDesktop;
+  const pickedTodo = planVisible && pickedId ? todos.find(t => t.id === pickedId) : undefined;
+  const dateDrag = useTodoDateDrag(placeTodo);
+  useEscapeKey(() => setPickedId(null), !!pickedTodo);
+
+  function placeTodo(todo: Todo, date: string) {
+    setPickedId(null);
+    if (todo.date === date) return;
+    const prevDate = todo.date;
+    updateTodo(todo.id, { date });
+    const title = todo.title.length > 18 ? `${todo.title.slice(0, 18)}…` : todo.title;
+    showToast(`'${title}'을(를) ${format(parseISO(date), 'M월 d일 (E)', { locale: ko })}로 옮겼어요`, 'info', 5000, {
+      label: '되돌리기',
+      onClick: () => updateTodo(todo.id, { date: prevDate }),
+    });
+  }
+
+  function togglePlan() {
+    setPickedId(null);
+    if (planVisible) { setPlanOpen(false); return; }
+    setPanelOpen(false);
+    setPlanOpen(true);
+  }
+
   function handleDayClick(dateStr: string) {
+    // 배치할 할 일을 골라 둔 상태면 그 날로 옮김
+    if (pickedTodo) { placeTodo(pickedTodo, dateStr); return; }
+    setPlanOpen(false);
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
     else { setSelectedDate(dateStr); setPanelOpen(true); }
   }
@@ -570,7 +609,7 @@ export default function TodayPage() {
                   <ChevronRight size={18} />
                 </button>
               </div>
-              <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPanelOpen(true); }}
+              <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPlanOpen(false); setPickedId(null); setPanelOpen(true); }}
                 className="btn-secondary h-8 px-3 text-13px">
                 오늘
               </button>
@@ -579,6 +618,14 @@ export default function TodayPage() {
             <div className="flex items-center gap-2">
               {/* 월/주(/타임박스) 전환 */}
               <CalendarViewTabs value={calView} onChange={setCalView} />
+              {/* 저장소·밀린 할 일을 날짜로 나누기 (컴퓨터·큰 태블릿만: 끌어다 놓을 칸이 넉넉해야 함) */}
+              {isDesktop && (
+                <button onClick={togglePlan} aria-pressed={planVisible} title="저장소·밀린 할 일을 날짜 칸으로 옮기기"
+                  className={`btn-secondary h-8 px-3 text-13px ${planVisible ? '!bg-leaf-50 dark:!bg-leaf-900/30 !text-leaf-800 dark:!text-leaf-200 !ring-leaf-300 dark:!ring-leaf-700' : ''}`}>
+                  <CalendarPlus size={15} />
+                  할 일 배치
+                </button>
+              )}
               <button onClick={() => setShowOverdue(true)} aria-label="밀린 할 일" title="지난 날짜에 못 끝낸 할 일 정리하기"
                 className={`btn-secondary relative h-8 w-8 sm:w-auto sm:px-3 text-13px ${
                   overdueTodos.length > 0 ? '!text-amber-700 dark:!text-amber-400 !ring-amber-200 dark:!ring-amber-800/70' : ''
@@ -640,6 +687,7 @@ export default function TodayPage() {
               days={days} viewMonth={viewMonth} todayStr={todayStr} selectedDate={selectedDate} panelOpen={panelOpen}
               todos={calendarTodos} ddays={allDdays} schedules={schedules} categories={categories} subcategories={subcategories}
               holidays={holidays} textSize={settings.calendarTextSize} onDayClick={handleDayClick}
+              dropDate={dateDrag.drag?.date ?? null} placing={!!pickedTodo || !!dateDrag.drag}
             />
           ) : isPhone ? (
             /* ── 폰 주간 보기: 7칸으로 나누면 제목이 한두 글자씩 잘려서, 날짜별로 위아래로 쌓은 목록으로 ── */
@@ -731,13 +779,18 @@ export default function TodayPage() {
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
                     const holiday = holidayLabel(holidays, dateStr);
+                    const isDrop = dateDrag.drag?.date === dateStr;
                     return (
-                      <div key={dateStr}
-                        className={`flex flex-col rounded-xl p-2 ${
-                          isToday
-                            ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-leaf-500 dark:ring-leaf-400'
-                            : 'bg-gray-50 dark:bg-gray-800/40'
-                        }`}
+                      <div key={dateStr} data-drop-date={dateStr}
+                        // 할 일 배치에서 할 일을 골라 둔 상태면 칸 어디를 눌러도 그 날로 옮김 (안의 체크 등은 막음)
+                        onClickCapture={pickedTodo ? e => { e.stopPropagation(); e.preventDefault(); placeTodo(pickedTodo, dateStr); } : undefined}
+                        className={`flex flex-col rounded-xl p-2 transition-colors ${
+                          isDrop
+                            ? 'bg-leaf-100 dark:bg-leaf-900/50 ring-2 ring-leaf-600 dark:ring-leaf-400'
+                            : isToday
+                              ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-leaf-500 dark:ring-leaf-400'
+                              : 'bg-gray-50 dark:bg-gray-800/40'
+                        } ${pickedTodo && !isDrop ? 'cursor-copy hover:ring-2 hover:ring-leaf-400' : ''}`}
                       >
                         <div className="mb-2 flex-shrink-0 px-0.5">
                           <p className={`text-11px font-semibold ${dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>{DAY_LABELS[dow]}</p>
@@ -821,11 +874,22 @@ export default function TodayPage() {
         </div>
       </div>
 
-      {/* ── 오른쪽 패널 (데스크톱) ── */}
+      {/* ── 오른쪽 패널 (데스크톱): 날짜 창 또는 할 일 배치 창 ── */}
       <div className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-l border-gray-200/70 dark:border-gray-800 overflow-hidden transition-all duration-300 ease-in-out relative ${
-        panelOpen ? 'w-[360px] wide:w-[400px] opacity-100' : 'w-0 opacity-0'
+        panelOpen || planVisible ? 'w-[360px] wide:w-[400px] opacity-100' : 'w-0 opacity-0'
       }`}>
-        {panelOpen && isDesktop && (
+        {planVisible && (
+          <PlanPanel
+            todayStr={todayStr} tab={planTab} onTabChange={setPlanTab}
+            pickedId={pickedTodo?.id ?? null} onPick={t => setPickedId(id => id === t.id ? null : t.id)}
+            draggingId={dateDrag.drag?.todo.id ?? null}
+            onMouseDragStart={(e, t) => { setPickedId(null); dateDrag.startMouse(e, t); }}
+            onTouchDragStart={dateDrag.startTouch}
+            consumeClick={dateDrag.consumeClick}
+            onClose={() => { setPlanOpen(false); setPickedId(null); }}
+          />
+        )}
+        {panelOpen && !planVisible && isDesktop && (
           <>
             {renderPanelHeader(false)}
             <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-1 pb-48">
@@ -854,6 +918,17 @@ export default function TodayPage() {
             {overviewSheet === 'goal' ? goalColumn(true) : overviewSheet === 'dday' ? ddayColumn(true) : scheduleColumn(true)}
           </div>
         </Sheet>
+      )}
+
+      {/* 끌고 있는 할 일: 포인터를 따라다니는 이름표 (놓을 날짜가 있으면 같이) */}
+      {dateDrag.drag && (
+        <div className="fixed z-[70] pointer-events-none max-w-[240px] rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-lg px-3 py-2 text-12px leading-snug"
+          style={{ left: dateDrag.drag.x + 14, top: dateDrag.drag.y + 12 }}>
+          <p className="font-semibold truncate">{dateDrag.drag.todo.title}</p>
+          <p className="mt-0.5 opacity-75 tabular-nums">
+            {dateDrag.drag.date ? `→ ${format(parseISO(dateDrag.drag.date), 'M월 d일 (E)', { locale: ko })}` : '날짜 칸에 놓으세요'}
+          </p>
+        </div>
       )}
 
       {showOverdue && (

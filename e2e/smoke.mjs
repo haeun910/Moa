@@ -13,6 +13,7 @@
 // 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
 // 12) 월 달력 칸: 칸이 넉넉하면 4줄보다 많이 보이고, 숨긴 카테고리 할 일은 칸에서도 빠지며, 묶음에 끝낸 개수가 보이는지
 // 13) PC 미니 창: 사이드바 "미니 창"으로 오늘 할 일 창이 뜨고, 거기서 체크·추가하면 본 창과 저장에 같이 반영되는지, 눌러서 미니 창 안에서 편집되는지
+// 14) 달력 할 일 배치: 저장소 할 일을 날짜 칸으로 끌어다 놓기·눌러서 놓기·되돌리기가 저장되는지, 반복은 빠지는지, 좁은 화면에서는 숨는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -636,6 +637,70 @@ try {
       fail(`미니 창 (${e.message})`);
     }
     if (errors.length) fail(`미니 창에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 14) 달력 할 일 배치: 저장소 할 일을 날짜 칸으로 끌어다 놓기 · 눌러서 놓기 · 되돌리기, 1024px 미만에서는 버튼 없음
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 }, fixedTime: '2026-11-20T10:00:00+09:00' });
+    const base = { user_id: USER_ID, completed: false, due_date: null, is_dday: false, start_time: null, notes: null, sort_order: 0, series_id: null, skipped: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', category_id: null, subcategory_id: null };
+    const rows = [
+      { ...base, id: 'st1', title: '보고서 초안', date: null },
+      { ...base, id: 'st2', title: '세탁소 맡기기', date: null },
+      { ...base, id: 'od1', title: '병원 예약', date: '2026-11-12' },
+      { ...base, id: 'od2', title: '아침 운동', date: '2026-11-19', series_id: 'ser' },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/**`, route => {
+      const req = route.request();
+      const url = new URL(req.url());
+      const table = url.pathname.replace('/rest/v1/', '');
+      if (table !== 'todos') return route.fallback();
+      if (req.method() === 'PATCH') { patches.push(`${url.searchParams.get('id')} ${req.postData()}`); return route.fulfill({ status: 204, body: '' }); }
+      if (req.method() !== 'GET') return route.fallback();
+      return route.fulfill({ json: Number(url.searchParams.get('offset') ?? 0) ? [] : rows });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('button', { name: '달력', exact: true }).first().click({ timeout: 15000 });
+      await page.getByRole('button', { name: '할 일 배치' }).click();
+      const panel = page.getByLabel('할 일 배치', { exact: true });
+      await panel.getByText('보고서 초안').waitFor({ timeout: 5000 });
+      await page.waitForTimeout(400); // 패널이 밀려 들어오는 동안은 위치가 바뀜
+      // 마우스로 끌어 11/24 칸에 놓기
+      const box = async loc => { const b = await loc.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+      const from = await box(panel.getByRole('button', { name: /보고서 초안/ }));
+      const to = await box(page.getByRole('button', { name: /^11월 24일 화요일/ }));
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(to.x, to.y, { steps: 10 });
+      await page.mouse.up();
+      for (let i = 0; i < 20 && !patches.length; i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.st1') && p.includes('"date":"2026-11-24"'))) throw new Error(`끌어다 놓기가 저장되지 않음: ${patches.join(' / ')}`);
+      if (await panel.getByText('보고서 초안').count()) throw new Error('옮긴 할 일이 저장소 목록에 남아 있음');
+      // 되돌리기 → 다시 날짜 없음
+      await page.getByRole('button', { name: '되돌리기' }).first().click();
+      await panel.getByText('보고서 초안').waitFor({ timeout: 3000 });
+      if (!patches.some(p => p.startsWith('eq.st1') && p.includes('"date":null'))) throw new Error('되돌리기가 저장되지 않음');
+      // 눌러서 고른 다음 11/26 칸 누르기
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await page.getByRole('button', { name: /^11월 26일 목요일/ }).click();
+      for (let i = 0; i < 20 && !patches.some(p => p.startsWith('eq.st2')); i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.st2') && p.includes('"date":"2026-11-26"'))) throw new Error('눌러서 놓기가 저장되지 않음');
+      // 밀린 할 일 탭: 반복 할 일은 빠지고 안내만
+      await panel.getByRole('tab', { name: /밀린 할 일/ }).click();
+      await panel.getByText('병원 예약').waitFor({ timeout: 3000 });
+      if (await panel.getByText('아침 운동').count()) throw new Error('반복 할 일이 배치 목록에 보임');
+      await panel.getByText(/반복 할 일 1개/).waitFor({ timeout: 3000 });
+      // 좁은 화면(1024px 미만)에서는 버튼이 없음
+      await page.setViewportSize({ width: 1000, height: 800 });
+      await page.waitForTimeout(300);
+      if (await page.getByRole('button', { name: '할 일 배치' }).count()) throw new Error('1024px 미만인데 할 일 배치 버튼이 보임');
+      console.log('✅ 할 일 배치: 끌어다 놓기·되돌리기·눌러서 놓기가 저장되고, 반복은 빠지며, 좁은 화면에서는 숨김');
+    } catch (e) {
+      fail(`할 일 배치 (${e.message})`);
+    }
+    if (errors.length) fail(`할 일 배치 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 

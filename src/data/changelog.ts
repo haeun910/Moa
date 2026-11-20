@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.7',
+    date: '2026-11-20',
+    changes: [
+      '달력 "할 일 배치" (컴퓨터·큰 태블릿): 저장소와 밀린 할 일을 달력 날짜 칸으로 끌어다 놓거나, 누른 다음 날짜를 눌러 옮겨요. 옮긴 뒤 바로 되돌릴 수 있어요',
+      '저장소 화면에 "달력에 배치하기" 버튼 추가',
+    ],
+  },
+  {
     version: '2.12.6',
     date: '2026-11-20',
     changes: [

@@ -104,11 +104,15 @@ interface Props {
   holidays: HolidayMap;
   textSize: Settings['calendarTextSize'];
   onDayClick: (dateStr: string) => void;
+  // 할 일 배치(PlanPanel): 할 일을 끌고 있는 칸 / 할 일을 골랐거나 끄는 중이라 칸을 누르면 그 날로 옮겨지는 상태
+  dropDate?: string | null;
+  placing?: boolean;
 }
 
 // 월 달력. 여러 날 일정은 칸을 넘어 이어진 막대로, 나머지는 칸마다 한 줄씩
 export default function MonthGrid({
   days, viewMonth, todayStr, selectedDate, panelOpen, todos, ddays, schedules, categories, subcategories, holidays, textSize, onDayClick,
+  dropDate = null, placing = false,
 }: Props) {
   const cellStyle = CELL_STYLES[textSize];
   const { gridRef, probeRef, lines: lineLimit, listTop, lineH } = useFitChipLines(cellStyle.minLines);
@@ -142,6 +146,7 @@ export default function MonthGrid({
           const col = idx % 7;
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate && panelOpen;
+          const isDrop = dateStr === dropDate;
           const inMonth = isSameMonth(day, viewMonth);
           const dow = day.getDay();
           const isLastRow = week === weekCount - 1;
@@ -186,21 +191,27 @@ export default function MonthGrid({
           const overflowCount = chips.length - visibleChips.length + hiddenBars;
 
           return (
-            <button key={dateStr} data-day-cell onClick={() => onDayClick(dateStr)}
+            <button key={dateStr} data-day-cell data-drop-date={dateStr} onClick={() => onDayClick(dateStr)}
               style={{ gridRow: week + 1, gridColumn: col + 1 }}
-              aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
+              aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}${placing ? ', 고른 할 일을 이 날로 옮기기' : ''}`}
               aria-pressed={isSelected}
               className={`relative [container:day-cell/inline-size] flex flex-col items-start ${cellStyle.cellMinH} md:min-h-0 min-w-0 overflow-hidden p-1 sm:p-1.5 text-left transition-colors ${
                 col !== 6 ? 'border-r border-gray-200/70 dark:border-gray-800' : ''
               } ${!isLastRow ? 'border-b border-gray-200/70 dark:border-gray-800' : ''} ${
+                // 할 일을 끌어 올려 둔 칸: 진한 초록 테두리 + 초록 배경
+                isDrop
+                  ? 'bg-leaf-100 dark:bg-leaf-900/50 shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
                 // 오늘: 초록 테두리 + 연한 초록 배경 / 고른 날: 진한 회색 테두리 (오늘과 구분)
-                isToday
+                : isToday
                   ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
                       ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
                       : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
                   : isSelected
                     ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
                     : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/70 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
+              } ${
+                // 할 일을 골라 둔 상태: 칸에 올리면 "여기에 놓기"처럼 보이게
+                placing && !isDrop ? 'cursor-copy hover:!bg-leaf-50 dark:hover:!bg-leaf-900/30 hover:shadow-[inset_0_0_0_2px_theme(colors.leaf.400)]' : ''
               }`}
             >
               <div className="w-full min-w-0 flex items-center gap-1 h-6 mb-1">
