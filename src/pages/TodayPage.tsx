@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
@@ -38,8 +38,9 @@ import { overdueTodos as findOverdue, progressOf, rate, splitOverdue } from '../
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// 설정 > 글자 크기에 맞춰 달력 칸 높이와 칸에 넣는 칩 개수를 정함 (글자 자체는 앱 전체 배율로 커짐).
-// 글자가 커질수록 칸 하나에 다 들어가는 칩 개수는 줄이고 칸 높이를 늘림.
+// 설정 > 글자 크기에 맞춰 달력 칸의 최소 높이를 정함 (글자 자체는 앱 전체 배율로 커짐).
+// 칸에 몇 줄을 넣을지는 화면에서 칸 높이를 재서 정함(useFitChipLines). maxChips + 1줄은 최소 줄 수:
+// 화면이 낮아도 예전처럼 이만큼은 보여주고(칸이 그만큼 커짐), 칸이 넉넉하면 들어가는 만큼 더 보여줌.
 const CALENDAR_CHIP_STYLES: Record<Settings['calendarTextSize'], { chip: string; cellMinH: string; maxChips: number; icon: number }> = {
   small: { chip: 'text-10.5px', cellMinH: 'min-h-[84px]', maxChips: 3, icon: 7 },
   medium: { chip: 'text-10.5px', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
@@ -145,6 +146,64 @@ interface CalendarChip {
   kind: 'dday' | 'schedule' | 'todo';
   done: boolean; // 할 일 묶음은 그 안의 할 일을 모두 끝냈을 때
   color?: string; // 할 일 묶음의 카테고리 색
+  total?: number; // 할 일 묶음에 든 할 일 수 ('안 하기' 제외)
+  doneCount?: number; // 그중 끝낸 수
+}
+
+const CHIP_GAP = 3; // 칩 사이 간격(px), 칩 목록의 space-y-[3px]와 같아야 함
+
+// 월 달력 칸 하나에 칩이 몇 줄 들어가는지 화면에서 재서 돌려줌.
+// 칸 높이를 칸 안의 내용으로 재면 "칩을 더 넣음 → 칸이 커짐 → 더 넣음"으로 번질 수 있어서,
+// 내용과 상관없는 값(화면 높이, 달력이 시작하는 위치, 주 수)으로 칸 높이를 계산함.
+function useFitChipLines(minLines: number, active: boolean) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [fitted, setFitted] = useState(0);
+  const [, setTick] = useState(0);
+
+  const measure = useCallback(() => {
+    const grid = gridRef.current;
+    const probe = probeRef.current;
+    const cell = grid?.firstElementChild as HTMLElement | null;
+    const list = cell?.querySelector<HTMLElement>('[data-chip-list]');
+    const card = grid?.parentElement;
+    const inner = card?.parentElement;
+    const root = grid?.closest<HTMLElement>('[data-calendar-root]');
+    const scroller = grid?.closest<HTMLElement>('[data-calendar-scroller]');
+    if (!grid || !probe || !cell || !list || !card || !inner || !root || !scroller) return;
+    const weeks = Math.max(1, Math.round(grid.children.length / 7));
+    const rootStyle = getComputedStyle(root);
+    // min-h-screen = 화면 높이(오프라인 안내 줄 높이는 뺀 값). 폰·태블릿은 아래 메뉴 자리(padding-bottom)도 뺌
+    const screenH = parseFloat(rootStyle.minHeight) || window.innerHeight;
+    const gridRect = grid.getBoundingClientRect();
+    const gridTop = gridRect.top - root.getBoundingClientRect().top + scroller.scrollTop;
+    const below = (parseFloat(rootStyle.paddingBottom) || 0) + (parseFloat(getComputedStyle(inner).paddingBottom) || 0)
+      + (card.getBoundingClientRect().bottom - gridRect.bottom);
+    const cellStyle = getComputedStyle(cell);
+    const cellMin = parseFloat(cellStyle.minHeight) || 0;
+    const cellH = Math.max(cellMin, (screenH - below - gridTop) / weeks);
+    const room = cellH - list.offsetTop - (parseFloat(cellStyle.paddingBottom) || 0);
+    const chipH = probe.getBoundingClientRect().height;
+    if (!(chipH > 0)) return;
+    const next = Math.max(1, Math.floor((room + CHIP_GAP) / (chipH + CHIP_GAP)));
+    setFitted(prev => (prev === next ? prev : next));
+  }, []);
+
+  // 화면 크기·글자 배율이 바뀌면 다시 잼
+  useEffect(() => {
+    if (!active) return;
+    const onResize = () => setTick(t => t + 1);
+    window.addEventListener('resize', onResize);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+    if (ro && probeRef.current) ro.observe(probeRef.current);
+    if (ro && gridRef.current) ro.observe(gridRef.current);
+    return () => { window.removeEventListener('resize', onResize); ro?.disconnect(); };
+  }, [active]);
+
+  // 위쪽 요약 카드 높이 등이 바뀌어 달력 시작 위치가 달라질 수 있어서 그릴 때마다 확인 (값이 같으면 다시 그리지 않음)
+  useLayoutEffect(() => { if (active) measure(); });
+
+  return { gridRef, probeRef, lines: Math.max(minLines, fitted) };
 }
 
 // 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
@@ -207,6 +266,12 @@ export default function TodayPage() {
   const weekCount = Math.ceil(days.length / 7);
   const weekDays = eachDayOfInterval({ start: startOfWeek(weekRef, { weekStartsOn: 0 }), end: endOfWeek(weekRef, { weekStartsOn: 0 }) });
   const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
+  const { gridRef: monthGridRef, probeRef: chipProbeRef, lines: fitLines } = useFitChipLines(chipStyle.maxChips + 1, calView === 'month');
+  // 달력 칸·주간 보기도 날짜 창과 같은 기준: 설정에서 숨긴 카테고리의 할 일은 빼고 셈
+  // (예전엔 달력 칸만 숨긴 카테고리 할 일까지 세서, 날짜 창에선 다 끝냈는데 칸에는 줄이 안 그어질 수 있었음)
+  const calendarTodos = settings.hiddenCategoryIds.length
+    ? todos.filter(t => !t.categoryId || !settings.hiddenCategoryIds.includes(t.categoryId))
+    : todos;
   // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
   const holidayRange = [
     format(days[0], 'yyyy-MM-dd'), format(days[days.length - 1], 'yyyy-MM-dd'),
@@ -554,13 +619,13 @@ export default function TodayPage() {
   const navBtn = 'btn-icon w-8 h-8';
 
   return (
-    <div className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
+    <div data-calendar-root className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
 
       {/* ── 달력 + 요약 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
       {/* 노트북처럼 화면 세로 길이가 짧을 때 목표/D-Day 카드 + 달력의 최소 높이 합이 화면을 넘으면
           예전엔 md:overflow-hidden 때문에 달력 아래쪽이 그냥 잘려서 안 보였음.
           내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
+      <div data-calendar-scroller className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
 
         <div className="flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 md:min-h-0">
 
@@ -654,7 +719,9 @@ export default function TodayPage() {
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
-            <div className="rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
+            <div className="relative rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
+              {/* 칩 한 줄 높이를 재는 보이지 않는 줄 (useFitChipLines) */}
+              <div ref={chipProbeRef} aria-hidden="true" className={`absolute left-0 top-0 invisible pointer-events-none ${chipStyle.chip} leading-[1.35] py-px`}>가</div>
               <div className="flex-shrink-0 grid grid-cols-7 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
                   <div key={d} className={`py-2 px-2 text-11px font-semibold ${
@@ -662,13 +729,13 @@ export default function TodayPage() {
                   }`}>{d}</div>
                 ))}
               </div>
-              <div className="flex-1 grid grid-cols-7" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
+              <div ref={monthGridRef} className="flex-1 grid grid-cols-7" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
                 {days.map((day, idx) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const isToday = dateStr === todayStr;
                   const isSelected = dateStr === selectedDate && panelOpen;
                   const inMonth = isSameMonth(day, viewMonth);
-                  const dayTodos = todos.filter(t => t.date === dateStr);
+                  const dayTodos = calendarTodos.filter(t => t.date === dateStr);
                   const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
                   const daySchedules = schedules.filter(s => scheduleOnDate(s, dateStr))
                     .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
@@ -678,16 +745,22 @@ export default function TodayPage() {
 
                   // 달력 칸: 디데이·일정은 제목 칩으로, 할 일은 제목 대신 "하위 카테고리 이름"으로 묶어서 한 줄씩
                   // (하위 카테고리가 없으면 카테고리 이름). 예: 자격증 > 토익에 할 일이 있으면 "토익"만 보임.
-                  // 칸이 좁아 최대 몇 줄만 보여주고 나머지는 "+N개 더"로 요약 (자세히 보려면 칸을 눌러 확인)
+                  // 칸 높이에 들어가는 만큼 보여주고, 넘치는 것만 "+N개 더"로 요약 (자세히 보려면 칸을 눌러 확인)
                   const todoGroups = new Map<string, CalendarChip>();
                   for (const t of dayTodos) {
                     if (t.skipped) continue;
-                    const sub = t.subcategoryId ? subcategories.find(s => s.id === t.subcategoryId) : undefined;
+                    // 날짜 창(CategoryTodoGroups)과 같은 묶음: 하위 카테고리가 이 할 일의 카테고리 소속일 때만 하위 카테고리로 묶음
+                    const sub = t.subcategoryId ? subcategories.find(s => s.id === t.subcategoryId && s.categoryId === t.categoryId) : undefined;
                     const cat = categories.find(c => c.id === t.categoryId);
-                    const key = sub ? `sub-${sub.id}` : `cat-${t.categoryId ?? 'none'}`;
+                    const key = sub ? `sub-${sub.id}` : `cat-${cat ? cat.id : 'none'}`;
                     const group = todoGroups.get(key);
-                    if (group) group.done = group.done && t.completed;
-                    else todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '할 일', kind: 'todo', done: t.completed, color: cat?.color });
+                    if (group) {
+                      group.done = group.done && t.completed;
+                      group.total = (group.total ?? 0) + 1;
+                      group.doneCount = (group.doneCount ?? 0) + (t.completed ? 1 : 0);
+                    } else {
+                      todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '분류 없음', kind: 'todo', done: t.completed, color: cat?.color, total: 1, doneCount: t.completed ? 1 : 0 });
+                    }
                   }
                   const chips: CalendarChip[] = [
                     ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, kind: 'dday' as const, done: false })),
@@ -695,7 +768,7 @@ export default function TodayPage() {
                     ...todoGroups.values(),
                   ];
                   // 넘치면 마지막 줄을 "+N개 더"에 내줘서 칸 높이가 늘 같은 줄 수 안에 들어가게
-                  const lineLimit = chipStyle.maxChips + 1;
+                  const lineLimit = fitLines;
                   const visibleChips = chips.length > lineLimit ? chips.slice(0, lineLimit - 1) : chips;
                   const overflowCount = chips.length - visibleChips.length;
 
@@ -731,7 +804,7 @@ export default function TodayPage() {
                           <span className={`min-w-0 truncate text-10px font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
                         )}
                       </div>
-                      <div className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
+                      <div data-chip-list className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
                         {visibleChips.map(chip => (
                           <div
                             key={chip.key}
@@ -753,7 +826,12 @@ export default function TodayPage() {
                                 ? <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />
                                 : <CalendarDays size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.6} />}
                             {/* 폰은 칸이 좁아서 말줄임표(…) 없이 들어가는 만큼 글자를 보여줌 (전체는 눌러서 팝업으로) */}
-                            <span className={`overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.kind === 'dday' ? 'font-semibold' : ''}`}>{chip.title}</span>
+                            <span className={`min-w-0 overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.kind === 'dday' ? 'font-semibold' : ''}`}>{chip.title}</span>
+                            {/* 할 일이 여러 개 묶인 줄은 끝낸 개수를 같이 (다 끝내면 줄이 그어지고 숫자는 빠짐).
+                                폰 칸은 너무 좁아서 숫자가 이름을 가리므로 태블릿·컴퓨터에서만 */}
+                            {chip.kind === 'todo' && !chip.done && (chip.total ?? 0) > 1 && (
+                              <span className="hidden sm:inline flex-shrink-0 ml-auto pl-0.5 tabular-nums font-normal text-gray-400 dark:text-gray-500">{chip.doneCount}/{chip.total}</span>
+                            )}
                           </div>
                         ))}
                         {overflowCount > 0 && (
@@ -773,7 +851,7 @@ export default function TodayPage() {
             <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800" aria-label="이번 주 목록">
               {weekDays.map(day => {
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const dayTodos = todos.filter(t => t.date === dateStr);
+                const dayTodos = calendarTodos.filter(t => t.date === dateStr);
                 const dayCount = progressOf(dayTodos);
                 const dayDdayList = allDdays.filter(d => d.targetDate === dateStr);
                 const daySchedules = schedules.filter(sc => scheduleOnDate(sc, dateStr))
@@ -853,7 +931,7 @@ export default function TodayPage() {
                     end: endOfWeek(weekRef, { weekStartsOn: 0 }),
                   }).map(day => {
                     const dateStr = format(day, 'yyyy-MM-dd');
-                    const dayTodos = todos.filter(t => t.date === dateStr);
+                    const dayTodos = calendarTodos.filter(t => t.date === dateStr);
                     const dayCount = progressOf(dayTodos);
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);

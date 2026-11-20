@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.4',
+    date: '2026-11-20',
+    changes: [
+      '월 달력 칸이 넉넉하면 할 일을 들어가는 만큼 더 보여줌 (화면이 클수록 "+N개 더"가 줄어듦)',
+      '월 달력에서 할 일이 여러 개 묶인 줄에 끝낸 개수 표시 (예: 논문 1/2, 태블릿·컴퓨터)',
+      '설정에서 숨긴 카테고리의 할 일은 달력 칸에서도 빼서, 날짜 창에서 다 끝냈는데 칸에 줄이 안 그어지던 문제 수정',
+    ],
+  },
+  {
     version: '2.12.3',
     date: '2026-11-04',
     changes: [
