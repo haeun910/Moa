@@ -13,7 +13,7 @@ import { LIMITS } from '../lib/limits';
 import { closeMiniWindow, subscribeMiniWindow } from '../lib/miniWindow';
 import { dismissToast, subscribeToasts } from '../lib/toast';
 import type { ToastItem } from '../lib/toast';
-import { handleEscapeKey } from '../hooks/useEscapeKey';
+import { EscapeScope, handleEscapeKey } from '../hooks/useEscapeKey';
 import type { Todo } from '../types';
 import ScheduleCheck from './ScheduleCheck';
 import TodoModal from './TodoModal';
@@ -47,12 +47,12 @@ export default function MiniTodayHost() {
   useEffect(() => {
     if (!win) return;
     win.document.body.className = 'bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased';
-    // 미니 창 안에서 연 편집 창도 Esc로 닫히게
+    // 미니 창 안에서 연 편집 창도 Esc로 닫히게 (미니 창에서 누른 Esc는 미니 창 팝업만 닫음)
     win.document.addEventListener('keydown', handleEscapeKey);
     return () => win.document.removeEventListener('keydown', handleEscapeKey);
   }, [win]);
   if (!win) return null;
-  return createPortal(<MiniToday />, win.document.body);
+  return createPortal(<EscapeScope.Provider value={win.document}><MiniToday /></EscapeScope.Provider>, win.document.body);
 }
 
 function MiniToday() {

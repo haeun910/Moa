@@ -630,6 +630,10 @@ try {
       await pip.getByTitle('눌러서 편집').filter({ hasText: last }).click();
       await pip.locator('.modal-panel').waitFor({ timeout: 3000 });
       if (await page.locator('.modal-panel').count()) throw new Error('편집 창이 본 창에 열림');
+      // 본 창에서 누른 Esc는 미니 창 편집 창을 닫지 않음 (쓰던 내용이 사라지지 않게)
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      if (!(await pip.locator('.modal-panel').count())) throw new Error('본 창 Esc에 미니 창 편집 창이 닫힘');
       await pip.keyboard.press('Escape');
       await pip.locator('.modal-panel').waitFor({ state: 'detached', timeout: 3000 });
       console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영되며, 눌러서 그 자리에서 편집됨');
@@ -682,6 +686,11 @@ try {
       await page.getByRole('button', { name: '되돌리기' }).first().click();
       await panel.getByText('보고서 초안').waitFor({ timeout: 3000 });
       if (!patches.some(p => p.startsWith('eq.st1') && p.includes('"date":null'))) throw new Error('되돌리기가 저장되지 않음');
+      // 한 번 더 누르면 고르기가 풀림
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await panel.getByRole('status').waitFor({ timeout: 3000 });
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await panel.getByRole('status').waitFor({ state: 'detached', timeout: 3000 });
       // 눌러서 고른 다음 11/26 칸 누르기
       await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
       await page.getByRole('button', { name: /^11월 26일 목요일/ }).click();

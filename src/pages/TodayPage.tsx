@@ -218,18 +218,20 @@ export default function TodayPage() {
   // ── 할 일 배치: 컴퓨터·큰 태블릿(가로 1024px 이상)에서만 ──
   const planVisible = planOpen && isDesktop;
   const pickedTodo = planVisible && pickedId ? todos.find(t => t.id === pickedId) : undefined;
-  const dateDrag = useTodoDateDrag(placeTodo);
+  // 끌기를 시작하면 눌러서 골라 둔 할 일은 풂 (그냥 누르기는 고르기/풀기로 그대로)
+  const dateDrag = useTodoDateDrag(placeTodo, () => setPickedId(null));
   useEscapeKey(() => setPickedId(null), !!pickedTodo);
 
   function placeTodo(todo: Todo, date: string) {
     setPickedId(null);
     if (todo.date === date) return;
     const prevDate = todo.date;
-    updateTodo(todo.id, { date });
+    // 되돌리기는 옮기기 저장(연결된 타임박스 블록 이동 포함)이 끝난 뒤에 보냄: 동시에 보내면 늦게 끝난 쪽이 이김
+    const placing = updateTodo(todo.id, { date });
     const title = todo.title.length > 18 ? `${todo.title.slice(0, 18)}…` : todo.title;
     showToast(`'${title}'을(를) ${format(parseISO(date), 'M월 d일 (E)', { locale: ko })}로 옮겼어요`, 'info', 5000, {
       label: '되돌리기',
-      onClick: () => updateTodo(todo.id, { date: prevDate }),
+      onClick: () => { void placing.then(() => updateTodo(todo.id, { date: prevDate })); },
     });
   }
 
@@ -883,7 +885,7 @@ export default function TodayPage() {
             todayStr={todayStr} tab={planTab} onTabChange={setPlanTab}
             pickedId={pickedTodo?.id ?? null} onPick={t => setPickedId(id => id === t.id ? null : t.id)}
             draggingId={dateDrag.drag?.todo.id ?? null}
-            onMouseDragStart={(e, t) => { setPickedId(null); dateDrag.startMouse(e, t); }}
+            onMouseDragStart={dateDrag.startMouse}
             onTouchDragStart={dateDrag.startTouch}
             consumeClick={dateDrag.consumeClick}
             onClose={() => { setPlanOpen(false); setPickedId(null); }}

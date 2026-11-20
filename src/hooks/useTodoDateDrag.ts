@@ -32,10 +32,12 @@ function scrollNearEdge(y: number) {
   else if (y > r.bottom - EDGE_PX) scroller.scrollBy(0, EDGE_STEP_PX);
 }
 
-export function useTodoDateDrag(onDrop: (todo: Todo, date: string) => void) {
+// onStart: 실제로 끌기가 시작될 때 (그냥 누르기·짧게 스치기는 아님)
+export function useTodoDateDrag(onDrop: (todo: Todo, date: string) => void, onStart?: () => void) {
   const [drag, setDrag] = useState<DateDragState | null>(null);
   const onDropRef = useRef(onDrop);
-  useLayoutEffect(() => { onDropRef.current = onDrop; });
+  const onStartRef = useRef(onStart);
+  useLayoutEffect(() => { onDropRef.current = onDrop; onStartRef.current = onStart; });
   const cleanupRef = useRef<(() => void) | null>(null);
   // 끌어다 놓은 직후 따라오는 click은 "고르기"로 보지 않음 (시계 대신 타이머로 풀어서 기기 시간과 무관)
   const suppressClick = useRef(false);
@@ -44,6 +46,7 @@ export function useTodoDateDrag(onDrop: (todo: Todo, date: string) => void) {
 
   const begin = useCallback((todo: Todo, x: number, y: number) => {
     document.documentElement.classList.add('is-date-dragging');
+    onStartRef.current?.();
     setDrag({ todo, x, y, date: dateAt(x, y) });
   }, []);
 
