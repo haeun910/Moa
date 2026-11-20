@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.5',
+    date: '2026-11-20',
+    changes: [
+      'PC 미니 창: 사이드바의 "미니 창"을 누르면 오늘 할 일·일정이 다른 프로그램 창 위에 작게 떠 있어요. 체크와 할 일 추가도 바로 돼요 (크롬·엣지, 모아 탭은 열어 둬야 해요)',
+    ],
+  },
+  {
     version: '2.12.4',
     date: '2026-11-20',
     changes: [

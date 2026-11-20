@@ -12,6 +12,7 @@
 // 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
 // 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
 // 12) 월 달력 칸: 칸이 넉넉하면 4줄보다 많이 보이고, 숨긴 카테고리 할 일은 칸에서도 빠지며, 묶음에 끝낸 개수가 보이는지
+// 13) PC 미니 창: 사이드바 "미니 창"으로 오늘 할 일 창이 뜨고, 거기서 체크·추가하면 본 창과 저장에 같이 반영되는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -576,6 +577,48 @@ try {
       fail(`월 달력 칸 (${e.message})`);
     }
     if (errors.length) fail(`월 달력 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 13) PC 미니 창 (Document Picture-in-Picture: 크롬은 지원, 테스트 브라우저도 지원)
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 } });
+    const writes = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const req = route.request();
+      if (req.method() === 'GET') return route.fallback();
+      writes.push(`${req.method()} ${req.postData() ?? ''}`);
+      if (req.method() === 'POST') {
+        const row = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', ...JSON.parse(req.postData() ?? '{}') };
+        return route.fulfill({ json: (req.headers()['accept'] ?? '').includes('vnd.pgrst.object') ? row : [row] });
+      }
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      const btn = page.getByRole('button', { name: '미니 창 띄우기' }).first();
+      await btn.waitFor({ timeout: 15000 });
+      const [pip] = await Promise.all([context.waitForEvent('page', { timeout: 5000 }), btn.click()]);
+      const last = `할 일 ${TOTAL_TODOS}`; // 오늘 날짜인 할 일 (mockSupabase)
+      await pip.getByText(last, { exact: true }).waitFor({ timeout: 5000 });
+      await pip.getByRole('button', { name: `${last} 완료 처리` }).click();
+      for (let i = 0; i < 20 && !writes.some(w => w.startsWith('PATCH')); i++) await page.waitForTimeout(100);
+      if (!writes.some(w => w.startsWith('PATCH') && w.includes('"completed":true'))) throw new Error(`체크가 저장되지 않음: ${writes.join(' / ')}`);
+      if (!/1\s*\/\s*1/.test(await page.locator('aside').innerText())) throw new Error('본 창 사이드바 숫자가 1/1로 바뀌지 않음');
+      const input = pip.getByRole('textbox', { name: '오늘 할 일 추가' });
+      await input.fill('미니 창에서 추가');
+      await input.press('Enter');
+      await page.getByText('미니 창에서 추가').first().waitFor({ state: 'attached', timeout: 5000 });
+      if (!writes.some(w => w.startsWith('POST') && w.includes('미니 창에서 추가'))) throw new Error('추가가 저장되지 않음');
+      // 이미 떠 있으면 다시 눌러도 창이 하나 더 생기지 않음
+      await btn.click();
+      await page.waitForTimeout(300);
+      if (context.pages().length !== 2) throw new Error(`창 개수 ${context.pages().length}`);
+      console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영됨');
+    } catch (e) {
+      fail(`미니 창 (${e.message})`);
+    }
+    if (errors.length) fail(`미니 창에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
 
