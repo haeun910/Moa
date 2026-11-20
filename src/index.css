@@ -114,6 +114,9 @@ html {
   overflow-x: clip;
 }
 
+/* 달력 "할 일 배치"에서 할 일을 끄는 동안: 어디서든 잡은 손 모양, 글자 선택 안 됨 */
+.is-date-dragging, .is-date-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 

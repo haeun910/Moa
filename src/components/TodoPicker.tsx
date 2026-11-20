@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { getBlockSpan, formatMinutes } from '../lib/timebox';
+import { groupTodosByCategory } from '../lib/todoGroups';
 import type { Todo } from '../types';
 
 interface Props {
@@ -43,28 +44,8 @@ export default function TodoPicker({ rangeFrom, rangeTo, rangeLabel, onPick, onD
     .filter(t => !q || t.title.toLowerCase().includes(q))
     .sort((a, b) => tab === 'range' ? (a.date ?? '').localeCompare(b.date ?? '') : 0);
 
-  // 홈·저장소 목록처럼 카테고리 → 하위카테고리별로 묶어서 보여줌 (카테고리 순서대로, 분류 없음은 맨 뒤)
-  const groups = [...categories, null]
-    .map(cat => {
-      const inCat = list.filter(t => (t.categoryId ?? null) === (cat?.id ?? null));
-      const subGroups = cat
-        ? subcategories
-            .filter(sc => sc.categoryId === cat.id)
-            .map(subcat => ({ subcat, items: inCat.filter(t => t.subcategoryId === subcat.id) }))
-            .filter(g => g.items.length > 0)
-        : [];
-      const grouped = new Set(subGroups.flatMap(g => g.items.map(t => t.id)));
-      return { cat, bare: inCat.filter(t => !grouped.has(t.id)), subGroups, count: inCat.length };
-    })
-    .filter(g => g.count > 0);
-  // 지워진 카테고리를 가리키는 할 일은 "분류 없음"에 모음
-  const knownCats = new Set(categories.map(c => c.id));
-  const orphans = list.filter(t => t.categoryId && !knownCats.has(t.categoryId));
-  if (orphans.length) {
-    const none = groups.find(g => !g.cat);
-    if (none) { none.bare.push(...orphans); none.count += orphans.length; }
-    else groups.push({ cat: null, bare: orphans, subGroups: [], count: orphans.length });
-  }
+  // 홈·저장소 목록처럼 카테고리 → 하위카테고리별로 묶어서 보여줌
+  const groups = groupTodosByCategory(list, categories, subcategories);
 
   function renderItem(todo: Todo) {
     const placed = placedTimes.get(todo.id);
