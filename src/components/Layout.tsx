@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer, LogIn, Search } from 'lucide-react';
+import { Home, CalendarDays, Archive, NotebookPen, Settings, Timer, LogIn, Search, PictureInPicture2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestLoginModal from './GuestLoginModal';
 import UpgradeAccountModal from './UpgradeAccountModal';
@@ -14,6 +14,17 @@ import { categoriesOrigin } from '../lib/navBack';
 import { planTarget } from '../lib/planNav';
 import SearchHost from './SearchModal';
 import { openSearch } from '../lib/searchStore';
+import { miniWindowSupported, openMiniWindow } from '../lib/miniWindow';
+import MiniTodayHost from './MiniTodayWindow';
+import { showToast } from '../lib/toast';
+
+// 미니 창(다른 창 위에 떠 있는 오늘 할 일)은 크롬·엣지 컴퓨터에서만 돼서, 안 되는 브라우저에선 버튼을 숨김
+const MINI_WINDOW = miniWindowSupported();
+const MINI_WINDOW_TITLE = '미니 창: 오늘 할 일을 다른 창 위에 작게 띄워요 (모아 탭은 열어 둬야 해요)';
+async function launchMiniWindow() {
+  const result = await openMiniWindow();
+  if (result === 'failed') showToast('미니 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.', 'error');
+}
 
 const SHORTCUT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
 
@@ -56,9 +67,18 @@ function TodaySummary() {
 
   return (
     <div className="hidden wide:block mx-3 mb-6 rounded-xl bg-white dark:bg-gray-900 shadow-card p-3.5">
-      <p className="text-13px font-semibold text-gray-900 dark:text-white">
-        {format(now, 'M월 d일 EEEE', { locale: ko })}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-13px font-semibold text-gray-900 dark:text-white">
+          {format(now, 'M월 d일 EEEE', { locale: ko })}
+        </p>
+        {MINI_WINDOW && (
+          <button onClick={launchMiniWindow} title={MINI_WINDOW_TITLE} aria-label="미니 창 띄우기"
+            className="flex-shrink-0 whitespace-nowrap -my-1 -mr-1.5 flex items-center gap-1 h-6 px-1.5 rounded-md text-11px font-medium text-gray-500 dark:text-gray-400 hover:text-leaf-700 dark:hover:text-leaf-300 hover:bg-leaf-50 dark:hover:bg-leaf-900/30 transition-colors">
+            <PictureInPicture2 size={13} strokeWidth={2} />
+            미니 창
+          </button>
+        )}
+      </div>
       <div className="flex items-baseline justify-between mt-2.5 mb-1.5">
         <span className="text-xs text-gray-500 dark:text-gray-400">오늘 할 일</span>
         <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">
@@ -102,6 +122,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="hidden wide:inline flex-1 text-left">검색</span>
             <kbd className="hidden wide:inline font-sans text-10.5px font-semibold text-gray-400 dark:text-gray-500">{SHORTCUT}</kbd>
           </button>
+          {/* 사이드바가 아이콘만 보일 때 (넓으면 위 날짜 칸에 "미니 창" 버튼이 있음) */}
+          {MINI_WINDOW && (
+            <button onClick={launchMiniWindow} title={MINI_WINDOW_TITLE} aria-label="미니 창 띄우기"
+              className="wide:hidden mt-0.5 w-full flex items-center justify-center h-10 px-3 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-900/60 transition-colors">
+              <PictureInPicture2 size={18} strokeWidth={1.8} />
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 flex flex-col gap-0.5 px-3" aria-label="주요 메뉴">
@@ -139,6 +166,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </aside>
+      <MiniTodayHost />
 
       <main className="flex-1 min-w-0 overflow-hidden">
         {children}

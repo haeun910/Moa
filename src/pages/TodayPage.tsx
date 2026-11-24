@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type React from 'react';
-import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, Target, AlertCircle, Repeat, Search, CalendarPlus } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -13,13 +13,21 @@ import HelpTip from '../components/HelpTip';
 import Sheet from '../components/Sheet';
 import ScheduleCheck from '../components/ScheduleCheck';
 import CalendarViewTabs from '../components/CalendarViewTabs';
+import MonthGrid from '../components/MonthGrid';
+import PlanPanel from '../components/PlanPanel';
+import { useTodoDateDrag } from '../hooks/useTodoDateDrag';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { clearPlanRequest, peekPlanRequest } from '../lib/placement';
+import type { PlanTab } from '../lib/placement';
+import { showToast } from '../lib/toast';
+import { DAY_LABELS, weekdayTone } from '../lib/calendarStyle';
 import { savedCalendarView } from '../lib/calendarView';
 import { openSearch } from '../lib/searchStore';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { GUIDES } from '../data/guides';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
-  startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
+  startOfWeek, endOfWeek, addMonths, subMonths, parseISO,
   differenceInCalendarDays, addWeeks, subWeeks, isToday as dateFnsIsToday,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -28,30 +36,13 @@ import { applyListDisplaySettings } from '../lib/listDisplay';
 import CategoryTodoGroups from '../components/CategoryTodoGroups';
 import TodoModal from '../components/TodoModal';
 import DayTodoComposer from '../components/DayTodoComposer';
-import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
+import type { Todo, DDay, ScheduleItem, MonthlyGoal } from '../types';
 import { LIMITS } from '../lib/limits';
 import { todoDdays } from '../lib/agenda';
 import { isMultiDay, scheduleEndDate, scheduleOnDate, scheduleOverlaps } from '../lib/scheduleDates';
 import { timeRangeLabel } from '../lib/timeRange';
 import { holidayLabel, useHolidays } from '../hooks/useHolidays';
 import { overdueTodos as findOverdue, progressOf, rate, splitOverdue } from '../lib/homeStats';
-
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-
-// 설정 > 글자 크기에 맞춰 달력 칸 높이와 칸에 넣는 칩 개수를 정함 (글자 자체는 앱 전체 배율로 커짐).
-// 글자가 커질수록 칸 하나에 다 들어가는 칩 개수는 줄이고 칸 높이를 늘림.
-const CALENDAR_CHIP_STYLES: Record<Settings['calendarTextSize'], { chip: string; cellMinH: string; maxChips: number; icon: number }> = {
-  small: { chip: 'text-10.5px', cellMinH: 'min-h-[84px]', maxChips: 3, icon: 7 },
-  medium: { chip: 'text-10.5px', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
-  large: { chip: 'text-10.5px', cellMinH: 'min-h-[112px]', maxChips: 2, icon: 9 },
-};
-
-// 일요일/토요일 글자색 (달력 숫자, 요일 머리글 공통)
-function weekdayTone(dow: number) {
-  if (dow === 0) return 'text-red-500 dark:text-red-400';
-  if (dow === 6) return 'text-blue-500 dark:text-blue-400';
-  return 'text-gray-700 dark:text-gray-200';
-}
 
 // 특정 날짜로 옮기는 작은 팝오버 버튼 (저장소로 보내기와 짝을 이루는, 홈 화면 전용 액션)
 function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string) => void }) {
@@ -97,7 +88,7 @@ function OverviewColumn({
   accent?: 'leaf' | 'blue'; // 팝업의 추가 버튼 색 (일정은 파랑)
 }) {
   return (
-    <div className={`flex flex-col min-w-0 ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
+    <div className={`flex flex-col min-w-0 [container:overview/inline-size] ${inSheet ? 'px-5 pt-1 pb-5 [&_.ov-row]:py-2.5' : 'px-4 pt-3.5 pb-3 h-[156px]'}`}>
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2 min-w-0">
           {icon}
@@ -138,15 +129,6 @@ function OverviewColumn({
   );
 }
 
-// 월 달력 칸에 한 줄씩 보이는 것: 디데이·일정은 제목, 할 일은 하위 카테고리(없으면 카테고리) 이름으로 묶음
-interface CalendarChip {
-  key: string;
-  title: string;
-  kind: 'dday' | 'schedule' | 'todo';
-  done: boolean; // 할 일 묶음은 그 안의 할 일을 모두 끝냈을 때
-  color?: string; // 할 일 묶음의 카테고리 색
-}
-
 // 월/주 달력 화면 ("달력" 메뉴). 예전엔 홈이었는데, 홈은 오늘 요약(HomePage)으로 바뀜
 export default function TodayPage() {
   const {
@@ -170,6 +152,11 @@ export default function TodayPage() {
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [panelOpen, setPanelOpen] = useState(false);
+  // 할 일 배치 창 (오른쪽, 날짜 창과 번갈아 열림). 저장소 화면의 "달력에 배치하기"로 열려 들어올 수도 있음
+  const [planOpen, setPlanOpen] = useState(() => peekPlanRequest() !== null);
+  const [planTab, setPlanTab] = useState<PlanTab>(() => peekPlanRequest() ?? 'storage');
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  useEffect(() => { clearPlanRequest(); }, []);
   // 날짜 패널 입력창에서 상세 옵션으로 넘어갈 때 고른 카테고리/하위카테고리를 모달 기본값으로 전달
   const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null; title: string }>({ categoryId: null, subcategoryId: null, title: '' });
 
@@ -204,9 +191,12 @@ export default function TodayPage() {
     start: startOfWeek(startOfMonth(viewMonth)),
     end: endOfWeek(endOfMonth(viewMonth)),
   });
-  const weekCount = Math.ceil(days.length / 7);
   const weekDays = eachDayOfInterval({ start: startOfWeek(weekRef, { weekStartsOn: 0 }), end: endOfWeek(weekRef, { weekStartsOn: 0 }) });
-  const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
+  // 달력 칸·주간 보기도 날짜 창과 같은 기준: 설정에서 숨긴 카테고리의 할 일은 빼고 셈
+  // (예전엔 달력 칸만 숨긴 카테고리 할 일까지 세서, 날짜 창에선 다 끝냈는데 칸에는 줄이 안 그어질 수 있었음)
+  const calendarTodos = settings.hiddenCategoryIds.length
+    ? todos.filter(t => !t.categoryId || !settings.hiddenCategoryIds.includes(t.categoryId))
+    : todos;
   // 월 달력·주간 보기·고른 날짜가 걸친 기간의 공휴일 (설정에서 끄면 비어 있음)
   const holidayRange = [
     format(days[0], 'yyyy-MM-dd'), format(days[days.length - 1], 'yyyy-MM-dd'),
@@ -225,7 +215,37 @@ export default function TodayPage() {
   // 지난 날짜에 못 끝낸 할 일 (홈과 같은 기준: 반복은 최근 회차만, 2주 넘은 것은 접어 둬서 숫자에 안 셈)
   const overdueTodos = splitOverdue(findOverdue(todos, todayStr), todayStr).recent;
 
+  // ── 할 일 배치: 컴퓨터·큰 태블릿(가로 1024px 이상)에서만 ──
+  const planVisible = planOpen && isDesktop;
+  const pickedTodo = planVisible && pickedId ? todos.find(t => t.id === pickedId) : undefined;
+  // 끌기를 시작하면 눌러서 골라 둔 할 일은 풂 (그냥 누르기는 고르기/풀기로 그대로)
+  const dateDrag = useTodoDateDrag(placeTodo, () => setPickedId(null));
+  useEscapeKey(() => setPickedId(null), !!pickedTodo);
+
+  function placeTodo(todo: Todo, date: string) {
+    setPickedId(null);
+    if (todo.date === date) return;
+    const prevDate = todo.date;
+    // 되돌리기는 옮기기 저장(연결된 타임박스 블록 이동 포함)이 끝난 뒤에 보냄: 동시에 보내면 늦게 끝난 쪽이 이김
+    const placing = updateTodo(todo.id, { date });
+    const title = todo.title.length > 18 ? `${todo.title.slice(0, 18)}…` : todo.title;
+    showToast(`'${title}'을(를) ${format(parseISO(date), 'M월 d일 (E)', { locale: ko })}로 옮겼어요`, 'info', 5000, {
+      label: '되돌리기',
+      onClick: () => { void placing.then(() => updateTodo(todo.id, { date: prevDate })); },
+    });
+  }
+
+  function togglePlan() {
+    setPickedId(null);
+    if (planVisible) { setPlanOpen(false); return; }
+    setPanelOpen(false);
+    setPlanOpen(true);
+  }
+
   function handleDayClick(dateStr: string) {
+    // 배치할 할 일을 골라 둔 상태면 그 날로 옮김
+    if (pickedTodo) { placeTodo(pickedTodo, dateStr); return; }
+    setPlanOpen(false);
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
     else { setSelectedDate(dateStr); setPanelOpen(true); }
   }
@@ -538,10 +558,13 @@ export default function TodayPage() {
           <span className="flex-shrink-0 text-11px font-semibold tabular-nums px-1.5 py-0.5 rounded-md min-w-[40px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
             {format(parseISO(s.date), 'M/d')}{isMultiDay(s) && `~${format(parseISO(scheduleEndDate(s)), 'M/d')}`}
           </span>
-          <span className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
+          <span title={s.title} className="flex-1 min-w-0 text-13px text-gray-800 dark:text-gray-200 truncate group-hover:text-gray-950 dark:group-hover:text-white">{s.title}</span>
           {s.seriesId && <Repeat size={11} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
+          {/* 요약 칸에서는 시작 시각만, 칸이 좁으면(날짜 창을 연 때 등) 시각은 빼고 제목을 살림. 팝업 창에서는 전체 */}
           {s.startTime && (
-            <span className="flex-shrink-0 text-11px tabular-nums text-gray-400">{timeRangeLabel(s.startTime, s.endTime)}</span>
+            <span className={`flex-shrink-0 text-11px tabular-nums text-gray-400 ${inSheet ? '' : 'hidden ov-wide:inline'}`} title={timeRangeLabel(s.startTime, s.endTime)}>
+              {inSheet ? timeRangeLabel(s.startTime, s.endTime) : s.startTime}
+            </span>
           )}
           <ScheduleDeleteButton schedule={s} size={12}
             className="p-1.5 -m-1.5 opacity-60 can-hover:opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all" />
@@ -554,15 +577,17 @@ export default function TodayPage() {
   const navBtn = 'btn-icon w-8 h-8';
 
   return (
-    <div className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
+    <div data-calendar-root className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
 
       {/* ── 달력 + 요약 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
       {/* 노트북처럼 화면 세로 길이가 짧을 때 목표/D-Day 카드 + 달력의 최소 높이 합이 화면을 넘으면
           예전엔 md:overflow-hidden 때문에 달력 아래쪽이 그냥 잘려서 안 보였음.
           내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
+      <div data-calendar-scroller className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
 
-        <div className="flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 md:min-h-0">
+        {/* 주간 보기는 화면 높이에 맞추고 카드 안에서 스크롤. 월 달력은 할 일이 많으면 칸이 길어지므로
+            이 영역이 줄어들지 않게 두고 바깥(data-calendar-scroller)이 스크롤됨 */}
+        <div className={`flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 ${calView === 'month' ? '' : 'md:min-h-0'}`}>
 
           {/* ── 머리글: 월 이동 + 보기 전환 + 공지/리포트 ── */}
           <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-5">
@@ -588,7 +613,7 @@ export default function TodayPage() {
                   <ChevronRight size={18} />
                 </button>
               </div>
-              <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPanelOpen(true); }}
+              <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPlanOpen(false); setPickedId(null); setPanelOpen(true); }}
                 className="btn-secondary h-8 px-3 text-13px">
                 오늘
               </button>
@@ -597,6 +622,14 @@ export default function TodayPage() {
             <div className="flex items-center gap-2">
               {/* 월/주(/타임박스) 전환 */}
               <CalendarViewTabs value={calView} onChange={setCalView} />
+              {/* 저장소·밀린 할 일을 날짜로 나누기 (컴퓨터·큰 태블릿만: 끌어다 놓을 칸이 넉넉해야 함) */}
+              {isDesktop && (
+                <button onClick={togglePlan} aria-pressed={planVisible} title="저장소·밀린 할 일을 날짜 칸으로 옮기기"
+                  className={`btn-secondary h-8 px-3 text-13px ${planVisible ? '!bg-leaf-50 dark:!bg-leaf-900/30 !text-leaf-800 dark:!text-leaf-200 !ring-leaf-300 dark:!ring-leaf-700' : ''}`}>
+                  <CalendarPlus size={15} />
+                  할 일 배치
+                </button>
+              )}
               <button onClick={() => setShowOverdue(true)} aria-label="밀린 할 일" title="지난 날짜에 못 끝낸 할 일 정리하기"
                 className={`btn-secondary relative h-8 w-8 sm:w-auto sm:px-3 text-13px ${
                   overdueTodos.length > 0 ? '!text-amber-700 dark:!text-amber-400 !ring-amber-200 dark:!ring-amber-800/70' : ''
@@ -654,126 +687,18 @@ export default function TodayPage() {
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
-            <div className="rounded-xl surface overflow-hidden flex flex-col flex-1 md:min-h-0">
-              <div className="flex-shrink-0 grid grid-cols-7 border-b border-gray-100 dark:border-gray-800">
-                {DAY_LABELS.map((d, i) => (
-                  <div key={d} className={`py-2 px-2 text-11px font-semibold ${
-                    i === 0 ? 'text-red-500/80 dark:text-red-400/80' : i === 6 ? 'text-blue-500/80 dark:text-blue-400/80' : 'text-gray-400 dark:text-gray-500'
-                  }`}>{d}</div>
-                ))}
-              </div>
-              <div className="flex-1 grid grid-cols-7" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
-                {days.map((day, idx) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const isToday = dateStr === todayStr;
-                  const isSelected = dateStr === selectedDate && panelOpen;
-                  const inMonth = isSameMonth(day, viewMonth);
-                  const dayTodos = todos.filter(t => t.date === dateStr);
-                  const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
-                  const daySchedules = schedules.filter(s => scheduleOnDate(s, dateStr))
-                    .sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
-                  const dow = day.getDay();
-                  const isLastRow = idx >= days.length - 7;
-                  const holiday = holidayLabel(holidays, dateStr);
-
-                  // 달력 칸: 디데이·일정은 제목 칩으로, 할 일은 제목 대신 "하위 카테고리 이름"으로 묶어서 한 줄씩
-                  // (하위 카테고리가 없으면 카테고리 이름). 예: 자격증 > 토익에 할 일이 있으면 "토익"만 보임.
-                  // 칸이 좁아 최대 몇 줄만 보여주고 나머지는 "+N개 더"로 요약 (자세히 보려면 칸을 눌러 확인)
-                  const todoGroups = new Map<string, CalendarChip>();
-                  for (const t of dayTodos) {
-                    if (t.skipped) continue;
-                    const sub = t.subcategoryId ? subcategories.find(s => s.id === t.subcategoryId) : undefined;
-                    const cat = categories.find(c => c.id === t.categoryId);
-                    const key = sub ? `sub-${sub.id}` : `cat-${t.categoryId ?? 'none'}`;
-                    const group = todoGroups.get(key);
-                    if (group) group.done = group.done && t.completed;
-                    else todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '할 일', kind: 'todo', done: t.completed, color: cat?.color });
-                  }
-                  const chips: CalendarChip[] = [
-                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, kind: 'dday' as const, done: false })),
-                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, kind: 'schedule' as const, done: s.completed })),
-                    ...todoGroups.values(),
-                  ];
-                  // 넘치면 마지막 줄을 "+N개 더"에 내줘서 칸 높이가 늘 같은 줄 수 안에 들어가게
-                  const lineLimit = chipStyle.maxChips + 1;
-                  const visibleChips = chips.length > lineLimit ? chips.slice(0, lineLimit - 1) : chips;
-                  const overflowCount = chips.length - visibleChips.length;
-
-                  return (
-                    <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}${holiday ? ` ${holiday}` : ''}`}
-                      aria-pressed={isSelected}
-                      className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1 sm:p-1.5 text-left transition-colors ${
-                        dow !== 6 ? 'border-r border-gray-100 dark:border-gray-800' : ''
-                      } ${!isLastRow ? 'border-b border-gray-100 dark:border-gray-800' : ''} ${
-                        // 오늘: 초록 테두리 + 연한 초록 배경으로 한눈에 보이게 / 고른 날: 진한 회색 테두리 (오늘과 구분)
-                        isToday
-                          ? `bg-leaf-50 dark:bg-leaf-900/25 ${isSelected
-                              ? 'shadow-[inset_0_0_0_2.5px_theme(colors.leaf.600)] dark:shadow-[inset_0_0_0_2.5px_theme(colors.leaf.400)]'
-                              : 'shadow-[inset_0_0_0_2px_theme(colors.leaf.500)] hover:bg-leaf-100/70 dark:hover:bg-leaf-900/40'}`
-                          : isSelected
-                            ? 'bg-gray-50 dark:bg-gray-800/50 shadow-[inset_0_0_0_1.5px_theme(colors.gray.800)] dark:shadow-[inset_0_0_0_1.5px_theme(colors.gray.300)]'
-                            : inMonth ? 'hover:bg-gray-50 dark:hover:bg-gray-800/40' : 'bg-gray-50/50 dark:bg-gray-950/30 hover:bg-gray-100/60 dark:hover:bg-gray-800/40'
-                      }`}
-                    >
-                      <div className="w-full min-w-0 flex items-center gap-1 mb-1">
-                        <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-12px tabular-nums ${
-                          isToday
-                            ? 'bg-leaf-600 dark:bg-leaf-500 text-white font-bold'
-                            : !inMonth
-                              ? 'text-gray-300 dark:text-gray-600 font-medium'
-                              : `${weekdayTone(holiday ? 0 : dow)} font-semibold`
-                        }`}>
-                          {format(day, 'd')}
-                        </span>
-                        {/* 공휴일 이름 (빨간 날) */}
-                        {holiday && (
-                          <span className={`min-w-0 truncate text-10px font-medium text-red-500 dark:text-red-400 ${inMonth ? '' : 'opacity-40'}`}>{holiday}</span>
-                        )}
-                      </div>
-                      <div className={`w-full space-y-[3px] overflow-hidden ${inMonth ? '' : 'opacity-40'}`}>
-                        {visibleChips.map(chip => (
-                          <div
-                            key={chip.key}
-                            title={chip.title}
-                            className={`w-full flex items-center gap-1 ${chipStyle.chip} leading-[1.35] px-0.5 sm:px-1.5 py-px rounded-[4px] font-medium ${
-                              chip.kind === 'todo'
-                                ? (chip.done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200')
-                                : chip.kind === 'dday'
-                                  ? 'bg-leaf-100 text-leaf-800 dark:bg-leaf-900/50 dark:text-leaf-200'
-                                  : chip.done
-                                    ? 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800 dark:text-gray-500'
-                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
-                            }`}
-                          >
-                            {/* 디데이는 깃발, 일정은 달력 아이콘 (폰은 칸이 좁아 색으로만 구분), 할 일은 카테고리 색 점 */}
-                            {chip.kind === 'todo'
-                              ? <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${chip.done ? 'opacity-40' : ''}`} style={{ backgroundColor: chip.color ?? '#9DA397' }} />
-                              : chip.kind === 'dday'
-                                ? <Flag size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.8} />
-                                : <CalendarDays size={chipStyle.icon} className="flex-shrink-0 hidden sm:block" strokeWidth={2.6} />}
-                            {/* 폰은 칸이 좁아서 말줄임표(…) 없이 들어가는 만큼 글자를 보여줌 (전체는 눌러서 팝업으로) */}
-                            <span className={`overflow-hidden whitespace-nowrap sm:text-ellipsis ${chip.kind === 'dday' ? 'font-semibold' : ''}`}>{chip.title}</span>
-                          </div>
-                        ))}
-                        {overflowCount > 0 && (
-                          <p className={`${chipStyle.chip} leading-tight px-1.5 text-gray-400 dark:text-gray-500 font-medium`}>
-                            {/* 폰 칸은 좁아서 "+N"만 */}
-                            <span className="sm:hidden">+{overflowCount}</span><span className="hidden sm:inline">+{overflowCount}개 더</span>
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <MonthGrid
+              days={days} viewMonth={viewMonth} todayStr={todayStr} selectedDate={selectedDate} panelOpen={panelOpen}
+              todos={calendarTodos} ddays={allDdays} schedules={schedules} categories={categories} subcategories={subcategories}
+              holidays={holidays} textSize={settings.calendarTextSize} onDayClick={handleDayClick}
+              dropDate={dateDrag.drag?.date ?? null} placing={!!pickedTodo || !!dateDrag.drag}
+            />
           ) : isPhone ? (
             /* ── 폰 주간 보기: 7칸으로 나누면 제목이 한두 글자씩 잘려서, 날짜별로 위아래로 쌓은 목록으로 ── */
             <div className="rounded-xl surface divide-y divide-gray-100 dark:divide-gray-800" aria-label="이번 주 목록">
               {weekDays.map(day => {
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const dayTodos = todos.filter(t => t.date === dateStr);
+                const dayTodos = calendarTodos.filter(t => t.date === dateStr);
                 const dayCount = progressOf(dayTodos);
                 const dayDdayList = allDdays.filter(d => d.targetDate === dateStr);
                 const daySchedules = schedules.filter(sc => scheduleOnDate(sc, dateStr))
@@ -853,21 +778,26 @@ export default function TodayPage() {
                     end: endOfWeek(weekRef, { weekStartsOn: 0 }),
                   }).map(day => {
                     const dateStr = format(day, 'yyyy-MM-dd');
-                    const dayTodos = todos.filter(t => t.date === dateStr);
+                    const dayTodos = calendarTodos.filter(t => t.date === dateStr);
                     const dayCount = progressOf(dayTodos);
                     const dow = day.getDay();
                     const isToday = dateFnsIsToday(day);
                     const holiday = holidayLabel(holidays, dateStr);
+                    const isDrop = dateDrag.drag?.date === dateStr;
                     return (
-                      <div key={dateStr}
-                        className={`flex flex-col rounded-xl p-2 ${
-                          isToday
-                            ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-leaf-500 dark:ring-leaf-400'
-                            : 'bg-gray-50 dark:bg-gray-800/40'
-                        }`}
+                      <div key={dateStr} data-drop-date={dateStr}
+                        // 할 일 배치에서 할 일을 골라 둔 상태면 칸 어디를 눌러도 그 날로 옮김 (안의 체크 등은 막음)
+                        onClickCapture={pickedTodo ? e => { e.stopPropagation(); e.preventDefault(); placeTodo(pickedTodo, dateStr); } : undefined}
+                        className={`flex flex-col rounded-xl p-2 transition-colors ${
+                          isDrop
+                            ? 'bg-leaf-100 dark:bg-leaf-900/50 ring-2 ring-leaf-600 dark:ring-leaf-400'
+                            : isToday
+                              ? 'bg-leaf-50 dark:bg-leaf-900/25 ring-1 ring-leaf-500 dark:ring-leaf-400'
+                              : 'bg-gray-50 dark:bg-gray-800/40'
+                        } ${pickedTodo && !isDrop ? 'cursor-copy hover:ring-2 hover:ring-leaf-400' : ''}`}
                       >
                         <div className="mb-2 flex-shrink-0 px-0.5">
-                          <p className={`text-10px font-semibold ${dow === 0 ? 'text-red-500/80' : dow === 6 ? 'text-blue-500/80' : 'text-gray-400'}`}>{DAY_LABELS[dow]}</p>
+                          <p className={`text-11px font-semibold ${dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>{DAY_LABELS[dow]}</p>
                           <div className="flex items-baseline justify-between">
                             <p className={`text-lg font-bold tabular-nums leading-tight ${isToday ? 'text-leaf-700 dark:text-leaf-300' : weekdayTone(holiday ? 0 : dow)}`}>{format(day, 'd')}</p>
                             {dayCount.total > 0 && (
@@ -876,32 +806,35 @@ export default function TodayPage() {
                           </div>
                           {holiday && <p className="text-10px font-medium text-red-500 dark:text-red-400 truncate" title={holiday}>{holiday}</p>}
                         </div>
-                        <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
+                        <div className="flex-1 space-y-1.5 overflow-y-auto scrollbar-thin">
                           {/* 월간 보기처럼 D-Day·일정도 함께 */}
                           {allDdays.filter(d => d.targetDate === dateStr).map(d => (
-                            <p key={`dday-${d.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-leaf-50 dark:bg-leaf-900/30 text-10.5px font-medium text-leaf-800 dark:text-leaf-300 truncate">
-                              <Flag size={9} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
+                            <p key={`dday-${d.id}`} title={d.title} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-leaf-100 dark:bg-leaf-900/60 text-12px font-semibold text-leaf-800 dark:text-leaf-100">
+                              <Flag size={10} className="flex-shrink-0" /><span className="truncate">{d.title}</span>
                             </p>
                           ))}
                           {schedules.filter(sc => scheduleOnDate(sc, dateStr)).sort((a, b) => Number(isMultiDay(b)) - Number(isMultiDay(a)) || (a.startTime ?? '').localeCompare(b.startTime ?? '')).map(sc => (
-                            <p key={`sch-${sc.id}`} className="flex items-center gap-1 px-1 py-px rounded bg-blue-50 dark:bg-blue-900/30 text-10.5px font-medium text-blue-700 dark:text-blue-300 truncate">
-                              <CalendarDays size={9} className="flex-shrink-0" />
-                              {sc.startTime && !isMultiDay(sc) && <span className="flex-shrink-0 tabular-nums">{timeRangeLabel(sc.startTime, sc.endTime)}</span>}
-                              <span className="truncate">{sc.title}</span>
-                            </p>
+                            // 칸이 좁아도 제목이 먼저 보이게: 제목(좁으면 두 줄까지), 시간은 그 아래 작은 줄 (예전엔 시간이 앞에 붙어 제목이 밀려 사라짐)
+                            <div key={`sch-${sc.id}`} title={sc.title}
+                              className={`px-1.5 py-0.5 rounded-md ${sc.completed
+                                ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                                : isMultiDay(sc) ? 'bg-blue-100 text-blue-900 dark:bg-blue-800/70 dark:text-blue-50' : 'bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-100'}`}>
+                              <p className={`line-clamp-2 break-words text-12px font-medium leading-snug ${sc.completed ? 'line-through' : ''}`}>{sc.title}</p>
+                              {sc.startTime && !isMultiDay(sc) && <p className="text-11px tabular-nums opacity-75">{timeRangeLabel(sc.startTime, sc.endTime)}</p>}
+                            </div>
                           ))}
                           {dayTodos.map(todo => (
                             <div key={todo.id}
                               className="flex items-start gap-1.5 cursor-pointer group"
                               onClick={() => toggleTodo(todo.id)}
                             >
-                              <div className={`flex-shrink-0 mt-[2px] w-3 h-3 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors ${
+                              <div className={`flex-shrink-0 mt-[3px] w-3.5 h-3.5 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors ${
                                 todo.completed ? 'bg-leaf-600 border-leaf-600' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-500'
                               }`}>
-                                {todo.completed && <Check size={7} className="text-white" strokeWidth={3.5} />}
+                                {todo.completed && <Check size={9} className="text-white" strokeWidth={3.5} />}
                               </div>
-                              <span className={`text-11px leading-snug break-words ${
-                                todo.completed || todo.skipped ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'
+                              <span className={`text-12.5px leading-snug break-words ${
+                                todo.completed || todo.skipped ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'
                               }`}>{todo.title}</span>
                             </div>
                           ))}
@@ -945,11 +878,22 @@ export default function TodayPage() {
         </div>
       </div>
 
-      {/* ── 오른쪽 패널 (데스크톱) ── */}
+      {/* ── 오른쪽 패널 (데스크톱): 날짜 창 또는 할 일 배치 창 ── */}
       <div className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-l border-gray-200/70 dark:border-gray-800 overflow-hidden transition-all duration-300 ease-in-out relative ${
-        panelOpen ? 'w-[360px] wide:w-[400px] opacity-100' : 'w-0 opacity-0'
+        panelOpen || planVisible ? 'w-[360px] wide:w-[400px] opacity-100' : 'w-0 opacity-0'
       }`}>
-        {panelOpen && isDesktop && (
+        {planVisible && (
+          <PlanPanel
+            todayStr={todayStr} tab={planTab} onTabChange={setPlanTab}
+            pickedId={pickedTodo?.id ?? null} onPick={t => setPickedId(id => id === t.id ? null : t.id)}
+            draggingId={dateDrag.drag?.todo.id ?? null}
+            onMouseDragStart={dateDrag.startMouse}
+            onTouchDragStart={dateDrag.startTouch}
+            consumeClick={dateDrag.consumeClick}
+            onClose={() => { setPlanOpen(false); setPickedId(null); }}
+          />
+        )}
+        {panelOpen && !planVisible && isDesktop && (
           <>
             {renderPanelHeader(false)}
             <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-1 pb-48">
@@ -978,6 +922,17 @@ export default function TodayPage() {
             {overviewSheet === 'goal' ? goalColumn(true) : overviewSheet === 'dday' ? ddayColumn(true) : scheduleColumn(true)}
           </div>
         </Sheet>
+      )}
+
+      {/* 끌고 있는 할 일: 포인터를 따라다니는 이름표 (놓을 날짜가 있으면 같이) */}
+      {dateDrag.drag && (
+        <div className="fixed z-[70] pointer-events-none max-w-[240px] rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-lg px-3 py-2 text-12px leading-snug"
+          style={{ left: dateDrag.drag.x + 14, top: dateDrag.drag.y + 12 }}>
+          <p className="font-semibold truncate">{dateDrag.drag.todo.title}</p>
+          <p className="mt-0.5 opacity-75 tabular-nums">
+            {dateDrag.drag.date ? `→ ${format(parseISO(dateDrag.drag.date), 'M월 d일 (E)', { locale: ko })}` : '날짜 칸에 놓으세요'}
+          </p>
+        </div>
       )}
 
       {showOverdue && (

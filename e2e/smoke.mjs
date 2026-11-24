@@ -11,6 +11,9 @@
 // 9) 검색(Ctrl+K, 초성)으로 메모를 찾아 열고, 마크다운 링크·체크리스트가 동작하는지
 // 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
 // 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
+// 12) 월 달력 칸: 칸이 넉넉하면 4줄보다 많이 보이고, 숨긴 카테고리 할 일은 칸에서도 빠지며, 묶음에 끝낸 개수가 보이는지
+// 13) PC 미니 창: 사이드바 "미니 창"으로 오늘 할 일 창이 뜨고, 거기서 체크·추가하면 본 창과 저장에 같이 반영되는지, 눌러서 미니 창 안에서 편집되는지
+// 14) 달력 할 일 배치: 저장소 할 일을 날짜 칸으로 끌어다 놓기·눌러서 놓기·되돌리기가 저장되는지, 반복은 빠지는지, 좁은 화면에서는 숨는지
 //
 // 실행: npm run test:e2e   (먼저 테스트용 빌드를 만들고 미리보기 서버를 띄움)
 // ============================================================
@@ -524,7 +527,195 @@ try {
     await context.close();
   }
 
-  // 12) 프로젝트 로드맵: D-Day를 고르고 적은 일을 날짜에 나누면 그 D-Day에 연결된 할 일로 저장됨
+  // 12) 월 달력 칸: 할 일이 많은 날도 줄이지 않고 전부 보여주고(칸이 길어짐), 숨긴 카테고리 할 일은 칸에서도 빼서 날짜 창과 같게 셈
+  {
+    const { context, page, errors } = await loggedInContext({
+      viewport: { width: 1920, height: 1200 }, fixedTime: '2026-11-20T10:00:00+09:00',
+      settings: { hidden_category_ids: ['c-hidden'] },
+    });
+    const base = { user_id: USER_ID, completed: false, due_date: null, is_dday: false, start_time: null, notes: null, sort_order: 0, series_id: null, skipped: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+    const cats = ['c-school', 'c-work', 'c-hidden'].map((id, i) => ({ id, user_id: USER_ID, name: ['학교', '회사', '숨긴 것'][i], color: '#A7A3D9', description: null, is_default: false, sort_order: i, created_at: '2026-01-01T00:00:00Z' }));
+    const subNames = ['논문', '수업', '과제', '동아리', '회의', '보고서', '출장'];
+    const subs = subNames.map((name, i) => ({ id: `s${i}`, user_id: USER_ID, category_id: i < 4 ? 'c-school' : 'c-work', name, sort_order: i, created_at: '2026-01-01T00:00:00Z', notes: null }));
+    const rows = [
+      // 11/18: 하위 카테고리 7개 = 7줄 → 7줄 모두 보여야 함 ("+N개 더" 없음)
+      ...subs.map((sc, i) => ({ ...base, id: `m${i}`, title: `할 일 ${i}`, date: '2026-11-18', category_id: sc.category_id, subcategory_id: sc.id })),
+      // 11/3: 논문 할 일은 끝냄 + 숨긴 카테고리에 있는(하위 카테고리가 논문으로 남은) 안 끝낸 할 일
+      { ...base, id: 'p1', title: '서론', date: '2026-11-03', category_id: 'c-school', subcategory_id: 's0', completed: true },
+      { ...base, id: 'p2', title: '숨긴 일', date: '2026-11-03', category_id: 'c-hidden', subcategory_id: 's0' },
+      // 11/4: 수업 2개 중 1개 끝냄 → "1/2"
+      { ...base, id: 'q1', title: '출석', date: '2026-11-04', category_id: 'c-school', subcategory_id: 's1', completed: true },
+      { ...base, id: 'q2', title: '발표', date: '2026-11-04', category_id: 'c-school', subcategory_id: 's1' },
+    ];
+    // 11/13(금)~11/16(월) 여러 날 일정: 두 주에 걸쳐 이어진 막대 두 조각으로
+    const trips = [{ id: 'trip', user_id: USER_ID, title: '제주 여행', date: '2026-11-13', end_date: '2026-11-16', start_time: null, end_time: null, notes: null, series_id: null, completed: false, created_at: '2026-01-01T00:00:00Z' }];
+    await page.route(`${SUPABASE}/rest/v1/**`, route => {
+      const req = route.request();
+      if (req.method() !== 'GET') return route.fallback();
+      const url = new URL(req.url());
+      const table = url.pathname.replace('/rest/v1/', '');
+      const first = !Number(url.searchParams.get('offset') ?? 0);
+      if (table === 'todos') return route.fulfill({ json: first ? rows : [] });
+      if (table === 'categories') return route.fulfill({ json: cats });
+      if (table === 'subcategories') return route.fulfill({ json: subs });
+      if (table === 'schedules') return route.fulfill({ json: first ? trips : [] });
+      return route.fallback();
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('button', { name: '달력', exact: true }).first().click({ timeout: 15000 });
+      const cell18 = page.getByRole('button', { name: /^11월 18일 수요일/ });
+      await cell18.locator('div[title="출장"]').waitFor({ timeout: 10000 });
+      const shown = await cell18.locator('[data-chip-list] > div').count();
+      const more = await page.locator('[data-day-cell]', { hasText: /개 더/ }).count();
+      const clipped = await cell18.evaluate(btn => {
+        const last = btn.querySelector('[data-chip-list]')?.lastElementChild;
+        return last ? last.getBoundingClientRect().bottom > btn.getBoundingClientRect().bottom : false;
+      });
+      if (shown !== subs.length) throw new Error(`7줄이어야 하는데 ${shown}줄 보임`);
+      if (more) throw new Error(`"+N개 더"가 ${more}칸에 남아 있음`);
+      if (clipped) throw new Error('마지막 줄이 칸 밖으로 잘림');
+      const paper = page.getByRole('button', { name: /^11월 3일 화요일/ }).locator('div[title="논문"] .line-through');
+      if (await paper.count() === 0) throw new Error('숨긴 카테고리 할 일 때문에 논문에 줄이 안 그어짐');
+      // 여러 날 일정은 칸마다 따로가 아니라 이어진 막대 (11/13~14, 11/15~16 두 조각, 각각 두 칸 너비)
+      const bars = page.locator('[data-bar]', { hasText: '제주 여행' });
+      if (await bars.count() !== 2) throw new Error(`여러 날 일정 막대가 ${await bars.count()}조각 (2조각이어야 함)`);
+      const cellW = (await page.getByRole('button', { name: /^11월 13일 금요일/ }).boundingBox()).width;
+      for (const b of await bars.all()) {
+        const w = (await b.boundingBox()).width;
+        if (w < cellW * 1.8) throw new Error(`막대가 두 칸에 이어지지 않음 (너비 ${Math.round(w)}px, 칸 ${Math.round(cellW)}px)`);
+      }
+      await page.getByRole('button', { name: /^11월 4일 수요일/ }).locator('div[title="수업"]').getByText('1/2').waitFor({ timeout: 3000 });
+      console.log(`✅ 월 달력: 할 일이 많은 날도 ${shown}줄 모두 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
+    } catch (e) {
+      fail(`월 달력 칸 (${e.message})`);
+    }
+    if (errors.length) fail(`월 달력 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 13) PC 미니 창 (Document Picture-in-Picture: 크롬은 지원, 테스트 브라우저도 지원)
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 } });
+    const writes = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const req = route.request();
+      if (req.method() === 'GET') return route.fallback();
+      writes.push(`${req.method()} ${req.postData() ?? ''}`);
+      if (req.method() === 'POST') {
+        const row = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', ...JSON.parse(req.postData() ?? '{}') };
+        return route.fulfill({ json: (req.headers()['accept'] ?? '').includes('vnd.pgrst.object') ? row : [row] });
+      }
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      const btn = page.getByRole('button', { name: '미니 창 띄우기' }).first();
+      await btn.waitFor({ timeout: 15000 });
+      const [pip] = await Promise.all([context.waitForEvent('page', { timeout: 5000 }), btn.click()]);
+      const last = `할 일 ${TOTAL_TODOS}`; // 오늘 날짜인 할 일 (mockSupabase)
+      await pip.getByText(last, { exact: true }).waitFor({ timeout: 5000 });
+      await pip.getByRole('button', { name: `${last} 완료 처리` }).click();
+      for (let i = 0; i < 20 && !writes.some(w => w.startsWith('PATCH')); i++) await page.waitForTimeout(100);
+      if (!writes.some(w => w.startsWith('PATCH') && w.includes('"completed":true'))) throw new Error(`체크가 저장되지 않음: ${writes.join(' / ')}`);
+      if (!/1\s*\/\s*1/.test(await page.locator('aside').innerText())) throw new Error('본 창 사이드바 숫자가 1/1로 바뀌지 않음');
+      const input = pip.getByRole('textbox', { name: '오늘 할 일 추가' });
+      await input.fill('미니 창에서 추가');
+      await input.press('Enter');
+      await page.getByText('미니 창에서 추가').first().waitFor({ state: 'attached', timeout: 5000 });
+      if (!writes.some(w => w.startsWith('POST') && w.includes('미니 창에서 추가'))) throw new Error('추가가 저장되지 않음');
+      // 이미 떠 있으면 다시 눌러도 창이 하나 더 생기지 않음
+      await btn.click();
+      await page.waitForTimeout(300);
+      if (context.pages().length !== 2) throw new Error(`창 개수 ${context.pages().length}`);
+      // 제목을 누르면 미니 창 안에서 편집 창이 열리고 Esc로 닫힘 (본 창에는 안 뜸)
+      await pip.getByTitle('눌러서 편집').filter({ hasText: last }).click();
+      await pip.locator('.modal-panel').waitFor({ timeout: 3000 });
+      if (await page.locator('.modal-panel').count()) throw new Error('편집 창이 본 창에 열림');
+      // 본 창에서 누른 Esc는 미니 창 편집 창을 닫지 않음 (쓰던 내용이 사라지지 않게)
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      if (!(await pip.locator('.modal-panel').count())) throw new Error('본 창 Esc에 미니 창 편집 창이 닫힘');
+      await pip.keyboard.press('Escape');
+      await pip.locator('.modal-panel').waitFor({ state: 'detached', timeout: 3000 });
+      console.log('✅ 미니 창: 오늘 할 일이 뜨고, 체크·추가가 본 창과 저장에 같이 반영되며, 눌러서 그 자리에서 편집됨');
+    } catch (e) {
+      fail(`미니 창 (${e.message})`);
+    }
+    if (errors.length) fail(`미니 창에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 14) 달력 할 일 배치: 저장소 할 일을 날짜 칸으로 끌어다 놓기 · 눌러서 놓기 · 되돌리기, 1024px 미만에서는 버튼 없음
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 }, fixedTime: '2026-11-20T10:00:00+09:00' });
+    const base = { user_id: USER_ID, completed: false, due_date: null, is_dday: false, start_time: null, notes: null, sort_order: 0, series_id: null, skipped: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', category_id: null, subcategory_id: null };
+    const rows = [
+      { ...base, id: 'st1', title: '보고서 초안', date: null },
+      { ...base, id: 'st2', title: '세탁소 맡기기', date: null },
+      { ...base, id: 'od1', title: '병원 예약', date: '2026-11-12' },
+      { ...base, id: 'od2', title: '아침 운동', date: '2026-11-19', series_id: 'ser' },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/**`, route => {
+      const req = route.request();
+      const url = new URL(req.url());
+      const table = url.pathname.replace('/rest/v1/', '');
+      if (table !== 'todos') return route.fallback();
+      if (req.method() === 'PATCH') { patches.push(`${url.searchParams.get('id')} ${req.postData()}`); return route.fulfill({ status: 204, body: '' }); }
+      if (req.method() !== 'GET') return route.fallback();
+      return route.fulfill({ json: Number(url.searchParams.get('offset') ?? 0) ? [] : rows });
+    });
+    await page.goto(BASE);
+    try {
+      await page.getByRole('button', { name: '달력', exact: true }).first().click({ timeout: 15000 });
+      await page.getByRole('button', { name: '할 일 배치' }).click();
+      const panel = page.getByLabel('할 일 배치', { exact: true });
+      await panel.getByText('보고서 초안').waitFor({ timeout: 5000 });
+      await page.waitForTimeout(400); // 패널이 밀려 들어오는 동안은 위치가 바뀜
+      // 마우스로 끌어 11/24 칸에 놓기
+      const box = async loc => { const b = await loc.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+      const from = await box(panel.getByRole('button', { name: /보고서 초안/ }));
+      const to = await box(page.getByRole('button', { name: /^11월 24일 화요일/ }));
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(to.x, to.y, { steps: 10 });
+      await page.mouse.up();
+      for (let i = 0; i < 20 && !patches.length; i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.st1') && p.includes('"date":"2026-11-24"'))) throw new Error(`끌어다 놓기가 저장되지 않음: ${patches.join(' / ')}`);
+      if (await panel.getByText('보고서 초안').count()) throw new Error('옮긴 할 일이 저장소 목록에 남아 있음');
+      // 되돌리기 → 다시 날짜 없음
+      await page.getByRole('button', { name: '되돌리기' }).first().click();
+      await panel.getByText('보고서 초안').waitFor({ timeout: 3000 });
+      if (!patches.some(p => p.startsWith('eq.st1') && p.includes('"date":null'))) throw new Error('되돌리기가 저장되지 않음');
+      // 한 번 더 누르면 고르기가 풀림
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await panel.getByRole('status').waitFor({ timeout: 3000 });
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await panel.getByRole('status').waitFor({ state: 'detached', timeout: 3000 });
+      // 눌러서 고른 다음 11/26 칸 누르기
+      await panel.getByRole('button', { name: /세탁소 맡기기/ }).click();
+      await page.getByRole('button', { name: /^11월 26일 목요일/ }).click();
+      for (let i = 0; i < 20 && !patches.some(p => p.startsWith('eq.st2')); i++) await page.waitForTimeout(100);
+      if (!patches.some(p => p.startsWith('eq.st2') && p.includes('"date":"2026-11-26"'))) throw new Error('눌러서 놓기가 저장되지 않음');
+      // 밀린 할 일 탭: 반복 할 일은 빠지고 안내만
+      await panel.getByRole('tab', { name: /밀린 할 일/ }).click();
+      await panel.getByText('병원 예약').waitFor({ timeout: 3000 });
+      if (await panel.getByText('아침 운동').count()) throw new Error('반복 할 일이 배치 목록에 보임');
+      await panel.getByText(/반복 할 일 1개/).waitFor({ timeout: 3000 });
+      // 좁은 화면(1024px 미만)에서는 버튼이 없음
+      await page.setViewportSize({ width: 1000, height: 800 });
+      await page.waitForTimeout(300);
+      if (await page.getByRole('button', { name: '할 일 배치' }).count()) throw new Error('1024px 미만인데 할 일 배치 버튼이 보임');
+      console.log('✅ 할 일 배치: 끌어다 놓기·되돌리기·눌러서 놓기가 저장되고, 반복은 빠지며, 좁은 화면에서는 숨김');
+    } catch (e) {
+      fail(`할 일 배치 (${e.message})`);
+    }
+    if (errors.length) fail(`할 일 배치 화면에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
+  // 15) 프로젝트 로드맵: D-Day를 고르고 적은 일을 날짜에 나누면 그 D-Day에 연결된 할 일로 저장됨
   {
     const { context, page, errors } = await loggedInContext();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
@@ -566,6 +757,7 @@ try {
     if (errors.length) fail(`프로젝트 로드맵 화면에서 오류: ${errors.join(' / ')}`);
     await context.close();
   }
+
 
   await browser.close();
 } finally {

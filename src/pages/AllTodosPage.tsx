@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag, Search } from 'lucide-react';
+import { Plus, ArrowUp, SlidersHorizontal, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight, Tag, Search, CalendarPlus } from 'lucide-react';
 import { setCategoriesOrigin } from '../lib/navBack';
 import { openSearch } from '../lib/searchStore';
 import { format } from 'date-fns';
@@ -10,6 +10,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { useApp } from '../context/AppContext';
+import { requestPlanPanel } from '../lib/placement';
 import { applyListDisplaySettings } from '../lib/listDisplay';
 import SortableTodoItem, { TodoRows } from '../components/SortableTodoItem';
 import TodoModal from '../components/TodoModal';
@@ -399,6 +400,12 @@ export default function AllTodosPage() {
     setCurrentScreen('categories');
   }
 
+  // 달력 화면을 열고 오른쪽에 "할 일 배치" 창(저장소 탭)을 띄움: 날짜별로 이미 있는 일을 보면서 나눌 수 있게
+  function openPlanInCalendar() {
+    requestPlanPanel('storage');
+    setCurrentScreen('month');
+  }
+
   function renderHeader() {
     return (
       <>
@@ -413,6 +420,14 @@ export default function AllTodosPage() {
               <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
                 <Search size={15} />
               </button>
+              {/* 컴퓨터·큰 태블릿만 (달력의 할 일 배치 창이 1024px 이상에서만 열림) */}
+              {repoTodoCount > completedCount && (
+                <button onClick={openPlanInCalendar} title="달력을 보면서 날짜 칸으로 끌어다 놓기"
+                  className="hidden lg:inline-flex btn-secondary h-8 px-3 text-13px">
+                  <CalendarPlus size={14} />
+                  달력에 배치하기
+                </button>
+              )}
               {/* 카테고리 관리 바로가기 (예전엔 설정 안에서 찾아 들어가야 했음) */}
               <button onClick={openCategories} className="btn-secondary h-8 px-3 text-13px">
                 <Tag size={14} />
