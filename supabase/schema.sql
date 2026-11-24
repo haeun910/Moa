@@ -66,6 +66,7 @@ create table if not exists public.todos (
   time_zone      text,                       -- 알림 시각을 정한 기기의 시간대
   remind_at      timestamptz,                -- 실제로 알릴 시각 (트리거가 계산)
   notified_at    timestamptz,                -- 알림을 보낸 시각
+  dday_id        uuid,                       -- 준비 계획(프로젝트 로드맵)으로 나눈 할 일이면 그 D-Day (027)
   constraint todos_title_length check (char_length(title) <= 500),
   constraint todos_notes_length check (char_length(notes) <= 20000),
   constraint todos_remind_minutes_range check (remind_minutes between 0 and 10080),
@@ -129,8 +130,16 @@ create table if not exists public.ddays (
   title       text not null,
   target_date date not null,
   created_at  timestamptz not null default now(),
-  constraint ddays_title_length check (char_length(title) <= 500)
+  plan        jsonb,       -- 준비 계획 설정 {categoryId, subcategoryId, restDays, maxPerDay} (027)
+  constraint ddays_title_length check (char_length(title) <= 500),
+  constraint ddays_plan_size check (octet_length(plan::text) <= 2000)
 );
+
+-- 준비 계획으로 나눈 할 일 → D-Day (D-Day를 지우면 연결만 끊김). todos가 먼저 만들어져서 여기서 연결
+do $$ begin
+  alter table public.todos add constraint todos_dday_id_fkey foreign key (dday_id) references public.ddays(id) on delete set null;
+exception when duplicate_object then null;
+end $$;
 
 -- 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개)
 create table if not exists public.schedules (
@@ -216,6 +225,7 @@ create index if not exists idx_todos_user_date            on public.todos(user_i
 create index if not exists idx_todos_user_category        on public.todos(user_id, category_id);
 create index if not exists idx_todos_subcategory          on public.todos(subcategory_id);
 create index if not exists idx_todos_series               on public.todos(series_id) where series_id is not null;
+create index if not exists idx_todos_dday                 on public.todos(dday_id) where dday_id is not null;
 create index if not exists idx_notes_user                 on public.notes(user_id, updated_at desc);
 create index if not exists idx_notes_folder               on public.notes(folder_id) where folder_id is not null;
 create index if not exists idx_note_folders_user          on public.note_folders(user_id, sort_order);
@@ -346,6 +356,11 @@ begin
        and not exists (select 1 from public.subcategories s where s.id = new.subcategory_id and s.user_id = new.user_id) then
       raise exception 'subcategory does not belong to this user' using errcode = '42501';
     end if;
+    if new.dday_id is not null
+       and (tg_op = 'INSERT' or new.dday_id is distinct from old.dday_id)
+       and not exists (select 1 from public.ddays d where d.id = new.dday_id and d.user_id = new.user_id) then
+      raise exception 'dday does not belong to this user' using errcode = '42501';
+    end if;
 
   elsif tg_table_name = 'subcategories' then
     if (tg_op = 'INSERT' or new.category_id is distinct from old.category_id)
@@ -374,7 +389,7 @@ $$;
 
 drop trigger if exists todos_check_owned_references on public.todos;
 create trigger todos_check_owned_references
-  before insert or update of category_id, subcategory_id, user_id on public.todos
+  before insert or update of category_id, subcategory_id, dday_id, user_id on public.todos
   for each row execute function public.check_owned_references();
 
 drop trigger if exists subcategories_check_owned_references on public.subcategories;

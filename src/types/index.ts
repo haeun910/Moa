@@ -14,6 +14,7 @@ export interface Todo {
   seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
   skipped?: boolean; // '안 하기'로 정리한 할 일 (밀린 일·달성률에서 빠지고, 그 날짜에 흐리게 남음)
   remindMinutes?: number | null; // 알림: 시작 몇 분 전 (시간이 없으면 0시 기준, 음수 = 그날 0시 이후). null = 알림 없음
+  ddayId?: string | null; // 프로젝트 로드맵(D-Day 준비 계획)으로 나눈 할 일이면 그 D-Day
 }
 
 export interface Category {
@@ -76,6 +77,15 @@ export interface DDay {
   title: string;
   targetDate: string; // YYYY-MM-DD
   fromTodoId?: string; // 이 값이 있으면 할 일에서 자동으로 연동된 가상 D-Day (직접 수정/삭제 불가, 할 일 쪽에서 관리)
+  plan?: DDayPlan | null; // 준비 계획을 세울 때 고른 설정 (다시 나누기에 다시 씀)
+}
+
+// 프로젝트 로드맵: D-Day까지 할 일을 날짜별로 나눌 때 고른 설정
+export interface DDayPlan {
+  categoryId: string | null;
+  subcategoryId: string | null;
+  restDays: number[]; // 쉬는 요일 (0 = 일요일 … 6 = 토요일)
+  maxPerDay: number | null; // 하루 최대 개수 (null = 제한 없음)
 }
 
 // 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과는 별개로 관리되고,
