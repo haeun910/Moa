@@ -130,7 +130,9 @@ export default function MonthGrid({
                   todoGroups.set(key, { key, title: sub?.name ?? cat?.name ?? '분류 없음', kind: 'todo', done: t.completed, color: cat?.color, total: 1, doneCount: t.completed ? 1 : 0 });
                 }
               }
-              chips.push(...todoGroups.values());
+              // 다 끝낸 묶음(줄 그어진 것)은 맨 아래로 → 남은 일이 위에 모여 보이게 (그 안에서는 원래 순서 그대로)
+              const groups = [...todoGroups.values()];
+              chips.push(...groups.filter(g => !g.done), ...groups.filter(g => g.done));
 
               return (
                 <button key={dateStr} data-day-cell data-drop-date={dateStr} onClick={() => onDayClick(dateStr)}
