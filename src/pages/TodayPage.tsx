@@ -585,7 +585,9 @@ export default function TodayPage() {
           내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
       <div data-calendar-scroller className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
 
-        <div className="flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 md:min-h-0">
+        {/* 주간 보기는 화면 높이에 맞추고 카드 안에서 스크롤. 월 달력은 할 일이 많으면 칸이 길어지므로
+            이 영역이 줄어들지 않게 두고 바깥(data-calendar-scroller)이 스크롤됨 */}
+        <div className={`flex-1 flex flex-col px-4 sm:px-6 xl:px-8 pt-5 sm:pt-7 pb-4 ${calView === 'month' ? '' : 'md:min-h-0'}`}>
 
           {/* ── 머리글: 월 이동 + 보기 전환 + 공지/리포트 ── */}
           <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-5">

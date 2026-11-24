@@ -527,7 +527,7 @@ try {
     await context.close();
   }
 
-  // 12) 월 달력 칸: 큰 화면에서는 칸 높이만큼 줄을 더 보여주고, 숨긴 카테고리 할 일은 칸에서도 빼서 날짜 창과 같게 셈
+  // 12) 월 달력 칸: 할 일이 많은 날도 줄이지 않고 전부 보여주고(칸이 길어짐), 숨긴 카테고리 할 일은 칸에서도 빼서 날짜 창과 같게 셈
   {
     const { context, page, errors } = await loggedInContext({
       viewport: { width: 1920, height: 1200 }, fixedTime: '2026-11-20T10:00:00+09:00',
@@ -538,7 +538,7 @@ try {
     const subNames = ['논문', '수업', '과제', '동아리', '회의', '보고서', '출장'];
     const subs = subNames.map((name, i) => ({ id: `s${i}`, user_id: USER_ID, category_id: i < 4 ? 'c-school' : 'c-work', name, sort_order: i, created_at: '2026-01-01T00:00:00Z', notes: null }));
     const rows = [
-      // 11/18: 하위 카테고리 7개 = 7줄 → 큰 화면에서는 4줄 넘게 보여야 함
+      // 11/18: 하위 카테고리 7개 = 7줄 → 7줄 모두 보여야 함 ("+N개 더" 없음)
       ...subs.map((sc, i) => ({ ...base, id: `m${i}`, title: `할 일 ${i}`, date: '2026-11-18', category_id: sc.category_id, subcategory_id: sc.id })),
       // 11/3: 논문 할 일은 끝냄 + 숨긴 카테고리에 있는(하위 카테고리가 논문으로 남은) 안 끝낸 할 일
       { ...base, id: 'p1', title: '서론', date: '2026-11-03', category_id: 'c-school', subcategory_id: 's0', completed: true },
@@ -565,13 +565,15 @@ try {
     try {
       await page.getByRole('button', { name: '달력', exact: true }).first().click({ timeout: 15000 });
       const cell18 = page.getByRole('button', { name: /^11월 18일 수요일/ });
-      await cell18.locator('div[title="출장"]').or(cell18.getByText(/개 더/)).first().waitFor({ timeout: 10000 });
+      await cell18.locator('div[title="출장"]').waitFor({ timeout: 10000 });
       const shown = await cell18.locator('[data-chip-list] > div').count();
+      const more = await page.locator('[data-day-cell]', { hasText: /개 더/ }).count();
       const clipped = await cell18.evaluate(btn => {
         const last = btn.querySelector('[data-chip-list]')?.lastElementChild;
         return last ? last.getBoundingClientRect().bottom > btn.getBoundingClientRect().bottom : false;
       });
-      if (shown <= 4) throw new Error(`큰 화면인데 ${shown}줄만 보임`);
+      if (shown !== subs.length) throw new Error(`7줄이어야 하는데 ${shown}줄 보임`);
+      if (more) throw new Error(`"+N개 더"가 ${more}칸에 남아 있음`);
       if (clipped) throw new Error('마지막 줄이 칸 밖으로 잘림');
       const paper = page.getByRole('button', { name: /^11월 3일 화요일/ }).locator('div[title="논문"] .line-through');
       if (await paper.count() === 0) throw new Error('숨긴 카테고리 할 일 때문에 논문에 줄이 안 그어짐');
@@ -584,7 +586,7 @@ try {
         if (w < cellW * 1.8) throw new Error(`막대가 두 칸에 이어지지 않음 (너비 ${Math.round(w)}px, 칸 ${Math.round(cellW)}px)`);
       }
       await page.getByRole('button', { name: /^11월 4일 수요일/ }).locator('div[title="수업"]').getByText('1/2').waitFor({ timeout: 3000 });
-      console.log(`✅ 월 달력: 큰 화면에서 ${shown}줄까지 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
+      console.log(`✅ 월 달력: 할 일이 많은 날도 ${shown}줄 모두 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
     } catch (e) {
       fail(`월 달력 칸 (${e.message})`);
     }
