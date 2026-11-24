@@ -64,6 +64,17 @@ begin
   exception when insufficient_privilege then ok := true;
   end;
   assert ok, '남의 폴더에 메모를 넣을 수 있으면 안 됨';
+
+  reset role;
+  insert into public.ddays (id, user_id, title, target_date)
+  values ('00000000-0000-0000-0000-0000000000bd', '00000000-0000-0000-0000-00000000000b', 'B 시험', current_date + 30);
+  set role authenticated;
+  ok := false;
+  begin
+    insert into public.todos (user_id, title, dday_id) values ('00000000-0000-0000-0000-00000000000a', 'x', '00000000-0000-0000-0000-0000000000bd');
+  exception when insufficient_privilege then ok := true;
+  end;
+  assert ok, '남의 D-Day에 할 일을 연결할 수 있으면 안 됨';
 end $$;
 
 -- 3) 내 것끼리는 정상 연결
@@ -80,6 +91,25 @@ begin
   insert into public.todos (user_id, title, sort_order) values
     ('00000000-0000-0000-0000-00000000000a', '내 할 일 2', 1),
     ('00000000-0000-0000-0000-00000000000a', '내 할 일 3', 2);
+end $$;
+
+-- 3-1) 준비 계획: 내 D-Day에 할 일을 연결하고, D-Day를 지우면 연결만 끊기고 할 일은 남음
+do $$
+declare
+  my_dday uuid;
+  my_todo uuid;
+begin
+  insert into public.ddays (user_id, title, target_date, plan)
+  values ('00000000-0000-0000-0000-00000000000a', '토익 시험', current_date + 20,
+          '{"categoryId": null, "subcategoryId": null, "restDays": [0], "maxPerDay": 2}'::jsonb)
+  returning id into my_dday;
+  insert into public.todos (user_id, title, date, dday_id, sort_order)
+  values ('00000000-0000-0000-0000-00000000000a', 'LC 파트 1', current_date + 1, my_dday, 10) returning id into my_todo;
+  assert (select dday_id from public.todos where id = my_todo) = my_dday, '내 D-Day에는 연결돼야 함';
+  delete from public.ddays where id = my_dday;
+  assert (select dday_id from public.todos where id = my_todo) is null, 'D-Day를 지우면 연결만 끊겨야 함';
+  assert exists (select 1 from public.todos where id = my_todo), 'D-Day를 지워도 할 일은 남아야 함';
+  delete from public.todos where id = my_todo;
 end $$;
 
 -- 4) 순서 바꾸기: 한 번에 저장되고, 남의 id가 섞여 있어도 남의 것은 안 바뀜

@@ -11,6 +11,7 @@ import type { Screen } from '../types';
 import Logo from './Logo';
 import GuestBanner from './GuestBanner';
 import { categoriesOrigin } from '../lib/navBack';
+import { planTarget } from '../lib/planNav';
 import SearchHost from './SearchModal';
 import { openSearch } from '../lib/searchStore';
 
@@ -39,7 +40,7 @@ function mobileOwner(screen: Screen): Screen {
 function navOwner(screen: Screen): Screen {
   if (screen === 'categories') return categoriesOrigin() === 'all' ? 'all' : 'settings';
   if (screen === 'terms' || screen === 'privacy') return 'settings';
-  if (screen === 'project') return 'all';
+  if (screen === 'project') return navOwner(planTarget().origin); // 로드맵은 열었던 화면(설정·홈·달력) 아래로 표시
   if (screen === 'calendar') return 'month';
   return screen;
 }

@@ -181,7 +181,7 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
 
 export async function createTodo(
   userId: string,
-  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; end_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean; remind_minutes?: number | null; time_zone?: string }
+  fields: { title: string; completed?: boolean; category_id?: string | null; subcategory_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; end_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean; remind_minutes?: number | null; time_zone?: string; dday_id?: string }
 ): Promise<DbTodo> {
   const { data, error } = await supabase
     .from('todos')
@@ -194,7 +194,7 @@ export async function createTodo(
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'end_time' | 'notes' | 'sort_order' | 'is_dday' | 'skipped' | 'remind_minutes' | 'time_zone'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'subcategory_id' | 'date' | 'due_date' | 'start_time' | 'end_time' | 'notes' | 'sort_order' | 'is_dday' | 'skipped' | 'remind_minutes' | 'time_zone' | 'dday_id'>>
 ): Promise<void> {
   const { error } = await supabase.from('todos').update(updates).eq('id', id);
   if (error) throw error;
@@ -238,6 +238,20 @@ export async function setSeriesId(table: 'todos' | 'schedules' | 'timeblocks', i
 
 export async function createTodos(userId: string, rows: Parameters<typeof createTodo>[1][], seriesId: string): Promise<DbTodo[]> {
   return insertMany<DbTodo>('todos', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
+}
+
+// 프로젝트 로드맵: D-Day 준비 할 일 여러 개를 한 번에 (반복 묶음 아님)
+export async function createPlanTodos(userId: string, rows: Parameters<typeof createTodo>[1][]): Promise<DbTodo[]> {
+  return insertMany<DbTodo>('todos', rows.map(r => ({ user_id: userId, ...r })));
+}
+
+// 할 일 여러 개를 한 번에 지움 (준비 계획 되돌리기)
+export async function deleteTodos(ids: string[]): Promise<void> {
+  // 주소 길이 제한 때문에 200개씩
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await supabase.from('todos').delete().in('id', ids.slice(i, i + 200));
+    if (error) throw error;
+  }
 }
 
 export async function updateTodoSeries(
@@ -397,7 +411,7 @@ export async function createDDay(userId: string, title: string, targetDate: stri
   return data;
 }
 
-export async function updateDDay(id: string, updates: Partial<Pick<DbDDay, 'title' | 'target_date'>>): Promise<void> {
+export async function updateDDay(id: string, updates: Partial<Pick<DbDDay, 'title' | 'target_date' | 'plan'>>): Promise<void> {
   const { error } = await supabase.from('ddays').update(updates).eq('id', id);
   if (error) throw error;
 }

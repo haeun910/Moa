@@ -7,6 +7,7 @@ import { overdueTodos, splitOverdue, OLD_OVERDUE_DAYS } from '../lib/homeStats';
 import { showToast } from '../lib/toast';
 import type { Todo } from '../types';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { getBlockSpan } from '../lib/timebox';
 
 interface Props {
   onEdit: (todo: Todo) => void;
@@ -18,7 +19,7 @@ interface Props {
 // (반복 할 일은 가장 최근에 놓친 회차만 보임 → homeStats.overdueTodos)
 export default function OverdueModal({ onEdit, onClose }: Props) {
   useEscapeKey(onClose);
-  const { todos, categories, updateTodo, toggleTodo } = useApp();
+  const { todos, categories, timeblocks, updateTodo, toggleTodo, addTimeBlock } = useApp();
   const [busy, setBusy] = useState(false);
   const [showOld, setShowOld] = useState(false);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -45,13 +46,20 @@ export default function OverdueModal({ onEdit, onClose }: Props) {
     });
   }
 
-  // 날짜를 빼서 저장소에 보관 (나중에 다시 날짜를 정할 수 있게)
+  // 날짜를 빼서 저장소에 보관 (나중에 다시 날짜를 정할 수 있게).
+  // 그날 타임박스에 잡아 둔 연결 블록은 저장소로 보내면 지워지므로, 되돌리기를 누르면 같은 시간으로 다시 만듦
   function toStorage(t: Todo) {
     const prevDate = t.date;
+    const blocks = timeblocks.filter(b => b.todoId === t.id && !b.seriesId && getBlockSpan(b).dateKey === prevDate);
     updateTodo(t.id, { date: null });
     showToast(`'${short(t.title)}'을(를) 저장소로 보냈어요`, 'info', 5000, {
       label: '되돌리기',
-      onClick: () => updateTodo(t.id, { date: prevDate }),
+      onClick: async () => {
+        await updateTodo(t.id, { date: prevDate });
+        for (const b of blocks) {
+          await addTimeBlock({ title: b.title, todoId: b.todoId, color: b.color, startAt: b.startAt, endAt: b.endAt, remindMinutes: b.remindMinutes, completed: b.completed });
+        }
+      },
     });
   }
 
