@@ -270,6 +270,7 @@ export default function HomePage() {
   // 폰·태블릿은 달력 위 목표 칸을 뺐으므로 목표 추가는 홈 카드에서 (컴퓨터는 예전처럼 달력으로 이동)
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [addingGoal, setAddingGoal] = useState(false);
+  const [addingDday, setAddingDday] = useState(false); // D-Day도 같은 이유로 폰·태블릿은 홈에서 추가
   const [showAchievement, setShowAchievement] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
   const [lastSeenNotice, setLastSeenNotice] = useState(() => {
@@ -560,13 +561,15 @@ export default function HomePage() {
                 icon={<Flag size={15} className="text-rose-500" />}
                 title="다가오는 D-Day"
                 help={GUIDES.dday}
-                actionLabel="달력"
-                onAction={() => goCalendar()}
+                actionLabel={isDesktop ? '달력' : '추가'}
+                onAction={() => isDesktop ? goCalendar() : setAddingDday(true)}
                 collapsed={ddayCollapsed}
                 onToggle={toggleDdayCollapsed}
               />
               {!ddayCollapsed && (upcomingDdays.length === 0 ? (
-                <p className="text-13px text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
+                isDesktop
+                  ? <p className="text-13px text-gray-400 dark:text-gray-500">다가오는 D-Day가 없어요</p>
+                  : <button onClick={() => setAddingDday(true)} className="text-13px text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1">시험·마감 같은 D-Day를 추가해 보세요</button>
               ) : (
                 <ul className="space-y-1">
                   {upcomingDdays.map(d => {
@@ -651,6 +654,7 @@ export default function HomePage() {
       )}
       {scheduleModal && <ScheduleModal schedule={scheduleModal.schedule} defaultDate={todayKey} onClose={() => setScheduleModal(null)} />}
       {ddayModal && <DDayModal dday={ddayModal} onClose={() => setDdayModal(null)} />}
+      {addingDday && <DDayModal onClose={() => setAddingDday(false)} />}
       {addingGoal && <GoalModal month={monthKey} onClose={() => setAddingGoal(false)} />}
       {showOverdue && (
         <OverdueModal onEdit={todo => setTodoModal({ todo })} onClose={() => setShowOverdue(false)} />

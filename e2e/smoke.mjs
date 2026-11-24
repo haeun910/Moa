@@ -362,6 +362,10 @@ try {
       await page.getByPlaceholder('이번 달 목표를 입력하세요').waitFor({ timeout: 3000 });
       await page.keyboard.press('Escape');
       await page.getByPlaceholder('이번 달 목표를 입력하세요').waitFor({ state: 'detached', timeout: 3000 });
+      await page.locator('section', { has: page.getByRole('heading', { name: '다가오는 D-Day' }) }).getByRole('button', { name: '추가' }).click();
+      await page.getByRole('heading', { name: 'D-Day 추가' }).waitFor({ timeout: 3000 });
+      await page.keyboard.press('Escape');
+      await page.getByRole('heading', { name: 'D-Day 추가' }).waitFor({ state: 'detached', timeout: 3000 });
       await bottomNav.getByRole('button', { name: '달력' }).click();
       // 폰 달력: 위쪽 요약 카드 없음, 칸 글자 10px(크게 설정이면 ×1.15), 아래로 내려도 요일 줄이 화면 맨 위에 붙어 있음
       await page.getByRole('button', { name: /월 \d+일/ }).first().waitFor({ timeout: 5000 });
@@ -386,7 +390,7 @@ try {
       if (!seen.scheduleUpdates.some(w => w.includes('"completed":true'))) throw new Error(`일정 완료가 저장되지 않음: ${seen.scheduleUpdates.join(' / ')}`);
       await sheet.getByRole('button', { name: '일정 완료 취소' }).first().waitFor({ timeout: 5000 });
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-day-sheet-mobile.png` });
-      console.log('✅ 폰: 하단 메뉴 4칸, 홈·달력은 핵심만(통계·요약 카드 없음, 일정이 할 일 위, 목표는 홈에서 추가), 스크롤해도 요일 줄 고정, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
+      console.log('✅ 폰: 하단 메뉴 4칸, 홈·달력은 핵심만(통계·요약 카드 없음, 일정이 할 일 위, 목표·D-Day는 홈에서 추가), 스크롤해도 요일 줄 고정, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
     } catch (e) {
       fail(`폰 달력 팝업·일정 완료·글자 크기 (${e.message})`);
     }
