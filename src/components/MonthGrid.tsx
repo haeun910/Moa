@@ -17,8 +17,8 @@ const CELL_MIN_H: Record<Settings['calendarTextSize'], string> = {
   large: 'min-h-[112px]',
 };
 
-// 칩 한 줄: 글자 크기는 폰 11px, 그 위로 12px. 높이는 글자의 1.5배로 고정해서 막대·칩·빈 줄이 정확히 같은 높이가 되게 함
-const CHIP_FONT = 'text-11px sm:text-12px';
+// 칩 한 줄: 글자 크기는 폰 10px(좁은 칸에 한 글자라도 더 보이게), 그 위로 12px. 높이는 글자의 1.5배로 고정해서 막대·칩·빈 줄이 정확히 같은 높이가 되게 함
+const CHIP_FONT = 'text-10px sm:text-12px';
 const CHIP_LINE = 'h-[1.5em] leading-[1.5em]';
 const CHIP_GAP = 3; // 줄 사이 간격(px), 칩 목록의 space-y-[3px]와 같아야 함
 // 칸 위에서 칩 목록이 시작하는 높이 = 칸 안쪽 여백(p-1 / sm:p-1.5) + 날짜 줄(h-6) + 그 아래 간격(mb-1).
@@ -77,8 +77,8 @@ export default function MonthGrid({
     // overflow-clip: 모서리는 둥글게 자르되 스크롤 상자는 만들지 않음 → 요일 줄이 달력 영역 스크롤에 붙어 있을 수 있고,
     // 카드가 내용(길어진 칸)보다 작아지지 않음 (overflow-hidden이면 카드가 줄어들며 아래 칸이 잘림)
     <div className="relative rounded-xl surface overflow-clip flex flex-col flex-1">
-      {/* 요일: 할 일이 많아 달력이 길어져도 스크롤할 때 위에 붙어 있음 (폰은 화면 전체가 스크롤되어 붙지 않음) */}
-      <div className="sticky top-0 z-[2] flex-shrink-0 grid grid-cols-7 bg-white dark:bg-gray-900 border-b border-gray-200/70 dark:border-gray-800">
+      {/* 요일: 할 일이 많아 달력이 길어져도 스크롤할 때 위에 붙어 있음 (폰은 화면 전체가 스크롤되고 화면 맨 위에 붙음) */}
+      <div className="sticky top-[var(--strip-h,0px)] md:top-0 z-[2] flex-shrink-0 grid grid-cols-7 bg-white dark:bg-gray-900 border-b border-gray-200/70 dark:border-gray-800">
         {DAY_LABELS.map((d, i) => (
           <div key={d} className={`py-2 px-2 sm:px-2.5 text-11px sm:text-12px font-semibold ${
             i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'

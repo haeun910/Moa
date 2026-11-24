@@ -5,7 +5,7 @@ import {
   Download, CheckCircle2, BarChart3, Milestone, BookOpen, MessageSquareHeart, Inbox, SlidersHorizontal, ListTodo,
   UserRound, LifeBuoy, Smartphone, Wrench, Palette, House, ListFilter, CalendarDays, CalendarHeart, Timer, Archive, NotebookPen, LayoutGrid,
   UserPlus,
-  ALargeSmall, LogIn,
+  ALargeSmall, LogIn, Megaphone,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,8 @@ import AdminStatsModal from '../components/AdminStatsModal';
 import OnboardingModal from '../components/OnboardingModal';
 import FeedbackModal from '../components/FeedbackModal';
 import FeedbackListModal from '../components/FeedbackListModal';
+import NoticeModal from '../components/NoticeModal';
+import AchievementModal from '../components/AchievementModal';
 import { APP_VERSION } from '../data/changelog';
 import { exportAllUserData } from '../lib/db';
 import { showToast } from '../lib/toast';
@@ -195,7 +197,7 @@ function PushRows({ onEnabledChange }: { onEnabledChange: (on: boolean) => void 
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, isAdmin, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, isAdmin, setCurrentScreen, notices } = useApp();
   const { user, signOut, isGuest } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -209,6 +211,16 @@ export default function SettingsPage() {
   const [showGuide, setShowGuide] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFeedbackList, setShowFeedbackList] = useState(false);
+  const [showNotice, setShowNotice] = useState(false);
+  const [showAchievement, setShowAchievement] = useState(false);
+
+  // 폰·태블릿 홈·달력에서는 공지·성취 리포트 버튼을 빼서 여기서 엶. 공지를 열면 홈의 '새 공지' 점도 꺼지게 본 것으로 기록
+  function openNotice() {
+    setShowNotice(true);
+    if (notices[0]) {
+      try { localStorage.setItem('notice-last-seen', notices[0].createdAt); } catch { /* 저장 못 해도 공지는 보여줌 */ }
+    }
+  }
   // 태블릿·PC에서 오른쪽에 보여줄 분류 / 휴대폰에서 "일반" 상세 화면을 열었는지
   // 컴퓨터: 카테고리 관리·로드맵 같은 하위 화면에 갔다가 돌아와도 보던 칸이 그대로 열려 있게 기억
   const [activeSection, setActiveSectionState] = useState<SectionId>(() => {
@@ -379,6 +391,8 @@ export default function SettingsPage() {
     <>
       <Row Icon={BookOpen} label="사용 가이드" desc="처음 안내를 다시 볼 수 있어요" onClick={() => setShowGuide(true)} />
       <Row Icon={MessageSquareHeart} label="의견 보내기" desc="불편한 점, 원하는 기능을 알려주세요" onClick={() => setShowFeedback(true)} />
+      <Row Icon={Megaphone} label="공지사항" desc="새 기능과 바뀐 점을 알려드려요" onClick={openNotice} />
+      <Row Icon={BarChart3} label="성취 리포트" desc="끝낸 할 일과 연속 달성 기록을 모아 봐요" onClick={() => setShowAchievement(true)} />
     </>
   );
 
@@ -524,6 +538,8 @@ export default function SettingsPage() {
       {showAdminStats && <AdminStatsModal onClose={() => setShowAdminStats(false)} />}
       {showGuide && <OnboardingModal onClose={() => setShowGuide(false)} />}
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+      {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
+      {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
       {showFeedbackList && <FeedbackListModal onClose={() => setShowFeedbackList(false)} />}
     </div>
   );

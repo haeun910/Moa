@@ -577,13 +577,14 @@ export default function TodayPage() {
   const navBtn = 'btn-icon w-8 h-8';
 
   return (
-    <div data-calendar-root className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
+    <div data-calendar-root className="min-h-screen h-auto md:h-screen md:overflow-hidden pb-[62px] lg:pb-0 flex flex-col lg:flex-row">
 
       {/* ── 달력 + 요약 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
       {/* 노트북처럼 화면 세로 길이가 짧을 때 목표/D-Day 카드 + 달력의 최소 높이 합이 화면을 넘으면
           예전엔 md:overflow-hidden 때문에 달력 아래쪽이 그냥 잘려서 안 보였음.
           내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
-      <div data-calendar-scroller className="flex-1 flex flex-col min-w-0 overflow-y-auto md:overflow-x-hidden">
+      {/* 폰(md 미만)은 화면 전체가 스크롤되므로 여기에 스크롤 상자를 만들지 않음 (만들면 요일 줄 sticky가 이 상자에 붙어 화면 위에 고정되지 않음) */}
+      <div data-calendar-scroller className="flex-1 flex flex-col min-w-0 overflow-x-clip md:overflow-y-auto md:overflow-x-hidden">
 
         {/* 주간 보기는 화면 높이에 맞추고 카드 안에서 스크롤. 월 달력은 할 일이 많으면 칸이 길어지므로
             이 영역이 줄어들지 않게 두고 바깥(data-calendar-scroller)이 스크롤됨 */}
@@ -647,41 +648,28 @@ export default function TodayPage() {
               <button onClick={openSearch} aria-label="검색" title="검색" className="lg:hidden btn-secondary w-8 h-8">
                 <Search size={15} />
               </button>
-              <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
+              {/* 폰·태블릿은 핵심만: 공지는 새 공지가 있을 때만 보이고, 평소엔 설정 > 도움 · 의견에서 봄 */}
+              <button onClick={openNotice} aria-label="공지사항" title="공지사항" className={`btn-secondary relative w-8 h-8 ${hasUnreadNotice ? '' : 'hidden lg:inline-flex'}`}>
                 <Megaphone size={15} />
                 {hasUnreadNotice && (
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />
                 )}
               </button>
-              <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
+              {/* 성취 리포트(통계)는 컴퓨터에서만. 폰·태블릿은 설정 > 도움 · 의견 */}
+              <button onClick={() => setShowAchievement(true)} className="hidden lg:inline-flex btn-secondary h-8 px-3 text-13px">
                 <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
-                <span className="hidden sm:inline">성취 리포트</span>
+                <span>성취 리포트</span>
               </button>
             </div>
           </header>
 
-          {/* ── 이번 달 요약: 목표 / D-Day / 일정 ── */}
-          {isDesktop ? (
+          {/* ── 이번 달 요약: 목표 / D-Day / 일정 (컴퓨터만. 폰·태블릿은 달력이 바로 보이게 요약을 두지 않음) ── */}
+          {isDesktop && (
             /* 컴퓨터: 한 장의 면을 세 칸으로 나눠 펼쳐 둠 */
             <section className="flex-shrink-0 grid grid-cols-3 rounded-xl surface divide-x divide-gray-100 dark:divide-gray-800 mb-4">
               {goalColumn()}
               {ddayColumn()}
               {scheduleColumn()}
-            </section>
-          ) : (
-            /* 폰·태블릿: 개수만 보이는 버튼 세 개, 누르면 팝업으로 목록 */
-            <section className="flex-shrink-0 grid grid-cols-3 gap-2 mb-3" aria-label="이번 달 요약">
-              {([
-                { key: 'goal', icon: <Target size={15} className="text-leaf-600 dark:text-leaf-400" />, label: `${format(viewMonth, 'M월')} 목표`, value: monthGoals.length ? `${completedGoals}/${monthGoals.length}` : '없음' },
-                { key: 'dday', icon: <Flag size={14} className="text-leaf-600 dark:text-leaf-400" />, label: 'D-Day', value: upcomingDdays.length ? (upcomingDdays[0] && ddayLabel(upcomingDdays[0].targetDate)) : '없음' },
-                { key: 'schedule', icon: <CalendarClock size={14} className="text-blue-500" />, label: `${format(viewMonth, 'M월')} 일정`, value: monthSchedules.length ? `${monthSchedules.length}개` : '없음' },
-              ] as const).map(item => (
-                <button key={item.key} onClick={() => setOverviewSheet(item.key)}
-                  className="surface rounded-xl px-3 py-2.5 text-left min-w-0 active:scale-[0.98] transition-transform">
-                  <span className="flex items-center gap-1.5 text-11.5px font-medium text-gray-500 dark:text-gray-400 truncate">{item.icon}{item.label}</span>
-                  <span className={`block mt-1 text-15px font-bold tabular-nums truncate ${item.value === '없음' ? 'text-gray-300 dark:text-gray-600' : 'text-gray-900 dark:text-white'}`}>{item.value}</span>
-                </button>
-              ))}
             </section>
           )}
 

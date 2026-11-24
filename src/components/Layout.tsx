@@ -168,7 +168,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
       <MiniTodayHost />
 
-      <main className="flex-1 min-w-0 overflow-hidden">
+      {/* overflow-clip: 넘친 내용은 자르되 스크롤 상자를 만들지 않음 → 폰처럼 화면 전체가 스크롤될 때도
+          안쪽의 sticky(달력 요일 줄 등)가 화면 위에 붙을 수 있음. clip을 모르는 옛 브라우저는 예전처럼 hidden */}
+      <main className="flex-1 min-w-0 overflow-hidden supports-[overflow:clip]:overflow-clip">
         {children}
       </main>
 
