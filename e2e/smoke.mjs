@@ -761,6 +761,40 @@ try {
   }
 
 
+  // 16) 미니 창: '안 하기'로 정리한 할 일의 체크 칸을 누르면 완료가 아니라 다시 할 일로
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const base = { user_id: USER_ID, completed: false, category_id: null, subcategory_id: null, date: today, due_date: null, is_dday: false, start_time: null, notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+    const rows = [
+      { ...base, id: 'sk-1', title: '안 할 일', skipped: true, sort_order: 0 },
+      { ...base, id: 'sk-2', title: '할 일 하나', sort_order: 1 },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const req = route.request();
+      if (req.method() === 'GET') return route.fulfill({ json: Number(new URL(req.url()).searchParams.get('offset') ?? 0) ? [] : rows });
+      if (req.method() === 'PATCH') patches.push(`${new URL(req.url()).searchParams.get('id')} ${req.postData() ?? ''}`);
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      const btn = page.getByRole('button', { name: '미니 창 띄우기' }).first();
+      await btn.waitFor({ timeout: 15000 });
+      const [pip] = await Promise.all([context.waitForEvent('page', { timeout: 5000 }), btn.click()]);
+      await pip.getByRole('button', { name: '안 할 일 안 하기 취소' }).click();
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      const p = patches.find(x => x.startsWith('eq.sk-1')) ?? '';
+      if (!p.includes('"skipped":false') || p.includes('"completed":true')) throw new Error(`저장된 내용: ${patches.join(' / ') || '없음'}`);
+      await pip.getByRole('button', { name: '안 할 일 완료 처리' }).waitFor({ timeout: 3000 });
+      console.log('✅ 미니 창: 안 하기로 정리한 할 일은 체크 칸을 누르면 완료가 아니라 다시 할 일로 돌아옴');
+    } catch (e) {
+      fail(`미니 창 안 하기 취소 (${e.message})`);
+    }
+    if (errors.length) fail(`미니 창(안 하기)에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
+
   await browser.close();
 } finally {
   server.kill();
