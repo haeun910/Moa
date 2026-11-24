@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.14.1',
+    date: '2026-11-24',
+    changes: [
+      '폰·태블릿 홈에 이번 달 목표가 다시 보여요 (다가오는 D-Day 아래)',
+      '폰·태블릿에서 D-Day와 이번 달 목표를 홈 카드의 "추가"로 바로 만들 수 있어요 (2.14.0에서 달력 위 요약 칸을 빼면서 추가할 곳이 없던 문제)',
+    ],
+  },
+  {
     version: '2.14.0',
     date: '2026-11-24',
     changes: [
