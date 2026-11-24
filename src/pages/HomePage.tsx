@@ -355,24 +355,37 @@ export default function HomePage() {
             </button>
             {/* 폰·태블릿은 하단 탭에 저장소가 없어서 여기서 들어감 */}
             {!hidden.has('all') && (
-              <button onClick={() => setCurrentScreen('all')} className="lg:hidden btn-secondary h-8 px-3 text-13px">
+              <button onClick={() => setCurrentScreen('all')} aria-label="저장소" title="저장소" className="lg:hidden btn-secondary h-8 w-8 sm:w-auto sm:px-3 text-13px">
                 <Archive size={15} className="text-gray-500 dark:text-gray-400" />
-                저장소
+                {/* 폰은 날짜가 한 줄에 들어가게 아이콘만 */}
+                <span className="hidden sm:inline">저장소</span>
               </button>
             )}
-            <button onClick={openNotice} aria-label="공지사항" title="공지사항" className="btn-secondary relative w-8 h-8">
+            {/* 폰·태블릿은 핵심만: 공지는 새 공지가 있을 때만 보이고, 평소엔 설정 > 도움 · 의견에서 봄 */}
+            <button onClick={openNotice} aria-label="공지사항" title="공지사항" className={`btn-secondary relative w-8 h-8 ${hasUnreadNotice ? '' : 'hidden lg:inline-flex'}`}>
               <Megaphone size={15} />
               {hasUnreadNotice && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-50 dark:ring-gray-950" />}
             </button>
-            <button onClick={() => setShowAchievement(true)} className="btn-secondary h-8 px-3 text-13px">
+            {/* 성취 리포트(통계)는 컴퓨터에서만. 폰·태블릿은 설정 > 도움 · 의견 */}
+            <button onClick={() => setShowAchievement(true)} className="hidden lg:inline-flex btn-secondary h-8 px-3 text-13px">
               <BarChart3 size={15} className="text-leaf-600 dark:text-leaf-400" />
-              <span className="hidden sm:inline">성취 리포트</span>
+              <span>성취 리포트</span>
             </button>
           </div>
         </header>
 
-        {/* ── 요약 숫자 4칸 ── */}
-        <section className="grid grid-cols-4 gap-2 lg:gap-3 mb-4" aria-label="오늘 요약">
+        {/* ── 폰·태블릿: 통계 칸 대신 밀린 할 일이 있을 때만 한 줄로 알림 ── */}
+        {overdue.length > 0 && (
+          <button onClick={() => setShowOverdue(true)}
+            className="lg:hidden w-full mb-4 flex items-center gap-2 px-3.5 h-11 rounded-xl bg-amber-50 dark:bg-amber-900/25 text-amber-800 dark:text-amber-300 text-13px font-semibold text-left">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span className="flex-1 min-w-0 truncate">밀린 할 일 <span className="tabular-nums">{overdue.length}</span>개{dueSoon.length > 0 && <span className="font-medium text-amber-700/80 dark:text-amber-300/80"> · 3일 안에 마감 {dueSoon.length}개</span>}</span>
+            <span className="flex-shrink-0 flex items-center text-12px font-medium">정리하기<ChevronRight size={14} /></span>
+          </button>
+        )}
+
+        {/* ── 요약 숫자 4칸 (컴퓨터만. 폰·태블릿은 할 일·일정이 바로 보이게 뺌) ── */}
+        <section className="hidden lg:grid grid-cols-4 gap-3 mb-4" aria-label="오늘 요약">
           <StatCard
             label="오늘 진행률"
             shortLabel="오늘"
@@ -418,10 +431,11 @@ export default function HomePage() {
           />
         </section>
 
+        {/* 폰·태블릿: 두 열을 풀어(contents) 카드 순서를 order로 정함 → 오늘 일정 · 오늘 할 일 · D-Day만, 나머지 카드는 컴퓨터만 */}
         <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-start gap-4">
-          <div className="lg:col-span-3 flex flex-col gap-4">
+          <div className="contents lg:col-span-3 lg:flex flex-col gap-4">
             {/* ── 오늘 할 일 ── */}
-            <section className="surface rounded-xl p-4">
+            <section className="surface rounded-xl p-4 order-2 lg:order-none">
               <SectionHeader
                 icon={<CalendarCheck size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title="오늘 할 일"
@@ -466,9 +480,9 @@ export default function HomePage() {
 
           </div>
 
-          <div className="lg:col-span-2 flex flex-col gap-4">
-            {/* ── 오늘 타임박스 (오늘 하루만 세로로) ── */}
-            {!hidden.has('timebox') && <div>
+          <div className="contents lg:col-span-2 lg:flex flex-col gap-4">
+            {/* ── 오늘 타임박스 (오늘 하루만 세로로, 컴퓨터만. 폰·태블릿은 달력 > 타임박스) ── */}
+            {!hidden.has('timebox') && <div className="hidden lg:block">
               <TodayTimeline />
               {box.planned > 0 && (
                 <p className="text-11.5px text-gray-500 dark:text-gray-400 mt-1.5 px-1">
@@ -476,8 +490,8 @@ export default function HomePage() {
                 </p>
               )}
             </div>}
-            {/* ── 오늘 일정 ── */}
-            <section className="surface rounded-xl p-4">
+            {/* ── 오늘 일정 (폰·태블릿은 맨 위: 시간이 정해진 약속부터) ── */}
+            <section className="surface rounded-xl p-4 order-1 lg:order-none">
               <SectionHeader
                 icon={<CalendarClock size={15} className="text-blue-500" />}
                 title="오늘 일정"
@@ -536,7 +550,7 @@ export default function HomePage() {
             </section>
 
             {/* ── 다가오는 D-Day ── */}
-            <section className="surface rounded-xl p-4">
+            <section className="surface rounded-xl p-4 order-3 lg:order-none">
               <SectionHeader
                 icon={<Flag size={15} className="text-rose-500" />}
                 title="다가오는 D-Day"
@@ -571,8 +585,8 @@ export default function HomePage() {
               ))}
             </section>
 
-            {/* ── 이번 달 목표 ── */}
-            <section className="surface rounded-xl p-4">
+            {/* ── 이번 달 목표 (컴퓨터만) ── */}
+            <section className="hidden lg:block surface rounded-xl p-4">
               <SectionHeader
                 icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title={`${format(now, 'M월')} 목표`}
@@ -606,10 +620,11 @@ export default function HomePage() {
               ))}
             </section>
 
-            {/* ── 메모 ── */}
-            {!hidden.has('notes') && <MemoSection />}
+            {/* ── 메모 (컴퓨터만. 폰·태블릿은 하단 메모 탭) ── */}
+            {!hidden.has('notes') && <div className="hidden lg:block"><MemoSection /></div>}
 
-            <button onClick={() => goCalendar()} className="btn-secondary h-10 text-13px justify-center">
+            {/* 폰·태블릿은 하단 탭에 달력이 있어서 컴퓨터만 */}
+            <button onClick={() => goCalendar()} className="hidden lg:inline-flex btn-secondary h-10 text-13px justify-center">
               <CalendarDays size={15} />
               월 달력 열기
             </button>

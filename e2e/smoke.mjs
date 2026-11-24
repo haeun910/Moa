@@ -7,7 +7,7 @@
 // 4) 타임박스 연동: 시간이 정해진 오늘 할 일·일정(끝 시간 길이대로), 여러 날 일정, D-Day가 타임박스에 보이는지
 // 5) 홈: 오늘 요약(카테고리별 할 일·일정·D-Day)이 보이고, "달력" 메뉴로 월 달력이 열리는지
 // 6) 설정: 끈 기능(타임박스)은 메뉴·홈에서 빠지고, 공휴일(한글날)이 홈과 달력에 보이는지
-// 7~8) 폰 하단 메뉴·날짜 팝업, 태블릿 타임박스 끌어 옮기기
+// 7~8) 폰 하단 메뉴·핵심만 남긴 홈·달력(요일 줄 고정)·날짜 팝업, 태블릿 타임박스 끌어 옮기기
 // 9) 검색(Ctrl+K, 초성)으로 메모를 찾아 열고, 마크다운 링크·체크리스트가 동작하는지
 // 10) 오프라인: 끊긴 상태에서 체크·추가해도 화면에 남고, 다시 연결되면 순서대로 저장되는지
 // 11) 밀린 할 일: 반복 할 일은 가장 최근 한 번만 보이고 '안 하기'가 저장되는지
@@ -348,7 +348,26 @@ try {
       const bottomNav = page.locator('nav[aria-label="주요 메뉴"]').last();
       const labels = (await bottomNav.getByRole('button').allTextContents()).map(t => t.trim());
       if (labels.join(',') !== '홈,달력,메모,설정') throw new Error(`하단 메뉴: ${labels.join(',')}`);
+      // 폰은 핵심만: 홈에 통계 칸·이번 달 목표·타임박스·메모 카드가 없고, 오늘 일정이 오늘 할 일보다 위
+      for (const gone of ['오늘 요약']) if (await page.getByLabel(gone).isVisible()) throw new Error(`폰 홈에 ${gone}이 보임`);
+      for (const gone of ['오늘 타임박스', /^\d+월 목표$/, '성취 리포트']) if (await page.getByText(gone, { exact: true }).first().isVisible().catch(() => false)) throw new Error(`폰 홈에 ${gone}이 보임`);
+      const schedTop = (await page.getByRole('heading', { name: '오늘 일정' }).boundingBox())?.y ?? 0;
+      const todoTop = (await page.getByRole('heading', { name: '오늘 할 일' }).boundingBox())?.y ?? 0;
+      if (!(schedTop > 0 && schedTop < todoTop)) throw new Error(`폰 홈 순서: 일정 ${schedTop}, 할 일 ${todoTop}`);
       await bottomNav.getByRole('button', { name: '달력' }).click();
+      // 폰 달력: 위쪽 요약 카드 없음, 칸 글자 10px(크게 설정이면 ×1.15), 아래로 내려도 요일 줄이 화면 맨 위에 붙어 있음
+      await page.getByRole('button', { name: /월 \d+일/ }).first().waitFor({ timeout: 5000 });
+      if (await page.getByLabel('이번 달 요약').count()) throw new Error('폰 달력에 이번 달 요약 카드가 남아 있음');
+      await page.setViewportSize({ width: 390, height: 480 }); // 테스트 할 일이 적어서 화면을 낮춰 달력이 넘치게 함
+      await page.mouse.move(200, 300);
+      await page.mouse.wheel(0, 900);
+      await page.waitForTimeout(300);
+      const weekdayTop = await page.evaluate(() => document.querySelector('[data-calendar-root] .sticky')?.getBoundingClientRect().top ?? -1);
+      const scrolled = await page.evaluate(() => window.scrollY);
+      if (scrolled <= 0 || Math.abs(weekdayTop) > 1) throw new Error(`스크롤 ${scrolled}px 후 요일 줄 위치 ${weekdayTop}px (0이어야 함)`);
+      await page.mouse.wheel(0, -2000);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(200);
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
       await page.getByRole('button', { name: new RegExp(`^${Number(today.slice(5, 7))}월 ${Number(today.slice(8, 10))}일`) }).first().click();
       const sheet = page.getByRole('dialog');
@@ -359,7 +378,7 @@ try {
       if (!seen.scheduleUpdates.some(w => w.includes('"completed":true'))) throw new Error(`일정 완료가 저장되지 않음: ${seen.scheduleUpdates.join(' / ')}`);
       await sheet.getByRole('button', { name: '일정 완료 취소' }).first().waitFor({ timeout: 5000 });
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-day-sheet-mobile.png` });
-      console.log('✅ 폰: 하단 메뉴 4칸, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
+      console.log('✅ 폰: 하단 메뉴 4칸, 홈·달력은 핵심만(통계·요약 카드 없음, 일정이 할 일 위), 스크롤해도 요일 줄 고정, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
     } catch (e) {
       fail(`폰 달력 팝업·일정 완료·글자 크기 (${e.message})`);
     }
