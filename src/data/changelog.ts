@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.13.6',
+    date: '2026-11-24',
+    changes: [
+      '월 달력 칸에서 다 끝낸 할 일 묶음(줄 그어진 것)은 맨 아래로 보내서 남은 일이 먼저 보여요',
+      '미니 창에서 "안 하기"로 정리한 할 일의 체크 칸을 누르면 완료로 잘못 저장되던 문제 수정 (이제 다시 할 일로 돌아와요)',
+      '앱 창 제목을 "모아 - 할 일과 일정 관리 플래너"로, 미니 창 제목을 "모아 - 오늘 할 일"로 바꿈',
+    ],
+  },
+  {
     version: '2.13.5',
     date: '2026-11-24',
     changes: [

@@ -73,7 +73,7 @@ export async function openMiniWindow(): Promise<OpenResult> {
   } catch {
     return 'failed';
   }
-  pip.document.title = '모아 · 오늘 할 일';
+  pip.document.title = '모아 - 오늘 할 일';
   copyStyles(pip.document);
   syncRoot(pip.document);
   const observer = new MutationObserver(() => syncRoot(pip.document));

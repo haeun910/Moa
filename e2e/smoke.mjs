@@ -538,8 +538,8 @@ try {
     const subNames = ['논문', '수업', '과제', '동아리', '회의', '보고서', '출장'];
     const subs = subNames.map((name, i) => ({ id: `s${i}`, user_id: USER_ID, category_id: i < 4 ? 'c-school' : 'c-work', name, sort_order: i, created_at: '2026-01-01T00:00:00Z', notes: null }));
     const rows = [
-      // 11/18: 하위 카테고리 7개 = 7줄 → 7줄 모두 보여야 함 ("+N개 더" 없음)
-      ...subs.map((sc, i) => ({ ...base, id: `m${i}`, title: `할 일 ${i}`, date: '2026-11-18', category_id: sc.category_id, subcategory_id: sc.id })),
+      // 11/18: 하위 카테고리 7개 = 7줄 → 7줄 모두 보여야 함 ("+N개 더" 없음). 맨 앞 논문은 끝냄 → 맨 아래로
+      ...subs.map((sc, i) => ({ ...base, id: `m${i}`, title: `할 일 ${i}`, date: '2026-11-18', category_id: sc.category_id, subcategory_id: sc.id, completed: i === 0 })),
       // 11/3: 논문 할 일은 끝냄 + 숨긴 카테고리에 있는(하위 카테고리가 논문으로 남은) 안 끝낸 할 일
       { ...base, id: 'p1', title: '서론', date: '2026-11-03', category_id: 'c-school', subcategory_id: 's0', completed: true },
       { ...base, id: 'p2', title: '숨긴 일', date: '2026-11-03', category_id: 'c-hidden', subcategory_id: 's0' },
@@ -574,6 +574,8 @@ try {
       });
       if (shown !== subs.length) throw new Error(`7줄이어야 하는데 ${shown}줄 보임`);
       if (more) throw new Error(`"+N개 더"가 ${more}칸에 남아 있음`);
+      const lastTitle = await cell18.locator('[data-chip-list] > div').last().getAttribute('title');
+      if (lastTitle !== '논문') throw new Error(`다 끝낸 묶음(논문)이 맨 아래가 아님 (맨 아래: ${lastTitle})`);
       if (clipped) throw new Error('마지막 줄이 칸 밖으로 잘림');
       const paper = page.getByRole('button', { name: /^11월 3일 화요일/ }).locator('div[title="논문"] .line-through');
       if (await paper.count() === 0) throw new Error('숨긴 카테고리 할 일 때문에 논문에 줄이 안 그어짐');
@@ -586,7 +588,7 @@ try {
         if (w < cellW * 1.8) throw new Error(`막대가 두 칸에 이어지지 않음 (너비 ${Math.round(w)}px, 칸 ${Math.round(cellW)}px)`);
       }
       await page.getByRole('button', { name: /^11월 4일 수요일/ }).locator('div[title="수업"]').getByText('1/2').waitFor({ timeout: 3000 });
-      console.log(`✅ 월 달력: 할 일이 많은 날도 ${shown}줄 모두 보이고, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
+      console.log(`✅ 월 달력: 할 일이 많은 날도 ${shown}줄 모두 보이고 끝낸 묶음은 맨 아래로, 숨긴 카테고리는 칸에서도 빠지며, 묶음에 끝낸 개수(1/2)와 여러 날 일정 막대가 보임`);
     } catch (e) {
       fail(`월 달력 칸 (${e.message})`);
     }
@@ -758,6 +760,40 @@ try {
     await context.close();
   }
 
+
+  // 16) 미니 창: '안 하기'로 정리한 할 일의 체크 칸을 누르면 완료가 아니라 다시 할 일로
+  {
+    const { context, page, errors } = await loggedInContext({ viewport: { width: 1440, height: 900 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const base = { user_id: USER_ID, completed: false, category_id: null, subcategory_id: null, date: today, due_date: null, is_dday: false, start_time: null, notes: null, series_id: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+    const rows = [
+      { ...base, id: 'sk-1', title: '안 할 일', skipped: true, sort_order: 0 },
+      { ...base, id: 'sk-2', title: '할 일 하나', sort_order: 1 },
+    ];
+    const patches = [];
+    await page.route(`${SUPABASE}/rest/v1/todos**`, route => {
+      const req = route.request();
+      if (req.method() === 'GET') return route.fulfill({ json: Number(new URL(req.url()).searchParams.get('offset') ?? 0) ? [] : rows });
+      if (req.method() === 'PATCH') patches.push(`${new URL(req.url()).searchParams.get('id')} ${req.postData() ?? ''}`);
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto(BASE);
+    try {
+      const btn = page.getByRole('button', { name: '미니 창 띄우기' }).first();
+      await btn.waitFor({ timeout: 15000 });
+      const [pip] = await Promise.all([context.waitForEvent('page', { timeout: 5000 }), btn.click()]);
+      await pip.getByRole('button', { name: '안 할 일 안 하기 취소' }).click();
+      for (let i = 0; i < 20 && patches.length === 0; i++) await page.waitForTimeout(100);
+      const p = patches.find(x => x.startsWith('eq.sk-1')) ?? '';
+      if (!p.includes('"skipped":false') || p.includes('"completed":true')) throw new Error(`저장된 내용: ${patches.join(' / ') || '없음'}`);
+      await pip.getByRole('button', { name: '안 할 일 완료 처리' }).waitFor({ timeout: 3000 });
+      console.log('✅ 미니 창: 안 하기로 정리한 할 일은 체크 칸을 누르면 완료가 아니라 다시 할 일로 돌아옴');
+    } catch (e) {
+      fail(`미니 창 안 하기 취소 (${e.message})`);
+    }
+    if (errors.length) fail(`미니 창(안 하기)에서 오류: ${errors.join(' / ')}`);
+    await context.close();
+  }
 
   await browser.close();
 } finally {

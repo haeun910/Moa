@@ -56,7 +56,7 @@ export default function MiniTodayHost() {
 }
 
 function MiniToday() {
-  const { todos, schedules, categories, subcategories, settings, toggleTodo, addTodo } = useApp();
+  const { todos, schedules, categories, subcategories, settings, toggleTodo, updateTodo, addTodo } = useApp();
   const now = useNow(60_000); // 자정이 지나면 다음 날로 바뀌게
   // 제목을 누르면 미니 창 안에서 바로 편집 (본 창으로 넘어가지 않아도 되게)
   const [editId, setEditId] = useState<string | null>(null);
@@ -119,7 +119,8 @@ function MiniToday() {
                 const sub = subName(t);
                 return (
                   <li key={t.id} className="flex items-start gap-2.5 px-1 py-1.5">
-                    <button type="button" onClick={() => toggleTodo(t.id)}
+                    {/* '안 하기'로 정리한 할 일은 누르면 다시 할 일로 (완료로 바꾸지 않음, 본 창 TodoItem과 같게) */}
+                    <button type="button" onClick={() => { void (t.skipped ? updateTodo(t.id, { skipped: false }) : toggleTodo(t.id)); }}
                       aria-label={t.skipped ? `${t.title} 안 하기 취소` : t.completed ? `${t.title} 완료 취소` : `${t.title} 완료 처리`}
                       className={`flex-shrink-0 mt-px w-[17px] h-[17px] rounded-[5px] border-[1.5px] flex items-center justify-center transition-colors active:scale-90 ${
                         t.skipped
