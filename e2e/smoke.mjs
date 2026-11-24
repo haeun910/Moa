@@ -348,12 +348,20 @@ try {
       const bottomNav = page.locator('nav[aria-label="주요 메뉴"]').last();
       const labels = (await bottomNav.getByRole('button').allTextContents()).map(t => t.trim());
       if (labels.join(',') !== '홈,달력,메모,설정') throw new Error(`하단 메뉴: ${labels.join(',')}`);
-      // 폰은 핵심만: 홈에 통계 칸·이번 달 목표·타임박스·메모 카드가 없고, 오늘 일정이 오늘 할 일보다 위
+      // 폰은 핵심만: 홈에 통계 칸·타임박스·메모 카드가 없고, 오늘 일정이 오늘 할 일보다 위, 이번 달 목표는 D-Day 아래에 보임
       for (const gone of ['오늘 요약']) if (await page.getByLabel(gone).isVisible()) throw new Error(`폰 홈에 ${gone}이 보임`);
-      for (const gone of ['오늘 타임박스', /^\d+월 목표$/, '성취 리포트']) if (await page.getByText(gone, { exact: true }).first().isVisible().catch(() => false)) throw new Error(`폰 홈에 ${gone}이 보임`);
+      for (const gone of ['오늘 타임박스', '성취 리포트']) if (await page.getByText(gone, { exact: true }).first().isVisible().catch(() => false)) throw new Error(`폰 홈에 ${gone}이 보임`);
       const schedTop = (await page.getByRole('heading', { name: '오늘 일정' }).boundingBox())?.y ?? 0;
       const todoTop = (await page.getByRole('heading', { name: '오늘 할 일' }).boundingBox())?.y ?? 0;
       if (!(schedTop > 0 && schedTop < todoTop)) throw new Error(`폰 홈 순서: 일정 ${schedTop}, 할 일 ${todoTop}`);
+      const goalTop = (await page.getByRole('heading', { name: /^\d+월 목표$/ }).boundingBox())?.y ?? 0;
+      const ddayTop = (await page.getByRole('heading', { name: '다가오는 D-Day' }).boundingBox())?.y ?? 0;
+      if (!(ddayTop > todoTop && goalTop > ddayTop)) throw new Error(`폰 홈 순서: 할 일 ${todoTop}, D-Day ${ddayTop}, 목표 ${goalTop}`);
+      // 달력 위 목표 칸이 없으므로 폰은 홈 목표 카드에서 바로 추가
+      await page.getByRole('button', { name: '이번 달 목표를 적어보세요' }).click();
+      await page.getByPlaceholder('이번 달 목표를 입력하세요').waitFor({ timeout: 3000 });
+      await page.keyboard.press('Escape');
+      await page.getByPlaceholder('이번 달 목표를 입력하세요').waitFor({ state: 'detached', timeout: 3000 });
       await bottomNav.getByRole('button', { name: '달력' }).click();
       // 폰 달력: 위쪽 요약 카드 없음, 칸 글자 10px(크게 설정이면 ×1.15), 아래로 내려도 요일 줄이 화면 맨 위에 붙어 있음
       await page.getByRole('button', { name: /월 \d+일/ }).first().waitFor({ timeout: 5000 });
@@ -378,7 +386,7 @@ try {
       if (!seen.scheduleUpdates.some(w => w.includes('"completed":true'))) throw new Error(`일정 완료가 저장되지 않음: ${seen.scheduleUpdates.join(' / ')}`);
       await sheet.getByRole('button', { name: '일정 완료 취소' }).first().waitFor({ timeout: 5000 });
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/calendar-day-sheet-mobile.png` });
-      console.log('✅ 폰: 하단 메뉴 4칸, 홈·달력은 핵심만(통계·요약 카드 없음, 일정이 할 일 위), 스크롤해도 요일 줄 고정, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
+      console.log('✅ 폰: 하단 메뉴 4칸, 홈·달력은 핵심만(통계·요약 카드 없음, 일정이 할 일 위, 목표는 홈에서 추가), 스크롤해도 요일 줄 고정, 날짜를 누르면 팝업이 뜨고 일정 완료 체크가 저장됨, 글자 크기 크게 적용');
     } catch (e) {
       fail(`폰 달력 팝업·일정 완료·글자 크기 (${e.message})`);
     }

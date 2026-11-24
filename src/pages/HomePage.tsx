@@ -32,6 +32,8 @@ import ScheduleModal from '../components/ScheduleModal';
 import DDayModal from '../components/DDayModal';
 import { planProgress } from '../lib/plan';
 import OverdueModal from '../components/OverdueModal';
+import GoalModal from '../components/GoalModal';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import type { DDay, Note, ScheduleItem, Todo } from '../types';
@@ -265,6 +267,9 @@ export default function HomePage() {
   const [scheduleModal, setScheduleModal] = useState<{ schedule?: ScheduleItem } | null>(null);
   const [ddayModal, setDdayModal] = useState<DDay | null>(null);
   const [showOverdue, setShowOverdue] = useState(false);
+  // 폰·태블릿은 달력 위 목표 칸을 뺐으므로 목표 추가는 홈 카드에서 (컴퓨터는 예전처럼 달력으로 이동)
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const [addingGoal, setAddingGoal] = useState(false);
   const [showAchievement, setShowAchievement] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
   const [lastSeenNotice, setLastSeenNotice] = useState(() => {
@@ -431,7 +436,7 @@ export default function HomePage() {
           />
         </section>
 
-        {/* 폰·태블릿: 두 열을 풀어(contents) 카드 순서를 order로 정함 → 오늘 일정 · 오늘 할 일 · D-Day만, 나머지 카드는 컴퓨터만 */}
+        {/* 폰·태블릿: 두 열을 풀어(contents) 카드 순서를 order로 정함 → 오늘 일정 · 오늘 할 일 · D-Day · 이번 달 목표, 나머지 카드는 컴퓨터만 */}
         <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-start gap-4">
           <div className="contents lg:col-span-3 lg:flex flex-col gap-4">
             {/* ── 오늘 할 일 ── */}
@@ -585,20 +590,22 @@ export default function HomePage() {
               ))}
             </section>
 
-            {/* ── 이번 달 목표 (컴퓨터만) ── */}
-            <section className="hidden lg:block surface rounded-xl p-4">
+            {/* ── 이번 달 목표 (폰·태블릿은 D-Day 다음) ── */}
+            <section className="surface rounded-xl p-4 order-4 lg:order-none">
               <SectionHeader
                 icon={<Target size={15} className="text-leaf-600 dark:text-leaf-400" />}
                 title={`${format(now, 'M월')} 목표`}
                 help={GUIDES.goal}
                 meta={goals.length > 0 && <span className="count-pill">{goalsDone}/{goals.length}</span>}
-                actionLabel="달력"
-                onAction={() => goCalendar()}
+                actionLabel={isDesktop ? '달력' : '추가'}
+                onAction={() => isDesktop ? goCalendar() : setAddingGoal(true)}
                 collapsed={goalCollapsed}
                 onToggle={toggleGoalCollapsed}
               />
               {!goalCollapsed && (goals.length === 0 ? (
-                <p className="text-13px text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
+                isDesktop
+                  ? <p className="text-13px text-gray-400 dark:text-gray-500">달력 화면에서 이번 달 목표를 세워보세요</p>
+                  : <button onClick={() => setAddingGoal(true)} className="text-13px text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1">이번 달 목표를 적어보세요</button>
               ) : (
                 <>
                   <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-2.5">
@@ -644,6 +651,7 @@ export default function HomePage() {
       )}
       {scheduleModal && <ScheduleModal schedule={scheduleModal.schedule} defaultDate={todayKey} onClose={() => setScheduleModal(null)} />}
       {ddayModal && <DDayModal dday={ddayModal} onClose={() => setDdayModal(null)} />}
+      {addingGoal && <GoalModal month={monthKey} onClose={() => setAddingGoal(false)} />}
       {showOverdue && (
         <OverdueModal onEdit={todo => setTodoModal({ todo })} onClose={() => setShowOverdue(false)} />
       )}
